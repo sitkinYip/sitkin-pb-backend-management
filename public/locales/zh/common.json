@@ -1,0 +1,73 @@
+{
+  "buttons": {
+    "create": "新建",
+    "delete": "删除",
+    "save": "保存",
+    "edit": "编辑",
+    "cancel": "取消",
+    "confirm": "确认",
+    "back": "返回",
+    "show": "详情",
+    "import": "导入",
+    "export": "导出",
+    "logout": "退出登录"
+  },
+  "actions": {
+    "create": "新建",
+    "edit": "编辑",
+    "show": "详情",
+    "list": "列表",
+    "delete": "删除"
+  },
+  "levels": {
+    "levels": "关卡配置",
+    "fields": {
+      "id": "ID",
+      "step": "步骤",
+      "type": "类型",
+      "title": "标题",
+      "placeholder": "占位符",
+      "answer": "答案",
+      "isFinalLevel": "是否最终关卡",
+      "question": "题目配置",
+      "thread": "线索配置",
+      "options": "选项",
+      "configs": "增强配置"
+    }
+  },
+  "pages": {
+    "login": {
+      "title": "登录",
+      "signin": "登录",
+      "register": "注册",
+      "signup": "注册",
+      "fields": {
+        "email": "邮箱",
+        "password": "密码"
+      },
+      "buttons": {
+        "submit": "登录",
+        "forgotPassword": "忘记密码?",
+        "register": "注册",
+        "signIn": "登录",
+        "signUp": "注册",
+        "noAccount": "还没有账号？",
+        "rememberMe": "记住我"
+      }
+    },
+    "register": {
+      "title": "注册",
+      "buttons": {
+        "submit": "注册",
+        "haveAccount": "已有账号? 登录"
+      }
+    },
+    "forgotPassword": {
+      "title": "找回密码",
+       "buttons": {
+        "submit": "发送重置邮件"
+      }
+    }
+  },
+  "warnWhenUnsavedChanges": "如果离开此页面，您所做的更改可能会丢失。"
+}

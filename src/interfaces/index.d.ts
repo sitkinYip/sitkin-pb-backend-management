@@ -24,6 +24,7 @@ export interface ThreadItem {
   path?: string;
   query?: Record<string, string>;
   nextIndex?: number;
+  title?: string;
 }
 export type ThreadItemList = ThreadItem[];
 
@@ -53,4 +54,47 @@ export interface LevelRecord {
     query?: Record<string, string>;
   };
   penaltyConfig?: number[];
+}
+
+// 
+export interface ParagraphConfig {
+  /** 段落文本内容 */
+  content: string;
+  /** 对齐方式：左、中、右  上 下*/
+  align?: "left" | "center" | "right" | "top" | "bottom";
+  /** 打字前的延迟时间 (ms) */
+  delay?: number;
+  /** 关联的音频地址 */
+  audio?: string;
+}
+
+export type ParagraphConfigList = ParagraphConfig[];
+
+export interface TLetterecord {
+  id: string;
+  paragraphConfigList: ParagraphConfigList;
+  bgImages?: string[];
+  from: string;
+  type: "modern" | "classical";
+  created: string;
+  updated: string;
+  title?: string;
+  desc?: string;
+  bgImg?: string;
+}
+
+export interface IphraseItem {
+  text: string;
+  audio?: string;
+  duration?: number;
+}
+
+export interface PhraseListRecord {
+  id: string;
+  phraseList: IphraseItem[];
+  takeABowList: IphraseItem[];
+  from: string;
+  created: string;
+  updated: string;
+  title?: string;
 }

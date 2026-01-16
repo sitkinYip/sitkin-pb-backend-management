@@ -35,6 +35,12 @@
       "configs": "增强配置"
     }
   },
+  "letter": {
+    "letter": "信件管理"
+  },
+  "phrase": {
+    "phrase": "短语管理"
+  },
   "pages": {
     "login": {
       "title": "登录",

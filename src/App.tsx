@@ -27,6 +27,16 @@ import {
   LevelList,
   LevelShow,
 } from "./pages/levels";
+import {
+  LetterCreate,
+  LetterEdit,
+  LetterList,
+} from "./pages/letter";
+import {
+  PhraseCreate,
+  PhraseEdit,
+  PhraseList,
+} from "./pages/phrase";
 import { ForgotPassword } from "./pages/forgotPassword";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -67,6 +77,24 @@ function App() {
                       canDelete: true,
                     },
                   },
+                  {
+                    name: "letter",
+                    list: "/letter",
+                    create: "/letter/create",
+                    edit: "/letter/edit/:id",
+                    meta: {
+                      canDelete: true,
+                    },
+                  },
+                  {
+                    name: "phrase",
+                    list: "/phrase",
+                    create: "/phrase/create",
+                    edit: "/phrase/edit/:id",
+                    meta: {
+                      canDelete: true,
+                    },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -99,6 +127,16 @@ function App() {
                       <Route path="create" element={<LevelCreate />} />
                       <Route path="edit/:id" element={<LevelEdit />} />
                       <Route path="show/:id" element={<LevelShow />} />
+                    </Route>
+                    <Route path="/letter">
+                      <Route index element={<LetterList />} />
+                      <Route path="create" element={<LetterCreate />} />
+                      <Route path="edit/:id" element={<LetterEdit />} />
+                    </Route>
+                    <Route path="/phrase">
+                      <Route index element={<PhraseList />} />
+                      <Route path="create" element={<PhraseCreate />} />
+                      <Route path="edit/:id" element={<PhraseEdit />} />
                     </Route>
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>

@@ -38,6 +38,13 @@ export const ThreadEditor = () => {
               </Form.Item>
               <Form.Item
                 {...restField}
+                name={[name, "title"]}
+                label="标题"
+              >
+                <Input placeholder="请输入标题" />
+              </Form.Item>
+              <Form.Item
+                {...restField}
                 name={[name, "content"]}
                 label="描述内容"
                 rules={[{ required: true }]}

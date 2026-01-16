@@ -61,7 +61,7 @@ export const PhraseFormFields = () => {
           <Form.List name="phraseList">
             {(fields, { add, remove }) => (
                 <>
-                {fields.map(({ key, name, ...restField }) => (
+                {fields.map(({ key, name }) => (
                     <div key={key} style={{ position: 'relative' }}>
                         <PhraseItemEditor name={name} fieldKeyPrefix="Phrase" />
                         <Button 
@@ -87,7 +87,7 @@ export const PhraseFormFields = () => {
           <Form.List name="takeABowList">
             {(fields, { add, remove }) => (
                 <>
-                {fields.map(({ key, name, ...restField }) => (
+                {fields.map(({ key, name }) => (
                     <div key={key} style={{ position: 'relative' }}>
                         <PhraseItemEditor name={name} fieldKeyPrefix="Item" />
                         <Button 

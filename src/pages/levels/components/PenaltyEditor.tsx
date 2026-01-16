@@ -13,7 +13,7 @@ export const PenaltyEditor = () => {
                 noStyle
                 rules={[{ required: true }]}
               >
-                 <InputNumber placeholder="Delay (seconds)" style={{width: 200}} />
+                 <InputNumber placeholder="单位毫秒 -1为永远冻结" style={{width: 200}} />
               </Form.Item>
               <MinusCircleOutlined onClick={() => remove(field.name)} />
             </Space>
@@ -25,7 +25,7 @@ export const PenaltyEditor = () => {
                 style={{ width: "100%" }}
                 icon={<PlusOutlined />}
                 >
-                添加一条选择题惩戒时长(单位毫秒 -1为永远冻结)
+                添加一条选择题惩戒时长
             </Button>
           </Form.Item>
         </>

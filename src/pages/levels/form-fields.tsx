@@ -67,7 +67,7 @@ export const LevelFormFields = () => {
                 value: value ? dayjs(value) : "",
             })}
             normalize={(value) => {
-                return value ? value.format("YYYY-MM-DD HH:mm:ss") : "";
+                return value ? value.toISOString() : "";
             }}
         >
             <DatePicker showTime />
@@ -79,7 +79,7 @@ export const LevelFormFields = () => {
                 value: value ? dayjs(value) : "",
             })}
             normalize={(value) => {
-                return value ? value.format("YYYY-MM-DD HH:mm:ss") : "";
+                return value ? value.toISOString() : "";
             }}
         >
             <DatePicker showTime />

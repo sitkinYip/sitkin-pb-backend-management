@@ -10,6 +10,7 @@ import {
 } from "antd";
 import React, { useContext } from "react";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { AlistStatus } from "../Alist/AlistStatus";
 
 const { Text } = Typography;
 const { useToken } = theme;
@@ -45,6 +46,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   return (
     <AntdLayout.Header style={headerStyles}>
       <Space>
+        <AlistStatus />
         <Switch
           checkedChildren="🌛"
           unCheckedChildren="🔆"

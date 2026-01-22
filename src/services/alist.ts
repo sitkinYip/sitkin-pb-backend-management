@@ -32,6 +32,13 @@ export const alistService = {
   checkToken(): boolean {
     return !!localStorage.getItem(TOKEN_KEY);
   },
+  
+  /**
+   * 获取用户名
+   */
+  getUsername(): string | null {
+    return localStorage.getItem("alist_username");
+  },
 
   /**
    * 登录获取 Token
@@ -49,6 +56,8 @@ export const alistService = {
 
     if (data.code === 200 && data.data.token) {
       localStorage.setItem(TOKEN_KEY, data.data.token);
+      localStorage.setItem("alist_username", username);
+      window.dispatchEvent(new Event("alist-login"));
       return data.data.token;
     } else {
       throw new Error(data.message || "登录失败");
@@ -60,6 +69,8 @@ export const alistService = {
    */
   logout() {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("alist_username");
+    window.dispatchEvent(new Event("alist-logout"));
   },
 
   /**

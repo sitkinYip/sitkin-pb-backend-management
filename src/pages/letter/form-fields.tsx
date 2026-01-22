@@ -46,6 +46,14 @@ export const LetterFormFields = () => {
           <AlistMediaInput type="img" placeholder="主背景图片 URL" />
         </Form.Item>
 
+        <Form.Item
+          name="mainAudio"
+          label="主音频"
+        >
+          <AlistMediaInput type="audio" placeholder="主音频" />
+        </Form.Item>
+
+
         <Form.Item label="背景图片列表">
           <Form.List name="bgImages">
             {(fields, { add, remove }) => (

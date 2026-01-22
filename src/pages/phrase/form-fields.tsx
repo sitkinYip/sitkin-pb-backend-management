@@ -56,6 +56,12 @@ export const PhraseFormFields = () => {
         >
           <Input placeholder="请输入来源" />
         </Form.Item>
+        <Form.Item
+          name="mainAudio"
+          label="主音频"
+        >
+          <AlistMediaInput type="audio" placeholder="主音频" />
+        </Form.Item>
       </Tabs.TabPane>
 
       <Tabs.TabPane tab="短语列表 (Phrase)" key="phraseList">

@@ -10,7 +10,9 @@
     "show": "详情",
     "import": "导入",
     "export": "导出",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "refresh": "刷新",
+    "levels": "关卡配置"
   },
   "actions": {
     "create": "新建",

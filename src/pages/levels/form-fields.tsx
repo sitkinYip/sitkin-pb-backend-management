@@ -88,6 +88,12 @@ export const LevelFormFields = () => {
         <Form.Item name="avatar" label="当前用户头像">
             <AlistMediaInput type="img" />
         </Form.Item>
+        <Form.Item name="mainAudio" label="背景音乐">
+            <AlistMediaInput type="audio" />
+        </Form.Item>
+        <Form.Item name="mainBgImg" label="背景图片">
+            <AlistMediaInput type="img" />
+        </Form.Item>
         <Form.Item
             name="startTime"
             label="当前关卡开始时间"

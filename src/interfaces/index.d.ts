@@ -55,6 +55,10 @@ export interface LevelRecord {
     query?: Record<string, string>;
   };
   penaltyConfig?: number[];
+  /* 背景音乐 */
+  mainAudio?: string;
+  /* 背景图片 */
+  mainBgImg?: string;
 }
 
 // 

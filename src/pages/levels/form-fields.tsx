@@ -5,6 +5,7 @@ import { OptionEditor } from "./components/OptionEditor";
 import { PenaltyEditor } from "./components/PenaltyEditor";
 import { QuestionEditor } from "./components/QuestionEditor";
 import { ThreadEditor } from "./components/ThreadEditor";
+import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
 
 export const LevelFormFields = () => {
     const typeValue = Form.useWatch("type");
@@ -58,7 +59,7 @@ export const LevelFormFields = () => {
             <Input />
         </Form.Item>
         <Form.Item name="avatar" label="当前用户头像">
-            <Input />
+            <AlistMediaInput type="img" />
         </Form.Item>
         <Form.Item
             name="startTime"

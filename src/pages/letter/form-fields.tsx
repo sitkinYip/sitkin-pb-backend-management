@@ -1,5 +1,6 @@
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Form, Input, InputNumber, Select, Space, Tabs } from "antd";
+import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
 
 export const LetterFormFields = () => {
   return (
@@ -42,7 +43,7 @@ export const LetterFormFields = () => {
           name="bgImg"
           label="主背景图片" // Main Background Image
         >
-          <Input placeholder="主背景图片 URL" />
+          <AlistMediaInput type="img" placeholder="主背景图片 URL" />
         </Form.Item>
 
         <Form.Item label="背景图片列表">
@@ -57,7 +58,7 @@ export const LetterFormFields = () => {
                       rules={[{ required: true, message: "请输入图片URL" }]}
                       style={{ marginBottom: 0 }}
                     >
-                      <Input placeholder="图片 URL" style={{ width: '400px' }} />
+                      <AlistMediaInput type="img" placeholder="图片 URL" style={{ width: '400px' }} />
                     </Form.Item>
                     <MinusCircleOutlined onClick={() => remove(name)} />
                   </Space>

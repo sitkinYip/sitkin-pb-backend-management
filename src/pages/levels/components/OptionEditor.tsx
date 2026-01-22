@@ -1,5 +1,6 @@
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input } from "antd";
+import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
 
 export const OptionEditor = () => {
   return (
@@ -38,14 +39,14 @@ export const OptionEditor = () => {
                 name={[name, "img"]}
                 label="图片链接"
               >
-                <Input />
+                <AlistMediaInput type="img" />
               </Form.Item>
                <Form.Item
                 {...restField}
                 name={[name, "video"]}
                 label="视频链接"
               >
-                <Input />
+                <AlistMediaInput type="video" />
               </Form.Item>
             </Card>
           ))}

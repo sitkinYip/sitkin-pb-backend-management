@@ -1,4 +1,4 @@
-import { DatePicker, Form, Input, InputNumber, Select, Switch, Tabs } from "antd";
+import { Button, DatePicker, Form, Input, InputNumber, Select, Space, Switch, Tabs } from "antd";
 import dayjs from "dayjs";
 import { MapEditor } from "./components/MapEditor";
 import { OptionEditor } from "./components/OptionEditor";
@@ -6,6 +6,7 @@ import { PenaltyEditor } from "./components/PenaltyEditor";
 import { QuestionEditor } from "./components/QuestionEditor";
 import { ThreadEditor } from "./components/ThreadEditor";
 import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
+import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 
 export const LevelFormFields = () => {
     const typeValue = Form.useWatch("type");
@@ -44,6 +45,32 @@ export const LevelFormFields = () => {
           rules={[{ required: true }]}
         >
           <Input />
+        </Form.Item>
+        <Form.Item label="多答案列表">
+          <Form.List name="answerList">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <Space key={key} style={{ display: "flex", marginBottom: 8 }} align="baseline">
+                    <Form.Item
+                      {...restField}
+                      name={[name]}
+                      rules={[{ required: true, message: "请输入答案内容" }]}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input />
+                    </Form.Item>
+                    <MinusCircleOutlined onClick={() => remove(name)} />
+                  </Space>
+                ))}
+                <Form.Item>
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                    添加额外答案
+                  </Button>
+                </Form.Item>
+              </>
+            )}
+          </Form.List>
         </Form.Item>
           <Form.Item
             name="isFinalLevel"

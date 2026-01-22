@@ -36,6 +36,7 @@ export interface LevelRecord {
   step: number;
   question: QuestionItemList;
   answer: string;
+  answerList?: string[];
   placeholder: string;
   thread: ThreadItemList;
   userName: string;

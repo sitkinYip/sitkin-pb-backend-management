@@ -2,6 +2,7 @@ import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, InputNumber, Radio, Select } from "antd";
 import { ListStringEditor } from "./ListStringEditor";
 import { MapEditor } from "./MapEditor";
+import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
 
 export const ThreadEditor = () => {
   return (
@@ -52,11 +53,27 @@ export const ThreadEditor = () => {
                  <Input.TextArea placeholder="[[高亮文字可以怎么写]]" rows={2} />
               </Form.Item>
               <Form.Item
-                {...restField}
-                name={[name, "url"]}
-                label="URL"
+                noStyle
+                shouldUpdate={(prevValues, currentValues) => prevValues.thread?.[index]?.type !== currentValues.thread?.[index]?.type}
               >
-                <Input />
+                {({ getFieldValue }) => {
+                  const threadType = getFieldValue(["thread", index, "type"]);
+                  return (
+                    <Form.Item
+                      {...restField}
+                      name={[name, "url"]}
+                      label="URL"
+                    >
+                      {threadType === "img" ? (
+                        <AlistMediaInput type="img" />
+                      ) : threadType === "video" ? (
+                        <AlistMediaInput type="video" />
+                      ) : (
+                        <Input />
+                      )}
+                    </Form.Item>
+                  );
+                }}
               </Form.Item>
                <Form.Item
                 {...restField}
@@ -81,7 +98,10 @@ export const ThreadEditor = () => {
               </Form.Item>
 
               <Form.Item label="图片列表">
-                 <ListStringEditor name={[name, "imgList"]} />
+                 <ListStringEditor 
+                    name={[name, "imgList"]} 
+                    renderInput={() => <AlistMediaInput type="img" placeholder="图片 URL" style={{ minWidth: "300px" }} />}
+                 />
                </Form.Item>
               
                <Form.Item

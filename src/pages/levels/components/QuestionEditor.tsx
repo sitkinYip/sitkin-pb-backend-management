@@ -1,6 +1,7 @@
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input } from "antd";
 import { ListStringEditor } from "./ListStringEditor";
+import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
 
 export const QuestionEditor = () => {
   return (
@@ -38,14 +39,14 @@ export const QuestionEditor = () => {
                 name={[name, "img"]}
                 label="问题图片链接"
               >
-                <Input />
+                <AlistMediaInput type="img" />
               </Form.Item>
               <Form.Item
                 {...restField}
                 name={[name, "video"]}
                 label="问题视频链接"
               >
-                <Input />
+                <AlistMediaInput type="video" />
               </Form.Item>
                <Form.Item label="问题图片列表">
                  <ListStringEditor name={[name, "imgList"]} />

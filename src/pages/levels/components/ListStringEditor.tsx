@@ -5,9 +5,10 @@ interface ListStringEditorProps {
   name: string | number | (string | number)[];
   label?: string;
   className?: string;
+  renderInput?: () => React.ReactNode;
 }
 
-export const ListStringEditor = ({ name, label }: ListStringEditorProps) => {
+export const ListStringEditor = ({ name, label, renderInput }: ListStringEditorProps) => {
   return (
     <Form.List name={name}>
       {(fields, { add, remove }) => (
@@ -21,7 +22,11 @@ export const ListStringEditor = ({ name, label }: ListStringEditorProps) => {
                   noStyle
                   rules={[{ required: true, message: "Required" }]}
                 >
-                  <Input placeholder="Item URL or text" style={{ minWidth: "300px" }} />
+                  {renderInput ? (
+                    renderInput()
+                  ) : (
+                    <Input placeholder="Item URL or text" style={{ minWidth: "300px" }} />
+                  )}
                 </Form.Item>
                 <MinusCircleOutlined
                   className="dynamic-delete-button"

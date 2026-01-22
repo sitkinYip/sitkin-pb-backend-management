@@ -10,7 +10,7 @@ export const OptionEditor = () => {
             <Card
               key={key}
               size="small"
-              title={`Option ${index + 1}`}
+              title={`选项 ${index + 1}`}
               extra={
                 <MinusCircleOutlined
                   onClick={() => remove(name)}
@@ -21,7 +21,7 @@ export const OptionEditor = () => {
               <Form.Item
                 {...restField}
                 name={[name, "key"]}
-                label="Key"
+                label="Key(选项)"
                 rules={[{ required: true }]}
               >
                 <Input placeholder="A, B, 1, 2..." />
@@ -29,28 +29,28 @@ export const OptionEditor = () => {
               <Form.Item
                 {...restField}
                 name={[name, "text"]}
-                label="Text"
+                label="文案"
               >
                 <Input.TextArea rows={1} />
               </Form.Item>
               <Form.Item
                 {...restField}
                 name={[name, "img"]}
-                label="Image URL"
+                label="图片链接"
               >
                 <Input />
               </Form.Item>
                <Form.Item
                 {...restField}
                 name={[name, "video"]}
-                label="Video URL"
+                label="视频链接"
               >
                 <Input />
               </Form.Item>
             </Card>
           ))}
           <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-            Add Option
+            添加选项
           </Button>
         </div>
       )}

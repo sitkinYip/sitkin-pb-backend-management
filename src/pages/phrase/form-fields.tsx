@@ -1,5 +1,6 @@
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Form, Input, InputNumber, Tabs } from "antd";
+import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
 
 const PhraseItemEditor = ({ name, fieldKeyPrefix }: { name: number; fieldKeyPrefix: string }) => {
   return (
@@ -25,7 +26,7 @@ const PhraseItemEditor = ({ name, fieldKeyPrefix }: { name: number; fieldKeyPref
            name={[name, 'audio']}
            label="音频地址"
        >
-           <Input placeholder="音频 URL" prefix={<span style={{color: '#999'}}>♫</span>} />
+           <AlistMediaInput type="audio" placeholder="音频 URL" />
        </Form.Item>
 
        <Form.Item

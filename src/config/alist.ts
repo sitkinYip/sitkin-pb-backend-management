@@ -18,6 +18,9 @@ export const ALIST_CONFIG = {
   
   // 视频目录
   OSS_PATH_VIDEO: import.meta.env.VITE_OSS_PATH_VIDEO || "video",
+
+  // 音频目录
+  OSS_PATH_AUDIO: import.meta.env.VITE_OSS_PATH_AUDIO || "audio",
   
   // 最终访问的 CDN 域名
   OSS_URL: import.meta.env.VITE_OSS_URL || "https://sitkin-cdn.oss-cn-heyuan.aliyuncs.com/",

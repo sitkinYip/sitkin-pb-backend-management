@@ -65,8 +65,11 @@ export const alistService = {
   /**
    * 获取上传路径
    */
-  getUploadPath(filename: string, type: "img" | "video"): string {
-    const subDir = type === "img" ? ALIST_CONFIG.OSS_PATH_IMG : ALIST_CONFIG.OSS_PATH_VIDEO;
+  getUploadPath(filename: string, type: "img" | "video" | "audio"): string {
+    let subDir = ALIST_CONFIG.OSS_PATH_IMG;
+    if (type === "video") subDir = ALIST_CONFIG.OSS_PATH_VIDEO;
+    if (type === "audio") subDir = ALIST_CONFIG.OSS_PATH_AUDIO;
+
     // 路径结构: /alisoss/api.sitkin.top/images/filename
     // 注意处理路径分隔符，避免双斜杠
     const path = `${ALIST_CONFIG.FILE_OSS_PATH}${ALIST_CONFIG.OSS_PATH}${subDir}/${filename}`;
@@ -76,8 +79,11 @@ export const alistService = {
   /**
    * 生成公开访问 URL
    */
-  getPublicUrl(filename: string, type: "img" | "video"): string {
-    const subDir = type === "img" ? ALIST_CONFIG.OSS_PATH_IMG : ALIST_CONFIG.OSS_PATH_VIDEO;
+  getPublicUrl(filename: string, type: "img" | "video" | "audio"): string {
+    let subDir = ALIST_CONFIG.OSS_PATH_IMG;
+    if (type === "video") subDir = ALIST_CONFIG.OSS_PATH_VIDEO;
+    if (type === "audio") subDir = ALIST_CONFIG.OSS_PATH_AUDIO;
+
     // URL 结构: https://sitkin-cdn.../api.sitkin.top/images/filename
     const url = `${ALIST_CONFIG.OSS_URL}${ALIST_CONFIG.OSS_PATH}${subDir}/${filename}`;
     // OSS_URL通常带协议头，所以这里的替换要把协议头保护好，或者只替换后半部分的双斜杠
@@ -89,7 +95,7 @@ export const alistService = {
   /**
    * 上传文件
    */
-  async uploadFile(file: File, type: "img" | "video"): Promise<string> {
+  async uploadFile(file: File, type: "img" | "video" | "audio"): Promise<string> {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       throw new Error("请先登录");

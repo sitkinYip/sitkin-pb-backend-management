@@ -8,11 +8,11 @@ import { CSSProperties } from "react";
 interface AlistMediaInputProps {
   value?: string;
   onChange?: (value: string) => void;
-  type?: "img" | "video";
+  type?: "img" | "video" | "audio";
   placeholder?: string;
   disabled?: boolean;
   style?: CSSProperties;
-  className?: string;
+  className?: string; // Add className
 }
 
 export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
@@ -69,12 +69,31 @@ export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
     fileInputRef.current?.click();
   };
 
+  const getAcceptType = () => {
+      switch (type) {
+          case 'img': return 'image/*';
+          case 'video': return 'video/*';
+          case 'audio': return 'audio/*';
+          default: return '*/*';
+      }
+  }
+
+  const getPlaceholder = () => {
+      if (placeholder) return placeholder;
+      switch (type) {
+          case 'img': return '输入图片链接或上传';
+          case 'video': return '输入视频链接或上传';
+          case 'audio': return '输入音频链接或上传';
+          default: return '输入链接或上传';
+      }
+  }
+
   return (
     <div style={{ display: "flex", gap: 8, ...style }} className={className}>
       <Input
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
-        placeholder={placeholder || (type === "img" ? "输入图片链接或上传" : "输入视频链接或上传")}
+        placeholder={getPlaceholder()}
         disabled={disabled}
         allowClear
       />
@@ -91,7 +110,7 @@ export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
         type="file"
         ref={fileInputRef}
         style={{ display: "none" }}
-        accept={type === "img" ? "image/*" : "video/*"}
+        accept={getAcceptType()}
         onChange={handleFileChange}
       />
 

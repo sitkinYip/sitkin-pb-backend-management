@@ -132,7 +132,7 @@ export const LetterFormFields = () => {
                                 name={[name, 'audio']}
                                 label="音频地址"
                             >
-                                <Input placeholder="请输入关联音频 URL" prefix={<span style={{color: '#999'}}>♫</span>} />
+                                <AlistMediaInput type="audio" placeholder="请输入关联音频 URL" />
                             </Form.Item>
 
                             <Button 

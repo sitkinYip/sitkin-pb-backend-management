@@ -1,4 +1,4 @@
-import { DatePicker, Form, Input, InputNumber, Select, Tabs } from "antd";
+import { DatePicker, Form, Input, InputNumber, Select, Switch, Tabs } from "antd";
 import dayjs from "dayjs";
 import { MapEditor } from "./components/MapEditor";
 import { OptionEditor } from "./components/OptionEditor";
@@ -50,7 +50,7 @@ export const LevelFormFields = () => {
             label="是否为最终关卡"
             valuePropName="checked"
         >
-            <Input type="checkbox" />
+            <Switch />
         </Form.Item>
         <Form.Item name="rankName" label="当前关卡等级昵称">
             <Input />

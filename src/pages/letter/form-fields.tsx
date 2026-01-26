@@ -26,6 +26,12 @@ export const LetterFormFields = () => {
           <Input.TextArea placeholder="请输入描述" />
         </Form.Item>
         <Form.Item
+          name="hintText"
+          label="提示文本"
+        >
+          <Input placeholder="请输入提示文本" />
+        </Form.Item>
+        <Form.Item
           name="type"
           label="类型"
           initialValue="modern"

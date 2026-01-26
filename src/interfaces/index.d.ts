@@ -88,6 +88,7 @@ export interface TLetterecord {
   bgImg?: string;
   /* 页面主音频 一般用于当前页面播放背景音乐之类的场景 */
   mainAudio?: string;
+  hintText?: string;
 }
 
 export interface IphraseItem {

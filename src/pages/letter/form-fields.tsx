@@ -35,6 +35,7 @@ export const LetterFormFields = () => {
             options={[
               { label: "现代 (Modern)", value: "modern" },
               { label: "古典 (Classical)", value: "classical" },
+              { label: "魔法 (Magic)", value: "magic" },
             ]}
           />
         </Form.Item>

@@ -80,7 +80,7 @@ export interface TLetterecord {
   paragraphConfigList: ParagraphConfigList;
   bgImages?: string[];
   from: string;
-  type: "modern" | "classical";
+  type: "modern" | "classical" | "magic";
   created: string;
   updated: string;
   title?: string;

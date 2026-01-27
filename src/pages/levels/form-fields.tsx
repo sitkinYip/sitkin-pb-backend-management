@@ -36,6 +36,9 @@ export const LevelFormFields = () => {
         <Form.Item name="title" label="问题标题">
           <Input />
         </Form.Item>
+        <Form.Item name="answerTitle" label="答案标题">
+          <Input />
+        </Form.Item>
         <Form.Item name="placeholder" label="填空题时input框上的描述">
           <Input />
         </Form.Item>

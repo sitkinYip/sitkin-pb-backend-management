@@ -33,6 +33,7 @@ export interface LevelRecord {
   type?: "FillInTheBlank" | "MultipleChoice";
   options?: OptionItemList;
   title?: string;
+  answerTitle?: string;
   step: number;
   question: QuestionItemList;
   answer: string;

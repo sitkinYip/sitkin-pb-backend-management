@@ -1,5 +1,49 @@
-import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
-import { Button, Card, Form, Input, InputNumber, Radio, Select } from "antd";
+import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from "@ant-design/icons";
+import { Button, Card, Collapse, Descriptions, Form, Input, InputNumber, Radio, Select, Typography } from "antd";
+
+const { Text } = Typography;
+
+const TextSyntaxHelp = () => (
+  <Collapse
+    size="small"
+    ghost
+    items={[
+      {
+        key: "help",
+        label: (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            <QuestionCircleOutlined /> 文本语法说明
+          </Text>
+        ),
+        children: (
+          <Descriptions
+            size="small"
+            column={1}
+            bordered
+            labelStyle={{ fontSize: 12, whiteSpace: "nowrap" }}
+            contentStyle={{ fontSize: 12, wordBreak: "break-all" }}
+          >
+            <Descriptions.Item label="高亮文字">
+              <code>{"[[高亮内容]]"}</code> → 将文字渲染为高亮样式
+            </Descriptions.Item>
+            <Descriptions.Item label="链接/路由">
+              <code>{"((显示文字||链接地址))"}</code> → 可点击的链接，http 开头会打开新窗口，否则作为路由跳转
+            </Descriptions.Item>
+            <Descriptions.Item label="内嵌图片">
+              <code>{"\u007B\u007B图片URL\u007D\u007D"}</code> → 在文本中嵌入图片，点击可预览大图
+            </Descriptions.Item>
+            <Descriptions.Item label="换行">
+              <code>{"\\n"}</code> → 文本换行
+            </Descriptions.Item>
+            <Descriptions.Item label="完整示例">
+              <code>{"这是普通文字，[[高亮文字]]，((点击跳转||https://example.com))，\u007B\u007Bhttps://img.url/a.png\u007D\u007D"}</code>
+            </Descriptions.Item>
+          </Descriptions>
+        ),
+      },
+    ]}
+  />
+);
 import { ListStringEditor } from "./ListStringEditor";
 import { MapEditor } from "./MapEditor";
 import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";
@@ -51,6 +95,15 @@ export const ThreadEditor = () => {
                 rules={[{ required: true }]}
               >
                  <Input.TextArea placeholder="[[高亮文字可以怎么写]]" rows={2} />
+              </Form.Item>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prevValues, currentValues) => prevValues.thread?.[index]?.type !== currentValues.thread?.[index]?.type}
+              >
+                {({ getFieldValue }) => {
+                  const threadType = getFieldValue(["thread", index, "type"]);
+                  return threadType === "text" ? <TextSyntaxHelp /> : null;
+                }}
               </Form.Item>
               <Form.Item
                 noStyle

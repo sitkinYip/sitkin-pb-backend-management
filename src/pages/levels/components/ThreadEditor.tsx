@@ -94,7 +94,7 @@ export const ThreadEditor = () => {
                 label="描述内容"
                 rules={[{ required: true }]}
               >
-                 <Input.TextArea placeholder="[[高亮文字可以怎么写]]" rows={2} />
+                 <Input.TextArea placeholder="Text(文本模式)下支持特殊文本语法配置链接/图片/高亮文字/路由" rows={2} />
               </Form.Item>
               <Form.Item
                 noStyle

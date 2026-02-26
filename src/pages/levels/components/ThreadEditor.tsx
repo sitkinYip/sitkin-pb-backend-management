@@ -140,7 +140,13 @@ export const ThreadEditor = () => {
                 name={[name, "state"]}
                 label="线索状态"
               >
-                <Select mode="tags" placeholder="目前只有ckickplay一个配置 当内容为video时设置这个会自动播放" />
+                <Select
+                  allowClear
+                  placeholder="clickplay:当内容为video时设置这个会自动播放 NextQuestion: 多题目模式下会自动下一题"
+                  options={[
+                    { label: "clickplay", value: "clickplay" },
+                  ]}
+                />
               </Form.Item>
               <Form.Item
                 {...restField}

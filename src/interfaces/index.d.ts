@@ -20,7 +20,7 @@ export interface ThreadItem {
   content: string;
   url?: string;
   imgList?: string[];
-  state?: "ckickplay" | string;
+  state?: "ckickplay" | "NextQuestion" | string;
   path?: string;
   query?: Record<string, string>;
   nextIndex?: number;

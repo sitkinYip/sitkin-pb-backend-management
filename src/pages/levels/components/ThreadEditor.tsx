@@ -144,7 +144,8 @@ export const ThreadEditor = () => {
                   allowClear
                   placeholder="clickplay:当内容为video时设置这个会自动播放 NextQuestion: 多题目模式下会自动下一题"
                   options={[
-                    { label: "clickplay", value: "clickplay" },
+                    { label: "自动播放视频", value: "clickplay" },
+                    { label: "自动跳转下一题", value: "NextQuestion" },
                   ]}
                 />
               </Form.Item>

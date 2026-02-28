@@ -3,7 +3,7 @@ import { Button, Card, Collapse, Descriptions, Form, Input, InputNumber, Radio, 
 
 const { Text } = Typography;
 
-const TextSyntaxHelp = () => (
+export const TextSyntaxHelp = () => (
   <Collapse
     size="small"
     ghost

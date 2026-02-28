@@ -109,3 +109,13 @@ export interface PhraseListRecord {
   /* 页面主音频 一般用于当前页面播放背景音乐之类的场景 */
   mainAudio?: string;
 }
+
+export interface MultiQuestClueRecord {
+  id: string;
+  qas: string;
+  content: string;
+  collectionId: string;
+  collectionName: string;
+  created: string;
+  updated: string;
+}

@@ -37,6 +37,12 @@ import {
   PhraseEdit,
   PhraseList,
 } from "./pages/phrase";
+import {
+  MultiQuestClueCreate,
+  MultiQuestClueEdit,
+  MultiQuestClueList,
+  MultiQuestClueShow,
+} from "./pages/multiQuestClues";
 import { ForgotPassword } from "./pages/forgotPassword";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -95,6 +101,17 @@ function App() {
                       canDelete: true,
                     },
                   },
+                  {
+                    name: "multi_quest_clues",
+                    list: "/multi_quest_clues",
+                    create: "/multi_quest_clues/create",
+                    edit: "/multi_quest_clues/edit/:id",
+                    show: "/multi_quest_clues/show/:id",
+                    meta: {
+                      label: "多题线索",
+                      canDelete: true,
+                    },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -137,6 +154,12 @@ function App() {
                       <Route index element={<PhraseList />} />
                       <Route path="create" element={<PhraseCreate />} />
                       <Route path="edit/:id" element={<PhraseEdit />} />
+                    </Route>
+                    <Route path="/multi_quest_clues">
+                      <Route index element={<MultiQuestClueList />} />
+                      <Route path="create" element={<MultiQuestClueCreate />} />
+                      <Route path="edit/:id" element={<MultiQuestClueEdit />} />
+                      <Route path="show/:id" element={<MultiQuestClueShow />} />
                     </Route>
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>

@@ -32,11 +32,17 @@ const TextSyntaxHelp = () => (
             <Descriptions.Item label="内嵌图片">
               <code>{"\u007B\u007B图片URL\u007D\u007D"}</code> → 在文本中嵌入图片，点击可预览大图
             </Descriptions.Item>
+            <Descriptions.Item label="内嵌视频">
+              <code>{"<<视频URL>>"}</code> → 在文本中嵌入视频播放器，点击播放
+            </Descriptions.Item>
+            <Descriptions.Item label="视频+封面图">
+              <code>{"<<视频URL||封面图URL>>"}</code> → 带封面预览图的视频，封面图可选
+            </Descriptions.Item>
             <Descriptions.Item label="换行">
               <code>{"\\n"}</code> → 文本换行
             </Descriptions.Item>
             <Descriptions.Item label="完整示例">
-              <code>{"这是普通文字，[[高亮文字]]，((点击跳转||https://example.com))，\u007B\u007Bhttps://img.url/a.png\u007D\u007D"}</code>
+              <code>{"这是普通文字，[[高亮文字]]，((点击跳转||https://example.com))，\u007B\u007Bhttps://img.url/a.png\u007D\u007D，<<https://video.url/v.mp4||https://img.url/poster.jpg>>"}</code>
             </Descriptions.Item>
           </Descriptions>
         ),

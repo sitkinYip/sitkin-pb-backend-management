@@ -43,6 +43,7 @@ import {
   MultiQuestClueList,
   MultiQuestClueShow,
 } from "./pages/multiQuestClues";
+import { ResourceManager } from "./pages/resourceManager";
 import { ForgotPassword } from "./pages/forgotPassword";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
@@ -112,6 +113,13 @@ function App() {
                       canDelete: true,
                     },
                   },
+                  {
+                    name: "resource_manager",
+                    list: "/resource_manager",
+                    meta: {
+                      label: "资源管理",
+                    },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -161,6 +169,10 @@ function App() {
                       <Route path="edit/:id" element={<MultiQuestClueEdit />} />
                       <Route path="show/:id" element={<MultiQuestClueShow />} />
                     </Route>
+                    <Route
+                      path="/resource_manager"
+                      element={<ResourceManager />}
+                    />
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>
                   <Route

@@ -25,6 +25,29 @@ interface UploadResponse {
   };
 }
 
+export interface AlistFileItem {
+  name: string;
+  size: number;
+  is_dir: boolean;
+  modified: string;
+  sign: string;
+  thumb: string;
+  type: number;
+  hashinfo: string;
+}
+
+interface ListResponse {
+  code: number;
+  message: string;
+  data: {
+    content: AlistFileItem[] | null;
+    total: number;
+    readme: string;
+    write: boolean;
+    provider: string;
+  };
+}
+
 export const alistService = {
   /**
    * 检查本地是否有 Token
@@ -101,6 +124,60 @@ export const alistService = {
     // 简单起见，假设配置都比较规范，只修正连接处的斜杠
     // 这里简单处理：确保连接处只有一个斜杠 (除了协议后的 //)
     return url.replace(/([^:])\/\//g, "$1/");
+  },
+
+  /**
+   * 获取指定类型目录的完整路径
+   */
+  getDirectoryPath(type: "img" | "video" | "audio"): string {
+    let subDir = ALIST_CONFIG.OSS_PATH_IMG;
+    if (type === "video") subDir = ALIST_CONFIG.OSS_PATH_VIDEO;
+    if (type === "audio") subDir = ALIST_CONFIG.OSS_PATH_AUDIO;
+
+    const path = `${ALIST_CONFIG.FILE_OSS_PATH}${ALIST_CONFIG.OSS_PATH}${subDir}`;
+    return path.replace(/\/+/g, "/");
+  },
+
+  /**
+   * 列出指定目录下的文件
+   */
+  async listFiles(type: "img" | "video" | "audio"): Promise<AlistFileItem[]> {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      throw new Error("请先登录");
+    }
+
+    const dirPath = this.getDirectoryPath(type);
+
+    const response = await fetch(`${ALIST_CONFIG.HOST}/api/fs/list`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+      body: JSON.stringify({
+        path: dirPath,
+        password: "",
+        page: 1,
+        per_page: 0, // 0 表示不分页，返回全部
+        refresh: false,
+      }),
+    });
+
+    const data: ListResponse = await response.json();
+
+    if (data.code === 200) {
+      return data.data.content || [];
+    } else {
+      throw new Error(data.message || "获取文件列表失败");
+    }
+  },
+
+  /**
+   * 根据文件名和类型生成公开访问 URL
+   */
+  getPublicUrlByName(filename: string, type: "img" | "video" | "audio"): string {
+    return this.getPublicUrl(filename, type);
   },
 
   /**

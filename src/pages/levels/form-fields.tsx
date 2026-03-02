@@ -82,6 +82,9 @@ export const LevelFormFields = () => {
         >
             <Switch />
         </Form.Item>
+        <Form.Item name="rank" label="当前关卡等级">
+            <Input />
+        </Form.Item>
         <Form.Item name="rankName" label="当前关卡等级昵称">
             <Input />
         </Form.Item>

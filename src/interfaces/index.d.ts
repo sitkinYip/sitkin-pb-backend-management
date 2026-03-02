@@ -49,6 +49,7 @@ export interface LevelRecord {
   endTime?: string;
   avatar?: string;
   rankName?: string;
+  rank?: string;
   isFinalLevel?: boolean;
   FinalLevelConfig?: {
     path?: string;

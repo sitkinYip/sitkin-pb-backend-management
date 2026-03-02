@@ -30,7 +30,16 @@ export const LevelList = () => {
 
   return (
     <List>
-      <Table {...tableProps} rowKey="id">
+      <Table
+        {...tableProps}
+        rowKey="id"
+        pagination={{
+          ...tableProps.pagination,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "20", "50", "100"],
+          locale: { items_per_page: " 条/页" },
+        }}
+      >
         <Table.Column dataIndex="id" title="ID" />
         <Table.Column dataIndex="step" title="Step" sorter />
         <Table.Column

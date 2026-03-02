@@ -15,6 +15,7 @@ import {
   Empty,
   Spin,
   Input,
+  theme,
 } from "antd";
 import {
   UploadOutlined,
@@ -125,6 +126,7 @@ const CopyButton: React.FC<CopyButtonProps> = ({ text, isMobile }) => {
 export const ResourceManager: React.FC = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const { token } = theme.useToken();
 
   const [activeType, setActiveType] = useState<MediaType>("img");
   const [fileList, setFileList] = useState<AlistFileItem[]>([]);
@@ -266,7 +268,7 @@ export const ResourceManager: React.FC = () => {
           style={{
             width: isMobile ? 60 : 80,
             height: isMobile ? 60 : 80,
-            background: "#f0f0f0",
+            background: token.colorFillQuaternary,
             borderRadius: 6,
             display: "flex",
             alignItems: "center",
@@ -283,7 +285,7 @@ export const ResourceManager: React.FC = () => {
         style={{
           width: isMobile ? 60 : 80,
           height: isMobile ? 60 : 80,
-          background: "#f0f0f0",
+          background: token.colorFillQuaternary,
           borderRadius: 6,
           display: "flex",
           alignItems: "center",
@@ -457,7 +459,7 @@ export const ResourceManager: React.FC = () => {
                         fontSize: 12,
                         margin: "0 0 8px 0",
                         padding: "6px 8px",
-                        background: "#f5f5f5",
+                        background: token.colorFillQuaternary,
                         borderRadius: 4,
                         wordBreak: "break-all",
                       }}
@@ -505,7 +507,7 @@ export const ResourceManager: React.FC = () => {
                           fontSize: 12,
                           margin: 0,
                           padding: "4px 8px",
-                          background: "#f5f5f5",
+                          background: token.colorFillQuaternary,
                           borderRadius: 4,
                           wordBreak: "break-all",
                         }}

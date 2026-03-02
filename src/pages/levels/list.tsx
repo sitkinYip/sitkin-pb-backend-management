@@ -5,14 +5,28 @@ import {
   ShowButton,
   useTable,
 } from "@refinedev/antd";
-import { BaseRecord } from "@refinedev/core";
-import { Space, Table } from "antd";
+import { BaseRecord, useCreate } from "@refinedev/core";
+import { Button, Space, Table } from "antd";
+import { CopyOutlined } from "@ant-design/icons";
 import { LevelRecord } from "../../interfaces";
 
 export const LevelList = () => {
   const { tableProps } = useTable<LevelRecord>({
     syncWithLocation: true,
   });
+
+  const { mutate: createLevel } = useCreate();
+
+  const handleCopyRecord = (record: BaseRecord) => {
+    const excludeKeys = new Set(["id", "created", "updated", "collectionId", "collectionName"]);
+    const values = Object.fromEntries(
+      Object.entries(record).filter(([key]) => !excludeKeys.has(key))
+    );
+    createLevel({
+      resource: "levels",
+      values,
+    });
+  };
 
   return (
     <List>
@@ -49,6 +63,11 @@ export const LevelList = () => {
               <EditButton hideText size="small" recordItemId={record.id} />
               <ShowButton hideText size="small" recordItemId={record.id} />
               <DeleteButton hideText size="small" recordItemId={record.id} />
+              <Button
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => handleCopyRecord(record)}
+              />
             </Space>
           )}
         />

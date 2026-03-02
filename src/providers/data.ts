@@ -4,7 +4,7 @@ import { pb } from "../pocketbase";
 
 export const dataProvider: DataProvider = {
   getList: async ({ resource, pagination, sorters, filters }) => {
-    const page = (pagination as any)?.current || 1;
+    const page = pagination?.currentPage || 1;
     const perPage = pagination?.pageSize || 10;
 
     let sort = "";
@@ -36,10 +36,18 @@ export const dataProvider: DataProvider = {
         .join(" && ");
     }
 
-    const result = await pb.collection(resource).getList(page, perPage, {
+    let result = await pb.collection(resource).getList(page, perPage, {
       sort,
       filter,
     });
+
+    if (result.items.length === 0 && result.totalItems > 0 && page > 1) {
+      const lastValidPage = Math.ceil(result.totalItems / perPage);
+      result = await pb.collection(resource).getList(lastValidPage, perPage, {
+        sort,
+        filter,
+      });
+    }
 
     return {
       data: result.items.map((item) => ({ ...item, id: item.id } as BaseRecord as any)),

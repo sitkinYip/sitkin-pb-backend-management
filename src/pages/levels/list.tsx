@@ -10,9 +10,15 @@ import { Button, Space, Table } from "antd";
 import { CopyOutlined } from "@ant-design/icons";
 import { LevelRecord } from "../../interfaces";
 
+const STORAGE_KEY = "levels_pageSize";
+const savedPageSize = Number(localStorage.getItem(STORAGE_KEY)) || 10;
+
 export const LevelList = () => {
   const { tableProps } = useTable<LevelRecord>({
     syncWithLocation: true,
+    pagination: {
+      pageSize: savedPageSize,
+    },
   });
 
   const { mutate: createLevel } = useCreate();
@@ -38,6 +44,7 @@ export const LevelList = () => {
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
           locale: { items_per_page: " 条/页" },
+          onShowSizeChange: (_, size) => localStorage.setItem(STORAGE_KEY, String(size)),
         }}
       >
         <Table.Column dataIndex="id" title="ID" />

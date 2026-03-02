@@ -4,9 +4,15 @@ import { Space, Table } from "antd";
 
 import { PhraseListRecord } from "../../interfaces";
 
+const STORAGE_KEY = "phrase_pageSize";
+const savedPageSize = Number(localStorage.getItem(STORAGE_KEY)) || 10;
+
 export const PhraseList = () => {
   const { tableProps } = useTable({
     syncWithLocation: true,
+    pagination: {
+      pageSize: savedPageSize,
+    },
   });
 
   return (
@@ -19,6 +25,7 @@ export const PhraseList = () => {
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50", "100"],
           locale: { items_per_page: " 条/页" },
+          onShowSizeChange: (_, size) => localStorage.setItem(STORAGE_KEY, String(size)),
         }}
       >
         <Table.Column dataIndex="id" title="Id" />

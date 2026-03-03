@@ -15,6 +15,7 @@ import {
   Empty,
   Spin,
   Input,
+  Modal,
   theme,
 } from "antd";
 import {
@@ -27,6 +28,7 @@ import {
   InboxOutlined,
   SearchOutlined,
   CheckOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 import { alistService, AlistFileItem } from "../../services/alist";
 import { LoginModal } from "../../components/Alist/LoginModal";
@@ -60,6 +62,9 @@ const MEDIA_TYPE_CONFIG: Record<
     color: "green",
   },
 };
+
+// 分页每页可选条数
+const PAGE_SIZE_OPTIONS = ["10", "20", "30", "50", "100"];
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -123,6 +128,14 @@ const CopyButton: React.FC<CopyButtonProps> = ({ text, isMobile }) => {
   );
 };
 
+// 媒体预览弹窗状态
+interface PreviewState {
+  open: boolean;
+  type: "video" | "audio";
+  url: string;
+  name: string;
+}
+
 export const ResourceManager: React.FC = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -134,10 +147,19 @@ export const ResourceManager: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [preview, setPreview] = useState<PreviewState>({
+    open: false,
+    type: "video",
+    url: "",
+    name: "",
+  });
 
   const pendingUploadFileRef = useRef<File | null>(null);
+  // 用于关闭预览时停止媒体播放
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
 
-  const fetchFileList = useCallback(async (type: MediaType) => {
+  // refresh=true 时强制 Alist 重新索引目录，用于上传后刷新
+  const fetchFileList = useCallback(async (type: MediaType, refresh = false) => {
     if (!alistService.checkToken()) {
       setFileList([]);
       return;
@@ -145,7 +167,7 @@ export const ResourceManager: React.FC = () => {
 
     setLoading(true);
     try {
-      const files = await alistService.listFiles(type);
+      const files = await alistService.listFiles(type, refresh);
       const sortedFiles = files
         .filter((file) => !file.is_dir)
         .sort(
@@ -209,7 +231,8 @@ export const ResourceManager: React.FC = () => {
           </Button>
         </span>
       );
-      fetchFileList(activeType);
+      // 上传完成后强制刷新，避免 Alist 返回旧缓存
+      fetchFileList(activeType, true);
     } catch (error: unknown) {
       const errorMessage = (error as { message?: string })?.message;
       if (
@@ -233,8 +256,23 @@ export const ResourceManager: React.FC = () => {
       pendingUploadFileRef.current = null;
       handleUpload(pendingFile);
     } else {
-      fetchFileList(activeType);
+      // 登录后刷新，同样强制重新索引
+      fetchFileList(activeType, true);
     }
+  };
+
+  // 关闭预览时停止播放
+  const handleClosePreview = () => {
+    if (mediaRef.current) {
+      mediaRef.current.pause();
+      mediaRef.current.src = "";
+    }
+    setPreview((prev) => ({ ...prev, open: false }));
+  };
+
+  // 打开视频/音频预览
+  const openPreview = (type: "video" | "audio", url: string, name: string) => {
+    setPreview({ open: true, type, url, name });
   };
 
   const filteredFiles = searchKeyword
@@ -246,6 +284,9 @@ export const ResourceManager: React.FC = () => {
   const getFileUrl = (fileName: string) =>
     alistService.getPublicUrl(fileName, activeType);
 
+  // 缩略图尺寸
+  const thumbSize = isMobile ? 60 : 80;
+
   const renderFilePreview = (file: AlistFileItem) => {
     const url = getFileUrl(file.name);
 
@@ -254,46 +295,52 @@ export const ResourceManager: React.FC = () => {
         <Image
           src={url}
           alt={file.name}
-          width={isMobile ? 60 : 80}
-          height={isMobile ? 60 : 80}
+          width={thumbSize}
+          height={thumbSize}
           style={{ objectFit: "cover", borderRadius: 6 }}
           fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjY2MiIGZvbnQtc2l6ZT0iMTIiPuWbvueJhzwvdGV4dD48L3N2Zz4="
         />
       );
     }
 
-    if (activeType === "video") {
-      return (
+    // 视频/音频：可点击的预览块，点击弹出播放器
+    const isVideo = activeType === "video";
+    const iconColor = isVideo ? "#722ed1" : "#52c41a";
+    const IconCmp = isVideo ? VideoCameraOutlined : AudioOutlined;
+
+    return (
+      <Tooltip title={`点击预览${MEDIA_TYPE_CONFIG[activeType].label}`}>
         <div
+          onClick={() => openPreview(activeType as "video" | "audio", url, file.name)}
           style={{
-            width: isMobile ? 60 : 80,
-            height: isMobile ? 60 : 80,
+            width: thumbSize,
+            height: thumbSize,
             background: token.colorFillQuaternary,
             borderRadius: 6,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden",
+            transition: "opacity 0.2s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
         >
-          <VideoCameraOutlined style={{ fontSize: 28, color: "#722ed1" }} />
+          <IconCmp style={{ fontSize: 28, color: iconColor }} />
+          {/* 悬浮播放标志 */}
+          <PlayCircleOutlined
+            style={{
+              position: "absolute",
+              fontSize: 20,
+              color: "rgba(255,255,255,0.85)",
+              bottom: 4,
+              right: 4,
+            }}
+          />
         </div>
-      );
-    }
-
-    return (
-      <div
-        style={{
-          width: isMobile ? 60 : 80,
-          height: isMobile ? 60 : 80,
-          background: token.colorFillQuaternary,
-          borderRadius: 6,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <AudioOutlined style={{ fontSize: 28, color: "#52c41a" }} />
-      </div>
+      </Tooltip>
     );
   };
 
@@ -342,13 +389,17 @@ export const ResourceManager: React.FC = () => {
           }}
           style={{ marginBottom: isMobile ? 16 : 24 }}
         >
-          <p className="ant-upload-drag-icon">
-            {uploading ? (
+          {/* 上传中用 div 包裹 Spin（避免 div 嵌套在 p 内的 HTML 非法问题） */}
+          {/* 空闲时保留 p.ant-upload-drag-icon，让 antd CSS 的图标大小规则生效 */}
+          {uploading ? (
+            <div style={{ fontSize: 48, marginBottom: 20, textAlign: "center" }}>
               <Spin size="large" />
-            ) : (
+            </div>
+          ) : (
+            <p className="ant-upload-drag-icon">
               <InboxOutlined style={{ color: "#1890ff" }} />
-            )}
-          </p>
+            </p>
+          )}
           <p className="ant-upload-text">
             {uploading
               ? "上传中..."
@@ -396,10 +447,19 @@ export const ResourceManager: React.FC = () => {
           )}
         </div>
 
-        {/* 文件列表 */}
+        {/* 文件列表（含分页） */}
         <List
           loading={loading}
           dataSource={filteredFiles}
+          pagination={{
+            defaultPageSize: 30,
+            pageSizeOptions: PAGE_SIZE_OPTIONS,
+            showSizeChanger: true,
+            showTotal: (total) => `共 ${total} 个文件`,
+            size: isMobile ? "small" : "default",
+            // 移动端隐藏 "共X条" 文字以节省空间
+            ...(isMobile ? { simple: false } : {}),
+          }}
           locale={{
             emptyText: (
               <Empty
@@ -466,7 +526,24 @@ export const ResourceManager: React.FC = () => {
                     >
                       {publicUrl}
                     </Paragraph>
-                    <CopyButton text={publicUrl} isMobile={isMobile} />
+                    <Space>
+                      <CopyButton text={publicUrl} isMobile={isMobile} />
+                      {activeType !== "img" && (
+                        <Button
+                          icon={<PlayCircleOutlined />}
+                          size="middle"
+                          onClick={() =>
+                            openPreview(
+                              activeType as "video" | "audio",
+                              publicUrl,
+                              file.name
+                            )
+                          }
+                        >
+                          预览
+                        </Button>
+                      )}
+                    </Space>
                   </div>
                 </List.Item>
               );
@@ -475,12 +552,24 @@ export const ResourceManager: React.FC = () => {
             return (
               <List.Item
                 actions={[
-                  <CopyButton
-                    key="copy"
-                    text={publicUrl}
-                    isMobile={isMobile}
-                  />,
-                ]}
+                  activeType !== "img" && (
+                    <Button
+                      key="preview"
+                      icon={<PlayCircleOutlined />}
+                      size="small"
+                      onClick={() =>
+                        openPreview(
+                          activeType as "video" | "audio",
+                          publicUrl,
+                          file.name
+                        )
+                      }
+                    >
+                      预览
+                    </Button>
+                  ),
+                  <CopyButton key="copy" text={publicUrl} isMobile={isMobile} />,
+                ].filter(Boolean)}
               >
                 <List.Item.Meta
                   avatar={renderFilePreview(file)}
@@ -522,6 +611,46 @@ export const ResourceManager: React.FC = () => {
           }}
         />
       </Card>
+
+      {/* 视频 / 音频预览弹窗 */}
+      <Modal
+        open={preview.open}
+        title={preview.name}
+        onCancel={handleClosePreview}
+        footer={null}
+        // 移动端全屏展示
+        width={isMobile ? "100vw" : preview.type === "video" ? 800 : 480}
+        style={isMobile ? { top: 0, margin: 0, padding: 0, maxWidth: "100vw" } : {}}
+        styles={
+          isMobile
+            ? { body: { padding: "12px 8px" } }
+            : { body: { padding: "16px 24px" } }
+        }
+        destroyOnHidden
+      >
+        {preview.type === "video" ? (
+          <video
+            ref={mediaRef as React.RefObject<HTMLVideoElement>}
+            src={preview.url}
+            controls
+            autoPlay
+            style={{ width: "100%", borderRadius: 6, display: "block" }}
+          />
+        ) : (
+          <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <AudioOutlined
+              style={{ fontSize: 48, color: "#52c41a", marginBottom: 16, display: "block" }}
+            />
+            <audio
+              ref={mediaRef as React.RefObject<HTMLAudioElement>}
+              src={preview.url}
+              controls
+              autoPlay
+              style={{ width: "100%" }}
+            />
+          </div>
+        )}
+      </Modal>
 
       <LoginModal
         open={loginModalOpen}

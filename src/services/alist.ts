@@ -25,6 +25,27 @@ interface UploadResponse {
   };
 }
 
+interface TaskInfoResponse {
+  code: number;
+  message: string;
+  data: {
+    id: string;
+    name: string;
+    // 0=等待 1=运行中 2=成功 3=取消 4=失败 5=等待重试 6=重试中
+    state: number;
+    status: string;
+    progress: number;
+    error: string;
+  };
+}
+
+// 大文件阈值：超过此大小使用异步任务上传（10MB）
+const ASYNC_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
+// 轮询间隔（ms）
+const POLL_INTERVAL = 1500;
+// 最大轮询次数（1.5s * 120 = 3 分钟）
+const MAX_POLL_COUNT = 120;
+
 export interface AlistFileItem {
   name: string;
   size: number;
@@ -141,7 +162,10 @@ export const alistService = {
   /**
    * 列出指定目录下的文件
    */
-  async listFiles(type: "img" | "video" | "audio"): Promise<AlistFileItem[]> {
+  async listFiles(
+    type: "img" | "video" | "audio",
+    refresh = false
+  ): Promise<AlistFileItem[]> {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       throw new Error("请先登录");
@@ -160,7 +184,8 @@ export const alistService = {
         password: "",
         page: 1,
         per_page: 0, // 0 表示不分页，返回全部
-        refresh: false,
+        // refresh=true 时强制 Alist 重新索引目录，避免返回旧缓存
+        refresh,
       }),
     });
 
@@ -181,7 +206,38 @@ export const alistService = {
   },
 
   /**
+   * 轮询等待异步上传任务完成
+   */
+  async waitForUploadTask(taskId: string): Promise<void> {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+
+    for (let i = 0; i < MAX_POLL_COUNT; i++) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+
+      const response = await fetch(
+        `${ALIST_CONFIG.HOST}/api/task/upload/info?tid=${encodeURIComponent(taskId)}`,
+        { headers: { Authorization: token } }
+      );
+      const data: TaskInfoResponse = await response.json();
+
+      if (data.code !== 200) break;
+
+      const { state } = data.data;
+      // 成功
+      if (state === 2) return;
+      // 取消或失败
+      if (state === 3 || state === 4) {
+        throw new Error(data.data.error || "上传任务失败");
+      }
+      // 其余状态（0等待/1运行中/5等待重试/6重试中）继续轮询
+    }
+  },
+
+  /**
    * 上传文件
+   * 小文件（< 10MB）同步上传，完成即可刷新列表；
+   * 大文件使用 As-Task 异步上传，轮询任务状态后再返回。
    */
   async uploadFile(file: File, type: "img" | "video" | "audio"): Promise<string> {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -189,14 +245,8 @@ export const alistService = {
       throw new Error("请先登录");
     }
 
+    const isLargeFile = file.size > ASYNC_UPLOAD_THRESHOLD;
     const filePath = this.getUploadPath(file.name, type);
-    // 需要对 file path 进行 URL 编码，根据 API 文档要求: "经过URL编码的完整目标文件路径"
-    // encodeURIComponent 会编码 /，这是我们不希望的吗？
-    // 文档说 "经过URL编码的完整目标文件路径"，通常指整个路径也是字符串。
-    // 这里使用 encodeURI 还是 encodeURIComponent 需要小心。
-    // 如果 alist 要求 header 里的 File-Path 是 /test/a.jpg -> %2Ftest%2Fa.jpg，那就用 encodeURIComponent
-    // 如果只是文件名编码，那就是 path 部分编码。
-    // 参考常见 Alist API 调用，通常 Header 里的 File-Path 需要 encodeURIComponent 整个路径。
     const encodedFilePath = encodeURIComponent(filePath);
 
     const response = await fetch(`${ALIST_CONFIG.HOST}/api/fs/put`, {
@@ -205,7 +255,8 @@ export const alistService = {
         Authorization: token,
         "File-Path": encodedFilePath,
         "Content-Type": file.type || "application/octet-stream",
-        "As-Task": "true", // 添加为任务，避免大文件超时
+        // 大文件才使用异步任务，小文件同步上传以便立即刷新
+        ...(isLargeFile ? { "As-Task": "true" } : {}),
       },
       body: file,
     });
@@ -213,7 +264,10 @@ export const alistService = {
     const data: UploadResponse = await response.json();
 
     if (data.code === 200) {
-      // 成功后，返回构造好的 CDN URL
+      // 大文件异步任务：等待任务真正完成后再返回
+      if (isLargeFile && data.data?.task?.id) {
+        await this.waitForUploadTask(data.data.task.id);
+      }
       return this.getPublicUrl(file.name, type);
     } else {
       throw new Error(data.message || "上传失败");

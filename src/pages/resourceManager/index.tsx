@@ -178,10 +178,10 @@ export const ResourceManager: React.FC = () => {
       setFileList(sortedFiles);
     } catch (error: unknown) {
       const errorMessage = (error as { message?: string })?.message;
-      if (
-        errorMessage === "请先登录" ||
-        errorMessage?.includes("token")
-      ) {
+      // 仅匹配 Alist 明确的登录失效消息，避免把 JSON 解析错误等误判为登录失效
+      const AUTH_PATTERNS = ["请先登录", "token is expired", "token is invalid", "invalid or expired", "unauthorized"];
+      const isAuth = AUTH_PATTERNS.some((p) => errorMessage?.toLowerCase().includes(p.toLowerCase()));
+      if (isAuth) {
         setLoginModalOpen(true);
       } else {
         message.error(errorMessage || "获取文件列表失败");
@@ -215,30 +215,60 @@ export const ResourceManager: React.FC = () => {
 
     setUploading(true);
     try {
-      const url = await alistService.uploadFile(file, activeType);
-      message.success(
-        <span>
-          上传成功！
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              navigator.clipboard.writeText(url);
-              message.success("链接已复制");
-            }}
-          >
-            复制链接
-          </Button>
-        </span>
-      );
-      // 上传完成后强制刷新，避免 Alist 返回旧缓存
-      fetchFileList(activeType, true);
+      const { url, taskId } = await alistService.uploadFile(file, activeType);
+
+      if (taskId) {
+        // 大文件：任务已提交，立即停止 loading 并通知用户
+        message.info("大文件上传任务已提交，正在后台上传中…完成后列表将自动刷新", 5);
+        // 后台非阻塞轮询，完成后自动刷新列表
+        alistService.pollUploadTask(
+          taskId,
+          file.name,
+          activeType,
+          () => {
+            message.success(
+              <span>
+                {file.name} 上传完成！
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => {
+                    navigator.clipboard.writeText(url);
+                    message.success("链接已复制");
+                  }}
+                >
+                  复制链接
+                </Button>
+              </span>
+            );
+            fetchFileList(activeType, true);
+          },
+          (errMsg) => message.error(`${file.name} 上传失败：${errMsg}`)
+        );
+      } else {
+        // 小文件：同步完成，直接刷新
+        message.success(
+          <span>
+            上传成功！
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                navigator.clipboard.writeText(url);
+                message.success("链接已复制");
+              }}
+            >
+              复制链接
+            </Button>
+          </span>
+        );
+        fetchFileList(activeType, true);
+      }
     } catch (error: unknown) {
       const errorMessage = (error as { message?: string })?.message;
-      if (
-        errorMessage === "请先登录" ||
-        errorMessage?.includes("token")
-      ) {
+      const AUTH_PATTERNS = ["请先登录", "token is expired", "token is invalid", "invalid or expired", "unauthorized"];
+      const isAuth = AUTH_PATTERNS.some((p) => errorMessage?.toLowerCase().includes(p.toLowerCase()));
+      if (isAuth) {
         pendingUploadFileRef.current = file;
         setLoginModalOpen(true);
       } else {
@@ -248,6 +278,7 @@ export const ResourceManager: React.FC = () => {
       setUploading(false);
     }
   };
+
 
   const handleLoginSuccess = () => {
     setLoginModalOpen(false);

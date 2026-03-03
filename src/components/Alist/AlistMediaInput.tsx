@@ -47,13 +47,14 @@ export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
 
     try {
       setUploading(true);
-      const url = await alistService.uploadFile(file, type);
+      const { url } = await alistService.uploadFile(file, type);
       message.success("上传成功");
       onChange?.(url);
     } catch (error: unknown) {
       const err = error as { message?: string };
-      if (err.message === "请先登录" || err.message?.includes("token")) {
-        // 如果 token 失效，弹出登录框
+      const AUTH_PATTERNS = ["请先登录", "token is expired", "token is invalid", "invalid or expired", "unauthorized"];
+      const isAuth = AUTH_PATTERNS.some((p) => err.message?.toLowerCase().includes(p.toLowerCase()));
+      if (isAuth) {
         setLoginModalOpen(true);
       } else {
         message.error(err.message || "上传失败");

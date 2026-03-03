@@ -25,26 +25,8 @@ interface UploadResponse {
   };
 }
 
-interface TaskInfoResponse {
-  code: number;
-  message: string;
-  data: {
-    id: string;
-    name: string;
-    // 0=等待 1=运行中 2=成功 3=取消 4=失败 5=等待重试 6=重试中
-    state: number;
-    status: string;
-    progress: number;
-    error: string;
-  };
-}
-
-// 大文件阈值：超过此大小使用异步任务上传（10MB）
-const ASYNC_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
-// 轮询间隔（ms）
-const POLL_INTERVAL = 1500;
-// 最大轮询次数（1.5s * 120 = 3 分钟）
-const MAX_POLL_COUNT = 120;
+// 大文件阈值：超过此大小使用异步任务上传（50MB）
+const ASYNC_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
 
 export interface AlistFileItem {
   name: string;
@@ -206,40 +188,87 @@ export const alistService = {
   },
 
   /**
-   * 轮询等待异步上传任务完成
+   * 后台轮询异步上传任务（非阻塞）
+   * 双重检测：
+   *   1. 查 done 列表中的 taskId（快速路径）
+   *   2. 直接查目录文件列表确认文件是否已出现（可靠兜底）
+   * 任一满足即触发 onDone，最长等待 2 分钟后强制触发
    */
-  async waitForUploadTask(taskId: string): Promise<void> {
+  pollUploadTask(
+    taskId: string,
+    filename: string,
+    type: "img" | "video" | "audio",
+    onDone: () => void,
+    onError: (msg: string) => void
+  ): void {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return;
+    if (!token) { onDone(); return; }
 
-    for (let i = 0; i < MAX_POLL_COUNT; i++) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+    const INTERVAL = 3000;  // 3 秒一轮（比之前更温和）
+    const MAX = 40;          // 最多 40 轮 = 2 分钟
+    let count = 0;
 
-      const response = await fetch(
-        `${ALIST_CONFIG.HOST}/api/task/upload/info?tid=${encodeURIComponent(taskId)}`,
-        { headers: { Authorization: token } }
-      );
-      const data: TaskInfoResponse = await response.json();
-
-      if (data.code !== 200) break;
-
-      const { state } = data.data;
-      // 成功
-      if (state === 2) return;
-      // 取消或失败
-      if (state === 3 || state === 4) {
-        throw new Error(data.data.error || "上传任务失败");
+    const poll = async () => {
+      if (count++ >= MAX) {
+        // 超时仍触发 onDone，让列表刷新一次让用户自行确认
+        onDone();
+        return;
       }
-      // 其余状态（0等待/1运行中/5等待重试/6重试中）继续轮询
-    }
+
+      try {
+        // ── 检测 1：查 done 任务列表 ──────────────────────────────
+        const doneRes = await fetch(`${ALIST_CONFIG.HOST}/api/task/upload/done`, {
+          headers: { Authorization: token },
+        });
+
+        if (doneRes.status === 401) return; // Token 失效，静默退出
+
+        if (doneRes.ok) {
+          const doneData = (await doneRes.json()) as {
+            code: number;
+            data: { id: string; state: number; error: string }[] | null;
+          };
+
+          if (doneData.code === 200) {
+            const found = (doneData.data ?? []).find((t) => t.id === taskId);
+            if (found) {
+              if (found.state === 2) { onDone(); return; }
+              if (found.state === 3 || found.state === 4) {
+                onError(found.error || "异步上传任务失败");
+                return;
+              }
+            }
+          }
+        }
+
+        // ── 检测 2：直接检查文件是否已出现在目录中（最可靠）──────────
+        const files = await this.listFiles(type, true);
+        if (files.some((f) => f.name === filename)) {
+          onDone();
+          return;
+        }
+
+        // 两种检测都没命中，继续等待
+        setTimeout(poll, INTERVAL);
+      } catch {
+        setTimeout(poll, INTERVAL);
+      }
+    };
+
+    // 首次延迟 3 秒再查，给 Alist 时间开始处理
+    setTimeout(poll, INTERVAL);
   },
 
   /**
    * 上传文件
-   * 小文件（< 10MB）同步上传，完成即可刷新列表；
-   * 大文件使用 As-Task 异步上传，轮询任务状态后再返回。
+   * 小文件（< 10MB）：同步上传，完成即可刷新列表
+   * 大文件：提交 As-Task 后立即返回（不锁住载入状态）
+   *   返回的 taskId 不为空时，调用方可用 pollUploadTask 进行后台轮询
    */
-  async uploadFile(file: File, type: "img" | "video" | "audio"): Promise<string> {
+  async uploadFile(
+    file: File,
+    type: "img" | "video" | "audio"
+  ): Promise<{ url: string; taskId?: string }> {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       throw new Error("请先登录");
@@ -264,11 +293,10 @@ export const alistService = {
     const data: UploadResponse = await response.json();
 
     if (data.code === 200) {
-      // 大文件异步任务：等待任务真正完成后再返回
-      if (isLargeFile && data.data?.task?.id) {
-        await this.waitForUploadTask(data.data.task.id);
-      }
-      return this.getPublicUrl(file.name, type);
+      const url = this.getPublicUrl(file.name, type);
+      // 大文件返回 taskId，由调用方决定是否进行后台轮询
+      const taskId = isLargeFile ? data.data?.task?.id : undefined;
+      return { url, taskId };
     } else {
       throw new Error(data.message || "上传失败");
     }

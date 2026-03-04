@@ -82,6 +82,13 @@ export const LevelFormFields = () => {
         >
             <Switch />
         </Form.Item>
+        <Form.Item
+            name="autoNext"
+            label="是否自动跳转下一题(多题型有效)"
+            valuePropName="checked"
+        >
+            <Switch />
+        </Form.Item>
         <Form.Item name="rank" label="当前关卡等级">
             <Input />
         </Form.Item>

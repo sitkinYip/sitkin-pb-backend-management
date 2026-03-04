@@ -148,10 +148,9 @@ export const ThreadEditor = () => {
               >
                 <Select
                   allowClear
-                  placeholder="AutoPlay:当内容为video时设置这个会自动播放 NextQuestion: 多题目模式下会自动下一题"
+                  placeholder="AutoPlay:当内容为video时设置这个会自动播放视频或者展开图片"
                   options={[
-                    { label: "自动播放视频", value: "AutoPlay" },
-                    { label: "自动跳转下一题", value: "NextQuestion" },
+                    { label: "自动播放", value: "AutoPlay" },
                   ]}
                 />
               </Form.Item>

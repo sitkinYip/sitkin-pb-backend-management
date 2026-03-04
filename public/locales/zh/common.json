@@ -31,6 +31,7 @@
       "placeholder": "占位符",
       "answer": "答案",
       "isFinalLevel": "是否最终关卡",
+      "autoNext": "自动跳转下一题",
       "question": "题目配置",
       "thread": "线索配置",
       "options": "选项",

@@ -20,7 +20,7 @@ export interface ThreadItem {
   content: string;
   url?: string;
   imgList?: string[];
-  state?: "ckickplay" | "NextQuestion" | string;
+  state?: "AutoPlay" | string;
   path?: string;
   query?: Record<string, string>;
   nextIndex?: number;
@@ -51,6 +51,7 @@ export interface LevelRecord {
   rankName?: string;
   rank?: string;
   isFinalLevel?: boolean;
+  autoNext?: boolean;
   FinalLevelConfig?: {
     path?: string;
     link?: string;

@@ -12,6 +12,9 @@ export const dataProvider: DataProvider = {
       sort = sorters
         .map((item) => (item.order === "desc" ? `-${item.field}` : item.field))
         .join(",");
+    } else {
+      // 默认按 step 升序排列
+      sort = "step";
     }
 
     let filter = "";

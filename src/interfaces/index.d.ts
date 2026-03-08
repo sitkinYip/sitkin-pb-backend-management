@@ -25,6 +25,7 @@ export interface ThreadItem {
   query?: Record<string, string>;
   nextIndex?: number;
   title?: string;
+  tips?: string;
 }
 export type ThreadItemList = ThreadItem[];
 

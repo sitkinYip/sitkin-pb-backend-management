@@ -123,3 +123,8 @@ export interface MultiQuestClueRecord {
   created: string;
   updated: string;
 }
+
+export interface BatchUpdateProps {
+  selectedRowKeys: string[];
+  onSuccess?: () => void;
+}

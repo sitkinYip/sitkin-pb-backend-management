@@ -5,15 +5,20 @@ import {
   ShowButton,
   useTable,
 } from "@refinedev/antd";
-import { BaseRecord, useCreate } from "@refinedev/core";
+import { BaseRecord, useCreate, useInvalidate } from "@refinedev/core";
 import { Button, Space, Table } from "antd";
 import { CopyOutlined } from "@ant-design/icons";
 import { LevelRecord } from "../../interfaces";
+import { BatchUpdateButton } from "./components/BatchUpdateButton";
+import { useState } from "react";
 
 const STORAGE_KEY = "levels_pageSize";
 const savedPageSize = Number(localStorage.getItem(STORAGE_KEY)) || 10;
 
 export const LevelList = () => {
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const invalidate = useInvalidate();
+  
   const { tableProps } = useTable<LevelRecord>({
     syncWithLocation: true,
     pagination: {
@@ -36,9 +41,24 @@ export const LevelList = () => {
 
   return (
     <List>
+      <BatchUpdateButton 
+        selectedRowKeys={selectedRowKeys}
+        onSuccess={() => {
+          setSelectedRowKeys([]);
+          // 使用 refine 的 invalidate 来刷新数据，而不是整页刷新
+          invalidate({
+            resource: "levels",
+            invalidates: ["list"],
+          });
+        }}
+      />
       <Table
         {...tableProps}
         rowKey="id"
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys as string[]),
+        }}
         pagination={{
           ...tableProps.pagination,
           showSizeChanger: true,

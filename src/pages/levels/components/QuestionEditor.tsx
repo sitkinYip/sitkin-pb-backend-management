@@ -49,7 +49,7 @@ export const QuestionEditor = () => {
                 <AlistMediaInput type="video" />
               </Form.Item>
                <Form.Item label="问题图片列表">
-                 <ListStringEditor name={[name, "imgList"]} />
+                 <ListStringEditor name={[name, "imgList"]} renderInput={() => <AlistMediaInput type="img" placeholder="图片 URL" style={{ minWidth: "300px" }} />} />
                </Form.Item>
             </Card>
           ))}

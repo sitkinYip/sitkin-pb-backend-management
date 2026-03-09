@@ -1,4 +1,4 @@
-import { Modal, Form, Input, DatePicker, Switch, Button, message, Alert } from 'antd';
+import { Modal, Form, Input, DatePicker, Switch, Button, message, Alert, Select } from 'antd';
 import { useUpdateMany } from '@refinedev/core';
 import dayjs, { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -35,8 +35,9 @@ export const BatchUpdateButton = ({ selectedRowKeys, onSuccess }: BatchUpdatePro
     if (values.rankName !== undefined && values.rankName !== null && values.rankName !== '') {
       updateData.rankName = values.rankName;
     }
-    if (values.autoNext !== undefined && values.autoNext !== null) {
-      updateData.autoNext = values.autoNext;
+    if (values.autoNext !== undefined && values.autoNext !== null && values.autoNext !== 'no_change') {
+      // value 是数字类型：1 = true, 0 = false
+      updateData.autoNext = values.autoNext === 1;
     }
 
     // 如果没有要更新的字段，直接返回
@@ -143,10 +144,16 @@ export const BatchUpdateButton = ({ selectedRowKeys, onSuccess }: BatchUpdatePro
           <Form.Item
             name="autoNext"
             label="是否自动跳转下一题 (多题型有效)"
-            tooltip="不修改请保持默认"
-            valuePropName="checked"
+            tooltip="选择'是'或'否'来修改，选择'不修改'则保持不变"
+            initialValue="no_change"
           >
-            <Switch />
+            <Select
+              options={[
+                { label: '不修改（保持原样）', value: 'no_change' },
+                { label: '是', value: 1 },
+                { label: '否', value: 0 },
+              ]}
+            />
           </Form.Item>
         </Form>
 

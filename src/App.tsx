@@ -43,6 +43,11 @@ import {
   MultiQuestClueList,
   MultiQuestClueShow,
 } from "./pages/multiQuestClues";
+import {
+  NotificationCreate,
+  NotificationEdit,
+  NotificationList,
+} from "./pages/notifications";
 import { ResourceManager } from "./pages/resourceManager";
 import { ForgotPassword } from "./pages/forgotPassword";
 import { Login } from "./pages/login";
@@ -120,6 +125,16 @@ function App() {
                       label: "资源管理",
                     },
                   },
+                  {
+                    name: "notifications",
+                    list: "/notifications",
+                    create: "/notifications/create",
+                    edit: "/notifications/edit/:id",
+                    meta: {
+                      label: "实时通知",
+                      canDelete: true,
+                    },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -169,10 +184,14 @@ function App() {
                       <Route path="edit/:id" element={<MultiQuestClueEdit />} />
                       <Route path="show/:id" element={<MultiQuestClueShow />} />
                     </Route>
-                    <Route
-                      path="/resource_manager"
+                    <Route path="/resource_manager"
                       element={<ResourceManager />}
                     />
+                    <Route path="/notifications">
+                      <Route index element={<NotificationList />} />
+                      <Route path="create" element={<NotificationCreate />} />
+                      <Route path="edit/:id" element={<NotificationEdit />} />
+                    </Route>
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>
                   <Route

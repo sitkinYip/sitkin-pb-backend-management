@@ -116,6 +116,27 @@ export interface MultiQuestClueRecord {
   id: string;
   qas: string;
   content: string;
+  buttonText?: string;
+  desc?: string;
+  collectionId: string;
+  collectionName: string;
+  created: string;
+  updated: string;
+}
+
+/** 实时通知消息 */
+export interface NotificationRecord {
+  id: string;
+  /** 消息列表中显示的标题 */
+  title: string;
+  /** 弹窗正文（支持富文本标记：[[高亮]]、((文字||url))、{{图片url}}、\n 换行） */
+  content: string;
+  /** 弹窗顶部大标题（可选，默认「✨ 魔法通知 ✨」） */
+  popupTitle?: string;
+  /** 弹窗关闭按钮文案（可选，默认「✨ 知晓了」） */
+  buttonText?: string;
+  /** 是否启用（前端只查询 enabled=true 的记录） */
+  enabled: boolean;
   collectionId: string;
   collectionName: string;
   created: string;

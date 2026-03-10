@@ -156,6 +156,13 @@ export const ThreadEditor = () => {
               </Form.Item>
               <Form.Item
                 {...restField}
+                name={[name, "tips"]}
+                label="提示文字"
+              >
+                <Input placeholder="请输入提示文字(当前用于视频播放器时提示)" />
+              </Form.Item>
+              <Form.Item
+                {...restField}
                 name={[name, "nextIndex"]}
                 label="跳转到哪一题"
               >

@@ -25,6 +25,7 @@ export interface ThreadItem {
   query?: Record<string, string>;
   nextIndex?: number;
   title?: string;
+  tips?: string;
 }
 export type ThreadItemList = ThreadItem[];
 
@@ -137,8 +138,14 @@ export interface NotificationRecord {
   buttonText?: string;
   /** 是否启用（前端只查询 enabled=true 的记录） */
   enabled: boolean;
+  title?: string;
   collectionId: string;
   collectionName: string;
   created: string;
   updated: string;
+}
+
+export interface BatchUpdateProps {
+  selectedRowKeys: string[];
+  onSuccess?: () => void;
 }

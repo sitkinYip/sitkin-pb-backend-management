@@ -12,6 +12,11 @@ export const dataProvider: DataProvider = {
       sort = sorters
         .map((item) => (item.order === "desc" ? `-${item.field}` : item.field))
         .join(",");
+    } else {
+      // 仅对 levels 资源设置默认排序
+      if (resource === "levels") {
+        sort = "step";
+      }
     }
 
     let filter = "";

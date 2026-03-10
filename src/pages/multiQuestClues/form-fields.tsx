@@ -17,6 +17,17 @@ export const MultiQuestClueFormFields = () => {
         <Input placeholder="输入 qas 参数匹配标识" />
       </Form.Item>
       <Form.Item
+        name="title"
+        label="标题"
+        rules={[
+          {
+            message: "请输入标题",
+          },
+        ]}
+      >
+        <Input placeholder="输入弹窗标题" />
+      </Form.Item>
+      <Form.Item
         name="content"
         label="线索内容 (支持项目富文本配置)"
         rules={[

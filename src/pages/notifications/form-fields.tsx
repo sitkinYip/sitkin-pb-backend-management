@@ -12,7 +12,14 @@ export const NotificationFormFields = () => {
       >
         <Input placeholder="例：活动公告" />
       </Form.Item>
-
+      {/* user字段 */}
+      <Form.Item
+        name="user"
+        label="用户id"
+        rules={[{ required: true, message: "请输入用户id" }]}
+      >
+        <Input placeholder="例：所有用户" />
+      </Form.Item>
       <Form.Item
         name="popupTitle"
         label="弹窗大标题"

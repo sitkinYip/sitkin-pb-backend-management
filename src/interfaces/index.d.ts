@@ -138,6 +138,7 @@ export interface NotificationRecord {
   buttonText?: string;
   /** 是否启用（前端只查询 enabled=true 的记录） */
   enabled: boolean;
+  user: string;
   title?: string;
   collectionId: string;
   collectionName: string;

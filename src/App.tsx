@@ -119,13 +119,6 @@ function App() {
                     },
                   },
                   {
-                    name: "resource_manager",
-                    list: "/resource_manager",
-                    meta: {
-                      label: "资源管理",
-                    },
-                  },
-                  {
                     name: "notifications",
                     list: "/notifications",
                     create: "/notifications/create",
@@ -133,6 +126,13 @@ function App() {
                     meta: {
                       label: "实时通知",
                       canDelete: true,
+                    },
+                  },
+                  {
+                    name: "resource_manager",
+                    list: "/resource_manager",
+                    meta: {
+                      label: "资源管理",
                     },
                   },
                 ]}

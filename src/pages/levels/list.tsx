@@ -69,7 +69,7 @@ export const LevelList = () => {
         }}
       >
         <Table.Column dataIndex="id" title="ID" width={160} ellipsis />
-        <Table.Column dataIndex="step" title="关卡步骤" width={100} sorter />
+        <Table.Column dataIndex="step" title="关卡步骤" width={120} sorter />
         <Table.Column
           dataIndex="question"
           title="题目"

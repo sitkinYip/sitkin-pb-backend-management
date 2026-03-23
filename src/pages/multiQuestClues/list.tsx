@@ -25,6 +25,7 @@ export const MultiQuestClueList = () => {
       <Table
         {...tableProps}
         rowKey="id"
+        scroll={{ x: "max-content" }}
         pagination={{
           ...tableProps.pagination,
           showSizeChanger: true,
@@ -33,16 +34,20 @@ export const MultiQuestClueList = () => {
           onShowSizeChange: (_, size) => localStorage.setItem(STORAGE_KEY, String(size)),
         }}
       >
-        <Table.Column dataIndex="id" title="ID" />
-        <Table.Column dataIndex="qas" title="匹配的关卡(qas)" />
-        <Table.Column 
-          dataIndex="content" 
+        <Table.Column dataIndex="id" title="ID" width={160} ellipsis />
+        <Table.Column dataIndex="qas" title="匹配的关卡(qas)" width={180} ellipsis />
+        <Table.Column
+          dataIndex="content"
           title="富文本内容"
+          width={260}
+          ellipsis
           render={(val) => val && val.length > 50 ? val.substring(0, 50) + "..." : val}
         />
         <Table.Column
-          title="Actions"
+          title="操作"
           dataIndex="actions"
+          width={100}
+          fixed="right"
           render={(_, record: BaseRecord) => (
             <Space>
               <EditButton hideText size="small" recordItemId={record.id} />

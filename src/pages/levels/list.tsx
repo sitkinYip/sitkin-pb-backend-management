@@ -55,6 +55,7 @@ export const LevelList = () => {
       <Table
         {...tableProps}
         rowKey="id"
+        scroll={{ x: "max-content" }}
         rowSelection={{
           selectedRowKeys,
           onChange: (keys) => setSelectedRowKeys(keys as string[]),
@@ -67,33 +68,39 @@ export const LevelList = () => {
           onShowSizeChange: (_, size) => localStorage.setItem(STORAGE_KEY, String(size)),
         }}
       >
-        <Table.Column dataIndex="id" title="ID" />
-        <Table.Column dataIndex="step" title="Step" sorter />
+        <Table.Column dataIndex="id" title="ID" width={160} ellipsis />
+        <Table.Column dataIndex="step" title="关卡步骤" width={100} sorter />
         <Table.Column
           dataIndex="question"
-          title="Question"
+          title="题目"
+          width={200}
+          ellipsis
           render={(value) => {
-             if (Array.isArray(value)) {
-                 return JSON.stringify(value).slice(0, 50) + "...";
-             }
-             return value;
+            if (Array.isArray(value)) {
+              return JSON.stringify(value).slice(0, 50) + "...";
+            }
+            return value;
           }}
         />
-        <Table.Column dataIndex="placeholder" title="Placeholder" />
+        <Table.Column dataIndex="placeholder" title="提示占位" width={140} ellipsis />
         <Table.Column
           dataIndex="thread"
-          title="Thread"
-           render={(value) => {
-             if (Array.isArray(value)) {
-                 return JSON.stringify(value).slice(0, 50) + "...";
-             }
-             return value;
+          title="线索"
+          width={200}
+          ellipsis
+          render={(value) => {
+            if (Array.isArray(value)) {
+              return JSON.stringify(value).slice(0, 50) + "...";
+            }
+            return value;
           }}
         />
-        <Table.Column dataIndex="answer" title="Answer" />
+        <Table.Column dataIndex="answer" title="答案" width={140} ellipsis />
         <Table.Column
-          title="Actions"
+          title="操作"
           dataIndex="actions"
+          width={120}
+          fixed="right"
           render={(_, record: BaseRecord) => (
             <Space>
               <EditButton hideText size="small" recordItemId={record.id} />

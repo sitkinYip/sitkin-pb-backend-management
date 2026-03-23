@@ -20,6 +20,7 @@ export const PhraseList = () => {
       <Table
         {...tableProps}
         rowKey="id"
+        scroll={{ x: "max-content" }}
         pagination={{
           ...tableProps.pagination,
           showSizeChanger: true,
@@ -28,30 +29,36 @@ export const PhraseList = () => {
           onShowSizeChange: (_, size) => localStorage.setItem(STORAGE_KEY, String(size)),
         }}
       >
-        <Table.Column dataIndex="id" title="Id" />
-        <Table.Column dataIndex="from" title="From" />
-        <Table.Column dataIndex="title" title="Title" />
-        <Table.Column 
-            title="Phrase Count" 
-            render={(_, record: PhraseListRecord) => record.phraseList?.length || 0}
+        <Table.Column dataIndex="id" title="ID" width={160} ellipsis />
+        <Table.Column dataIndex="from" title="来源" width={120} ellipsis />
+        <Table.Column dataIndex="title" title="标题" width={160} ellipsis />
+        <Table.Column
+          title="短语数量"
+          width={100}
+          render={(_, record: PhraseListRecord) => record.phraseList?.length || 0}
         />
-        <Table.Column 
-            title="Take A Bow Count" 
-            render={(_, record: PhraseListRecord) => record.takeABowList?.length || 0}
+        <Table.Column
+          title="Take A Bow 数量"
+          width={140}
+          render={(_, record: PhraseListRecord) => record.takeABowList?.length || 0}
         />
         <Table.Column
           dataIndex="created"
-          title="Created"
-          render={(value) => <DateField value={value} />}
+          title="创建时间"
+          width={160}
+          render={(value) => <DateField value={value} format="YYYY-MM-DD HH:mm" />}
         />
         <Table.Column
           dataIndex="updated"
-          title="Updated"
-          render={(value) => <DateField value={value} />}
+          title="更新时间"
+          width={160}
+          render={(value) => <DateField value={value} format="YYYY-MM-DD HH:mm" />}
         />
         <Table.Column
-          title="Actions"
+          title="操作"
           dataIndex="actions"
+          width={80}
+          fixed="right"
           render={(_, record: BaseRecord) => (
             <Space>
               <EditButton hideText size="small" recordItemId={record.id} />

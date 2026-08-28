@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Card,
   Tabs,
   Upload,
   Button,
@@ -32,6 +31,7 @@ import {
 } from "@ant-design/icons";
 import { alistService, AlistFileItem } from "../../services/alist";
 import { LoginModal } from "../../components/Alist/LoginModal";
+import { PageCard } from "../../game/ui";
 
 const { Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -159,38 +159,49 @@ export const ResourceManager: React.FC = () => {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
 
   // refresh=true 时强制 Alist 重新索引目录，用于上传后刷新
-  const fetchFileList = useCallback(async (type: MediaType, refresh = false) => {
-    if (!alistService.checkToken()) {
-      setFileList([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const files = await alistService.listFiles(type, refresh);
-      const sortedFiles = files
-        .filter((file) => !file.is_dir)
-        .sort(
-          (fileA, fileB) =>
-            new Date(fileB.modified).getTime() -
-            new Date(fileA.modified).getTime()
-        );
-      setFileList(sortedFiles);
-    } catch (error: unknown) {
-      const errorMessage = (error as { message?: string })?.message;
-      // 仅匹配 Alist 明确的登录失效消息，避免把 JSON 解析错误等误判为登录失效
-      const AUTH_PATTERNS = ["请先登录", "token is expired", "token is invalid", "invalid or expired", "unauthorized"];
-      const isAuth = AUTH_PATTERNS.some((p) => errorMessage?.toLowerCase().includes(p.toLowerCase()));
-      if (isAuth) {
-        setLoginModalOpen(true);
-      } else {
-        message.error(errorMessage || "获取文件列表失败");
+  const fetchFileList = useCallback(
+    async (type: MediaType, refresh = false) => {
+      if (!alistService.checkToken()) {
+        setFileList([]);
+        return;
       }
-      setFileList([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+
+      setLoading(true);
+      try {
+        const files = await alistService.listFiles(type, refresh);
+        const sortedFiles = files
+          .filter((file) => !file.is_dir)
+          .sort(
+            (fileA, fileB) =>
+              new Date(fileB.modified).getTime() -
+              new Date(fileA.modified).getTime(),
+          );
+        setFileList(sortedFiles);
+      } catch (error: unknown) {
+        const errorMessage = (error as { message?: string })?.message;
+        // 仅匹配 Alist 明确的登录失效消息，避免把 JSON 解析错误等误判为登录失效
+        const AUTH_PATTERNS = [
+          "请先登录",
+          "token is expired",
+          "token is invalid",
+          "invalid or expired",
+          "unauthorized",
+        ];
+        const isAuth = AUTH_PATTERNS.some((p) =>
+          errorMessage?.toLowerCase().includes(p.toLowerCase()),
+        );
+        if (isAuth) {
+          setLoginModalOpen(true);
+        } else {
+          message.error(errorMessage || "获取文件列表失败");
+        }
+        setFileList([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     fetchFileList(activeType);
@@ -222,7 +233,10 @@ export const ResourceManager: React.FC = () => {
 
       if (taskId) {
         // 大文件：任务已提交，立即停止 loading 并通知用户
-        message.info("大文件上传任务已提交，正在后台上传中…完成后列表将自动刷新", 5);
+        message.info(
+          "大文件上传任务已提交，正在后台上传中…完成后列表将自动刷新",
+          5,
+        );
         // 后台非阻塞轮询，完成后自动刷新列表
         alistService.pollUploadTask(
           taskId,
@@ -242,11 +256,11 @@ export const ResourceManager: React.FC = () => {
                 >
                   复制链接
                 </Button>
-              </span>
+              </span>,
             );
             fetchFileList(activeType, true);
           },
-          (errMsg) => message.error(`${file.name} 上传失败：${errMsg}`)
+          (errMsg) => message.error(`${file.name} 上传失败：${errMsg}`),
         );
       } else {
         // 小文件：同步完成，直接刷新
@@ -263,14 +277,22 @@ export const ResourceManager: React.FC = () => {
             >
               复制链接
             </Button>
-          </span>
+          </span>,
         );
         fetchFileList(activeType, true);
       }
     } catch (error: unknown) {
       const errorMessage = (error as { message?: string })?.message;
-      const AUTH_PATTERNS = ["请先登录", "token is expired", "token is invalid", "invalid or expired", "unauthorized"];
-      const isAuth = AUTH_PATTERNS.some((p) => errorMessage?.toLowerCase().includes(p.toLowerCase()));
+      const AUTH_PATTERNS = [
+        "请先登录",
+        "token is expired",
+        "token is invalid",
+        "invalid or expired",
+        "unauthorized",
+      ];
+      const isAuth = AUTH_PATTERNS.some((p) =>
+        errorMessage?.toLowerCase().includes(p.toLowerCase()),
+      );
       if (isAuth) {
         pendingUploadFileRef.current = file;
         setLoginModalOpen(true);
@@ -281,7 +303,6 @@ export const ResourceManager: React.FC = () => {
       setUploading(false);
     }
   };
-
 
   const handleLoginSuccess = () => {
     setLoginModalOpen(false);
@@ -311,7 +332,7 @@ export const ResourceManager: React.FC = () => {
 
   const filteredFiles = searchKeyword
     ? fileList.filter((file) =>
-        file.name.toLowerCase().includes(searchKeyword.toLowerCase())
+        file.name.toLowerCase().includes(searchKeyword.toLowerCase()),
       )
     : fileList;
 
@@ -345,7 +366,9 @@ export const ResourceManager: React.FC = () => {
     return (
       <Tooltip title={`点击预览${MEDIA_TYPE_CONFIG[activeType].label}`}>
         <div
-          onClick={() => openPreview(activeType as "video" | "audio", url, file.name)}
+          onClick={() =>
+            openPreview(activeType as "video" | "audio", url, file.name)
+          }
           style={{
             width: thumbSize,
             height: thumbSize,
@@ -389,14 +412,12 @@ export const ResourceManager: React.FC = () => {
   }));
 
   return (
-    <div style={{ padding: isMobile ? 12 : 24 }}>
-      <Card
+    <div className="admin-resource-page">
+      <PageCard
         title="资源管理"
         extra={
           !isMobile && alistService.checkToken() ? (
-            <Text type="secondary">
-              当前账号: {alistService.getUsername()}
-            </Text>
+            <Text type="secondary">当前账号: {alistService.getUsername()}</Text>
           ) : null
         }
         styles={{ body: { padding: isMobile ? 12 : 24 } }}
@@ -426,7 +447,9 @@ export const ResourceManager: React.FC = () => {
           {/* 上传中用 div 包裹 Spin（避免 div 嵌套在 p 内的 HTML 非法问题） */}
           {/* 空闲时保留 p.ant-upload-drag-icon，让 antd CSS 的图标大小规则生效 */}
           {uploading ? (
-            <div style={{ fontSize: 48, marginBottom: 20, textAlign: "center" }}>
+            <div
+              style={{ fontSize: 48, marginBottom: 20, textAlign: "center" }}
+            >
               <Spin size="large" />
             </div>
           ) : (
@@ -442,7 +465,8 @@ export const ResourceManager: React.FC = () => {
                 : `点击或拖拽${MEDIA_TYPE_CONFIG[activeType].label}文件到此区域上传`}
           </p>
           <p className="ant-upload-hint">
-            支持{MEDIA_TYPE_CONFIG[activeType].label}格式文件
+            支持{MEDIA_TYPE_CONFIG[activeType].label}
+            文件，上传后自动生成安全文件名；复制链接即可用于配置
           </p>
         </Dragger>
 
@@ -464,6 +488,7 @@ export const ResourceManager: React.FC = () => {
             style={{ flex: 1 }}
           />
           <Button
+            aria-label="刷新资源列表"
             icon={<ReloadOutlined />}
             onClick={() => fetchFileList(activeType)}
             loading={loading}
@@ -476,7 +501,7 @@ export const ResourceManager: React.FC = () => {
               icon={<UploadOutlined />}
               onClick={() => setLoginModalOpen(true)}
             >
-              登录 Alist
+              连接资源库
             </Button>
           )}
         </div>
@@ -498,9 +523,7 @@ export const ResourceManager: React.FC = () => {
             emptyText: (
               <Empty
                 description={
-                  alistService.checkToken()
-                    ? "暂无文件"
-                    : "请先登录 Alist 账号"
+                  alistService.checkToken() ? "暂无文件" : "请先登录 Alist 账号"
                 }
               />
             ),
@@ -570,7 +593,7 @@ export const ResourceManager: React.FC = () => {
                             openPreview(
                               activeType as "video" | "audio",
                               publicUrl,
-                              file.name
+                              file.name,
                             )
                           }
                         >
@@ -595,21 +618,28 @@ export const ResourceManager: React.FC = () => {
                         openPreview(
                           activeType as "video" | "audio",
                           publicUrl,
-                          file.name
+                          file.name,
                         )
                       }
                     >
                       预览
                     </Button>
                   ),
-                  <CopyButton key="copy" text={publicUrl} isMobile={isMobile} />,
+                  <CopyButton
+                    key="copy"
+                    text={publicUrl}
+                    isMobile={isMobile}
+                  />,
                 ].filter(Boolean)}
               >
                 <List.Item.Meta
                   avatar={renderFilePreview(file)}
                   title={
                     <Space>
-                      <Text ellipsis={{ tooltip: file.name }} style={{ maxWidth: 300 }}>
+                      <Text
+                        ellipsis={{ tooltip: file.name }}
+                        style={{ maxWidth: 300 }}
+                      >
                         {file.name}
                       </Text>
                       <Tag color={MEDIA_TYPE_CONFIG[activeType].color}>
@@ -618,9 +648,15 @@ export const ResourceManager: React.FC = () => {
                     </Space>
                   }
                   description={
-                    <Space direction="vertical" size={2} style={{ width: "100%" }}>
+                    <Space
+                      direction="vertical"
+                      size={2}
+                      style={{ width: "100%" }}
+                    >
                       <Space split="·">
-                        <Text type="secondary">{formatFileSize(file.size)}</Text>
+                        <Text type="secondary">
+                          {formatFileSize(file.size)}
+                        </Text>
                         <Text type="secondary">
                           {formatDate(file.modified)}
                         </Text>
@@ -644,7 +680,7 @@ export const ResourceManager: React.FC = () => {
             );
           }}
         />
-      </Card>
+      </PageCard>
 
       {/* 视频 / 音频预览弹窗 */}
       <Modal
@@ -654,7 +690,9 @@ export const ResourceManager: React.FC = () => {
         footer={null}
         // 移动端全屏展示
         width={isMobile ? "100vw" : preview.type === "video" ? 800 : 480}
-        style={isMobile ? { top: 0, margin: 0, padding: 0, maxWidth: "100vw" } : {}}
+        style={
+          isMobile ? { top: 0, margin: 0, padding: 0, maxWidth: "100vw" } : {}
+        }
         styles={
           isMobile
             ? { body: { padding: "12px 8px" } }
@@ -673,7 +711,12 @@ export const ResourceManager: React.FC = () => {
         ) : (
           <div style={{ textAlign: "center", padding: "24px 0" }}>
             <AudioOutlined
-              style={{ fontSize: 48, color: "#52c41a", marginBottom: 16, display: "block" }}
+              style={{
+                fontSize: 48,
+                color: "#52c41a",
+                marginBottom: 16,
+                display: "block",
+              }}
             />
             <audio
               ref={mediaRef as React.RefObject<HTMLAudioElement>}

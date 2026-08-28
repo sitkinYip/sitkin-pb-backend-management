@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>本地响应式验收</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        background: #e8edf2;
+        font: 14px system-ui;
+      }
+      form {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      select,
+      button,
+      input {
+        font: inherit;
+        padding: 6px;
+      }
+      iframe {
+        display: block;
+        border: 0;
+        background: white;
+        box-shadow: 0 0 0 1px #cbd5e1;
+      }
+      #metrics {
+        display: block;
+        height: 80px;
+        overflow: auto;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <form>
+      <label
+        >宽度
+        <select name="width">
+          <option>320</option>
+          <option>375</option>
+          <option selected>390</option>
+          <option>768</option>
+          <option>1024</option>
+          <option>1440</option>
+        </select></label
+      >
+      <label
+        >高度
+        <select name="height">
+          <option>480</option>
+          <option>667</option>
+          <option selected>844</option>
+          <option>900</option>
+        </select></label
+      >
+      <label
+        >页面
+        <select name="page">
+          <option>/login</option>
+          <option>/players</option>
+          <option>/questions</option>
+          <option>/sessions</option>
+          <option>/dispatch</option>
+          <option>/progress</option>
+          <option>/rewards</option>
+          <option>/grants</option>
+          <option>/narratives</option>
+          <option>/notifications</option>
+          <option>/ranks</option>
+          <option>/audit</option>
+          <option>/resource_manager</option>
+        </select></label
+      >
+      <button type="submit">载入预览</button>
+    </form>
+    <p>
+      <button id="measure" type="button" disabled>检查布局</button>
+      <output id="metrics">预览尚未测量</output>
+    </p>
+    <iframe title="后台响应式预览"></iframe>
+    <script type="module">
+      // Development-only harness; Vite's production entry remains index.html.
+      const params = new URLSearchParams(location.search);
+      const form = document.querySelector("form");
+      for (const name of ["width", "height", "page"]) {
+        const control = form.elements.namedItem(name);
+        if (
+          [...control.options].some(
+            (option) => option.value === params.get(name),
+          )
+        )
+          control.value = params.get(name);
+      }
+      const frame = document.querySelector("iframe");
+      frame.addEventListener("load", () => {
+        const ready = () => {
+          if (frame.contentDocument?.querySelector("h1")) {
+            document.querySelector("#measure").disabled = false;
+            if (params.get("field"))
+              frame.contentDocument
+                .getElementById(params.get("field"))
+                ?.scrollIntoView({ block: "center" });
+          } else requestAnimationFrame(ready);
+        };
+        ready();
+      });
+      frame.width = form.elements.namedItem("width").value;
+      frame.height = form.elements.namedItem("height").value;
+      frame.src = form.elements.namedItem("page").value;
+      if (
+        form.elements.namedItem("page").value === "/sessions" &&
+        params.get("sessionId")
+      ) {
+        frame.src +=
+          "?sessionId=" + encodeURIComponent(params.get("sessionId"));
+      }
+      document.querySelector("#measure").addEventListener("click", () => {
+        const doc = frame.contentDocument;
+        const root = doc.documentElement;
+        document.querySelector("#metrics").textContent = JSON.stringify({
+          viewport: [
+            frame.contentWindow.innerWidth,
+            frame.contentWindow.innerHeight,
+          ],
+          document: [root.scrollWidth, root.scrollHeight],
+          title: doc.querySelector("h1")?.textContent,
+          tables: [...doc.querySelectorAll(".ant-table-content")].map((el) => [
+            el.clientWidth,
+            el.scrollWidth,
+          ]),
+          drawer: [...doc.querySelectorAll(".ant-drawer-content-wrapper")]
+            .filter(
+              (el) =>
+                el.getBoundingClientRect().width &&
+                getComputedStyle(el).visibility !== "hidden",
+            )
+            .map((el) => Math.round(el.getBoundingClientRect().width)),
+          formOverflow: [
+            ...doc.querySelectorAll(
+              ".ant-drawer-body, .ant-modal-body, .admin-field-grid",
+            ),
+          ]
+            .filter((el) => el.clientWidth)
+            .map((el) => [el.clientWidth, el.scrollWidth]),
+          controls: [
+            ...doc.querySelectorAll("button, [role=tab], input[placeholder]"),
+          ]
+            .filter((el) => el.getBoundingClientRect().width && !el.disabled)
+            .map((el) => {
+              const rect = el.getBoundingClientRect();
+              const offset = frame.getBoundingClientRect();
+              return {
+                label:
+                  el.getAttribute("aria-label") ||
+                  el.getAttribute("placeholder") ||
+                  el.textContent.trim(),
+                x: Math.round(offset.x + rect.x + rect.width / 2),
+                y: Math.round(offset.y + rect.y + rect.height / 2),
+              };
+            })
+            .filter((el) => el.y >= 0 && el.y <= window.innerHeight),
+        });
+      });
+    </script>
+  </body>
+</html>

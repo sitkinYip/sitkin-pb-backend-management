@@ -1,3 +1,5 @@
+import { AdminTable, EditorDrawer, Field, PageCard } from "./ui";
+import { auditActionLabels, entityLabels } from "./display-labels";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -6,7 +8,6 @@ import {
   Card,
   DatePicker,
   Descriptions,
-  Drawer,
   Form,
   Input,
   InputNumber,
@@ -14,7 +15,6 @@ import {
   Select,
   Space,
   Switch,
-  Table,
   Tag,
   Typography,
 } from "antd";
@@ -78,6 +78,7 @@ export function OperationPage({
   );
 }
 function Players({ catalog, refresh }: Props) {
+  const [search, setSearch] = useState("");
   const [form] = Form.useForm(),
     [actionForm] = Form.useForm();
   const [createOpen, setCreateOpen] = useState(false),
@@ -88,7 +89,7 @@ function Players({ catalog, refresh }: Props) {
     setAction({ id: row.id, type });
   };
   return (
-    <Card
+    <PageCard
       title="玩家管理"
       extra={
         <Button
@@ -102,9 +103,22 @@ function Players({ catalog, refresh }: Props) {
         </Button>
       }
     >
-      <Table<GamePlayer & { status: string }>
+      <div className="admin-list-toolbar">
+        <Input.Search
+          aria-label="搜索玩家"
+          placeholder="搜索昵称或登录账号"
+          allowClear
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+      <AdminTable<GamePlayer & { status: string }>
         rowKey="id"
-        dataSource={catalog.players}
+        dataSource={catalog.players.filter((player) =>
+          `${player.displayName} ${player.account}`
+            .toLowerCase()
+            .includes(search.trim().toLowerCase()),
+        )}
         scroll={{ x: 850 }}
         columns={[
           { title: "登录账号", dataIndex: "account" },
@@ -162,7 +176,7 @@ function Players({ catalog, refresh }: Props) {
             if (await run("/admin/players", values)) setCreateOpen(false);
           }}
         >
-          <Form.Item
+          <Field
             name="account"
             label="唯一登录账号"
             rules={[
@@ -174,21 +188,21 @@ function Players({ catalog, refresh }: Props) {
             ]}
           >
             <Input autoComplete="off" />
-          </Form.Item>
-          <Form.Item
+          </Field>
+          <Field
             name="displayName"
             label="显示昵称（可重名）"
             rules={fieldRule}
           >
             <Input maxLength={40} />
-          </Form.Item>
-          <Form.Item
+          </Field>
+          <Field
             name="password"
             label="临时密码"
             rules={[{ required: true, min: 10, max: 71 }]}
           >
             <Input.Password autoComplete="new-password" />
-          </Form.Item>
+          </Field>
           <Alert
             type="info"
             message="请将临时密码交给玩家；玩家首次登录必须改密，系统不会保存可查看的明文密码。"
@@ -196,7 +210,18 @@ function Players({ catalog, refresh }: Props) {
         </Form>
       </Modal>
       <Modal
-        title="管理操作"
+        title={
+          action
+            ? (
+                {
+                  reset_password: "重置玩家密码",
+                  adjust_xp: "调整玩家经验",
+                  disable: "停用玩家账号",
+                  enable: "启用玩家账号",
+                } as Record<string, string>
+              )[action.type]
+            : "管理操作"
+        }
         open={!!action}
         onCancel={() => setAction(null)}
         onOk={() => actionForm.submit()}
@@ -219,29 +244,29 @@ function Players({ catalog, refresh }: Props) {
           }}
         >
           {action?.type === "reset_password" && (
-            <Form.Item
+            <Field
               name="password"
               label="新的临时密码"
               rules={[{ required: true, min: 10, max: 71 }]}
             >
               <Input.Password autoComplete="new-password" />
-            </Form.Item>
+            </Field>
           )}
           {action?.type === "adjust_xp" && (
-            <Form.Item
+            <Field
               name="delta"
               label="经验变化（正数增加，负数扣回）"
               rules={fieldRule}
             >
               <InputNumber min={-1000000} max={1000000} />
-            </Form.Item>
+            </Field>
           )}
-          <Form.Item name="reason" label="操作原因" rules={fieldRule}>
+          <Field name="reason" label="操作原因" rules={fieldRule}>
             <Input.TextArea />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
-    </Card>
+    </PageCard>
   );
 }
 function Dispatch({ catalog, refresh }: Props) {
@@ -256,7 +281,7 @@ function Dispatch({ catalog, refresh }: Props) {
       ? catalog.players.filter((p) => p.status === "active").length
       : ids.length;
   return (
-    <Card title="场次下发">
+    <PageCard title="场次下发">
       <Alert
         type="info"
         showIcon
@@ -288,7 +313,7 @@ function Dispatch({ catalog, refresh }: Props) {
           });
         }}
       >
-        <Form.Item name="sessionId" label="已发布场次" rules={fieldRule}>
+        <Field name="sessionId" label="已发布场次" rules={fieldRule}>
           <Select
             showSearch
             optionFilterProp="label"
@@ -299,8 +324,8 @@ function Dispatch({ catalog, refresh }: Props) {
                 label: `${s.title} · v${s.revision}`,
               }))}
           />
-        </Form.Item>
-        <Form.Item name="target" label="下发范围" rules={fieldRule}>
+        </Field>
+        <Field name="target" label="下发范围" rules={fieldRule}>
           <Select
             options={[
               { value: "selected", label: "指定用户" },
@@ -310,9 +335,9 @@ function Dispatch({ catalog, refresh }: Props) {
               },
             ]}
           />
-        </Form.Item>
+        </Field>
         {target === "selected" && (
-          <Form.Item name="playerIds" label="选择玩家" rules={fieldRule}>
+          <Field name="playerIds" label="选择玩家" rules={fieldRule}>
             <Select
               mode="multiple"
               showSearch
@@ -324,41 +349,41 @@ function Dispatch({ catalog, refresh }: Props) {
                   label: `${p.displayName}（${p.account}）· ${p.level.order} 级`,
                 }))}
             />
-          </Form.Item>
+          </Field>
         )}
-        <Space wrap>
-          <Form.Item
+        <div className="admin-field-grid">
+          <Field
             name="startsAt"
             label="开始时间"
             getValueProps={(v) => ({ value: v ? dayjs(v) : null })}
             normalize={(v) => v?.toISOString() || ""}
           >
             <DatePicker showTime />
-          </Form.Item>
-          <Form.Item
+          </Field>
+          <Field
             name="endsAt"
             label="截止时间"
             getValueProps={(v) => ({ value: v ? dayjs(v) : null })}
             normalize={(v) => v?.toISOString() || ""}
           >
             <DatePicker showTime />
-          </Form.Item>
-          <Form.Item name="order" label="展示顺序">
+          </Field>
+          <Field name="order" label="展示顺序">
             <InputNumber min={0} />
-          </Form.Item>
-        </Space>
+          </Field>
+        </div>
         <Typography.Paragraph type="secondary">
           时间按当前设备时区显示：
           {Intl.DateTimeFormat().resolvedOptions().timeZone}
           。不符合等级的用户也可提前安排，首次入场时再检查资格。
         </Typography.Paragraph>
-        <Form.Item
+        <Field
           name="reissueCompleted"
           label="对已完成用户重新下发"
           valuePropName="checked"
         >
           <Switch />
-        </Form.Item>
+        </Field>
         <Button
           type="primary"
           htmlType="submit"
@@ -371,7 +396,7 @@ function Dispatch({ catalog, refresh }: Props) {
       {result && (
         <>
           <Typography.Title level={4}>本次下发结果</Typography.Title>
-          <Table
+          <AdminTable
             rowKey="playerId"
             dataSource={result.results}
             pagination={false}
@@ -392,7 +417,7 @@ function Dispatch({ catalog, refresh }: Props) {
           />
         </>
       )}
-    </Card>
+    </PageCard>
   );
 }
 function Progress({ catalog }: { catalog: AdminCatalog }) {
@@ -441,12 +466,12 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
     (s) => s.id === detail.data?.session,
   );
   return (
-    <Card
+    <PageCard
       title="现场进度"
       extra={<Button onClick={() => void refresh()}>刷新</Button>}
     >
       <ErrorNotice error={query.error} retry={() => void query.refresh()} />
-      <Table
+      <AdminTable
         rowKey="id"
         loading={query.loading && !query.data}
         dataSource={query.data?.items || []}
@@ -502,7 +527,7 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
           },
         ]}
       />
-      <Drawer
+      <EditorDrawer
         title="游玩详情与现场协助"
         width={900}
         open={!!selected}
@@ -540,7 +565,7 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
                 },
               ]}
             />
-            <Table
+            <AdminTable
               rowKey="id"
               dataSource={detail.data.levels}
               pagination={false}
@@ -620,18 +645,22 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
               error={submissions.error}
               retry={() => void submissions.refresh()}
             />
-            <Table
+            <AdminTable
               rowKey="id"
               dataSource={submissions.data?.items || []}
               columns={[
                 { title: "回答", dataIndex: "answer" },
-                { title: "结果", dataIndex: "result" },
+                {
+                  title: "结果",
+                  dataIndex: "result",
+                  render: (value) => statusLabels[value] || value,
+                },
                 { title: "服务端时间", dataIndex: "submittedAt" },
               ]}
             />
           </>
         )}
-      </Drawer>
+      </EditorDrawer>
       <Modal
         title="确认现场操作"
         open={!!action}
@@ -658,14 +687,14 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
           }}
         >
           {action?.type === "extend" && (
-            <Form.Item
+            <Field
               name="endsAt"
               label="新的截止时间（留空取消截止）"
               getValueProps={(v) => ({ value: v ? dayjs(v) : null })}
               normalize={(v) => v?.toISOString() || ""}
             >
               <DatePicker showTime />
-            </Form.Item>
+            </Field>
           )}
           {action?.type === "complete_level" && (
             <Alert
@@ -673,12 +702,12 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
               message="人工通过会正常结算经验和奖品，请确认现场情况。"
             />
           )}
-          <Form.Item name="reason" label="操作原因" rules={fieldRule}>
+          <Field name="reason" label="操作原因" rules={fieldRule}>
             <Input.TextArea />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
-    </Card>
+    </PageCard>
   );
 }
 function Grants({ catalog }: { catalog: AdminCatalog }) {
@@ -697,7 +726,7 @@ function Grants({ catalog }: { catalog: AdminCatalog }) {
     setAction({ row, type });
   };
   return (
-    <Card
+    <PageCard
       title="奖品核销"
       extra={
         <Space>
@@ -715,7 +744,7 @@ function Grants({ catalog }: { catalog: AdminCatalog }) {
       }
     >
       <ErrorNotice error={query.error} retry={() => void query.refresh()} />
-      <Table
+      <AdminTable
         rowKey="id"
         dataSource={query.data?.items || []}
         scroll={{ x: 850 }}
@@ -804,21 +833,17 @@ function Grants({ catalog }: { catalog: AdminCatalog }) {
               `${playerName(catalog, action.row.player)} · ${action.row.snapshot.name}`}
           </Typography.Paragraph>
           {action?.type === "claim_details" && (
-            <Form.Item
+            <Field
               name="claimDetails"
               label="仅此用户可见的取件码 / 领取说明"
               extra={<TextSyntaxHelp />}
             >
               <Input.TextArea rows={4} />
-            </Form.Item>
+            </Field>
           )}
-          <Form.Item
-            name="reason"
-            label="核销备注 / 操作原因"
-            rules={fieldRule}
-          >
+          <Field name="reason" label="核销备注 / 操作原因" rules={fieldRule}>
             <Input.TextArea />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
       <Modal
@@ -837,30 +862,30 @@ function Grants({ catalog }: { catalog: AdminCatalog }) {
             if (await run("/admin/grants", values)) setManualOpen(false);
           }}
         >
-          <Form.Item name="playerId" label="玩家" rules={fieldRule}>
+          <Field name="playerId" label="玩家" rules={fieldRule}>
             <Select
               options={catalog.players.map((p) => ({
                 value: p.id,
                 label: `${p.displayName}（${p.account}）`,
               }))}
             />
-          </Form.Item>
-          <Form.Item name="rewardId" label="奖品" rules={fieldRule}>
+          </Field>
+          <Field name="rewardId" label="奖品" rules={fieldRule}>
             <Select
               options={catalog.rewards
                 .filter((r) => r.active)
                 .map((r) => ({ value: r.id, label: r.name }))}
             />
-          </Form.Item>
-          <Form.Item name="quantity" label="数量" rules={fieldRule}>
+          </Field>
+          <Field name="quantity" label="数量" rules={fieldRule}>
             <InputNumber min={1} max={100} />
-          </Form.Item>
-          <Form.Item name="reason" label="发奖原因" rules={fieldRule}>
+          </Field>
+          <Field name="reason" label="发奖原因" rules={fieldRule}>
             <Input.TextArea />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
-    </Card>
+    </PageCard>
   );
 }
 function Notifications({ catalog }: { catalog: AdminCatalog }) {
@@ -879,7 +904,7 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
   const target = Form.useWatch("target", form);
   const [withdraw, setWithdraw] = useState("");
   return (
-    <Card title="通知管理">
+    <PageCard title="通知管理">
       <ErrorNotice error={query.error} retry={() => void query.refresh()} />
       <Form
         name="notification-create"
@@ -890,7 +915,7 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
           if (await run("/admin/notifications", values)) form.resetFields();
         }}
       >
-        <Form.Item name="target" label="接收范围" rules={fieldRule}>
+        <Field name="target" label="接收范围" rules={fieldRule}>
           <Select
             options={[
               { value: "selected", label: "指定用户" },
@@ -898,9 +923,9 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
               { value: "session", label: "某场次的参与者" },
             ]}
           />
-        </Form.Item>
+        </Field>
         {target === "selected" && (
-          <Form.Item name="playerIds" label="玩家" rules={fieldRule}>
+          <Field name="playerIds" label="玩家" rules={fieldRule}>
             <Select
               mode="multiple"
               options={catalog.players.map((p) => ({
@@ -908,50 +933,50 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
                 label: `${p.displayName}（${p.account}）`,
               }))}
             />
-          </Form.Item>
+          </Field>
         )}
         {target === "session" && (
-          <Form.Item name="sessionId" label="场次版本" rules={fieldRule}>
+          <Field name="sessionId" label="场次版本" rules={fieldRule}>
             <Select
               options={catalog.sessions.map((s) => ({
                 value: s.id,
                 label: `${s.title} v${s.revision}`,
               }))}
             />
-          </Form.Item>
+          </Field>
         )}
-        <Form.Item name="title" label="通知标题" rules={fieldRule}>
+        <Field name="title" label="通知标题" rules={fieldRule}>
           <Input />
-        </Form.Item>
-        <Form.Item
+        </Field>
+        <Field
           name="content"
           label="正文（支持原有富文本标记）"
           rules={fieldRule}
           extra={<TextSyntaxHelp />}
         >
           <Input.TextArea rows={4} />
-        </Form.Item>
-        <Space wrap>
-          <Form.Item name="popupTitle" label="弹窗标题">
+        </Field>
+        <div className="admin-field-grid">
+          <Field name="popupTitle" label="弹窗标题">
             <Input />
-          </Form.Item>
-          <Form.Item name="buttonText" label="确认按钮文字">
+          </Field>
+          <Field name="buttonText" label="确认按钮文字">
             <Input />
-          </Form.Item>
-          <Form.Item
+          </Field>
+          <Field
             name="expiresAt"
             label="过期时间"
             getValueProps={(v) => ({ value: v ? dayjs(v) : null })}
             normalize={(v) => v?.toISOString() || ""}
           >
             <DatePicker showTime />
-          </Form.Item>
-        </Space>
+          </Field>
+        </div>
         <Button type="primary" htmlType="submit" loading={busy}>
           发送通知
         </Button>
       </Form>
-      <Table
+      <AdminTable
         style={{ marginTop: 32 }}
         rowKey="id"
         dataSource={query.data?.items || []}
@@ -995,12 +1020,12 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
               setWithdraw("");
           }}
         >
-          <Form.Item name="reason" label="原因" rules={fieldRule}>
+          <Field name="reason" label="原因" rules={fieldRule}>
             <Input.TextArea />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
-    </Card>
+    </PageCard>
   );
 }
 function Ranks({ catalog, refresh }: Props) {
@@ -1011,7 +1036,7 @@ function Ranks({ catalog, refresh }: Props) {
     form.setFieldsValue({ levels: catalog.ranks });
   }, [catalog.ranks, form]);
   return (
-    <Card title="等级与经验阈值">
+    <PageCard title="等级与经验阈值">
       <Alert
         type="info"
         message="阈值使用累计经验，第一级从 0 开始且严格递增。修改影响尚未入场的资格，不中断已开始场次。"
@@ -1044,26 +1069,26 @@ function Ranks({ catalog, refresh }: Props) {
           {(fields, { add }) => (
             <>
               {fields.map(({ key, name }) => (
-                <Space key={key} align="start">
-                  <Form.Item name={[name, "id"]} hidden>
+                <div className="admin-rank-row" key={key}>
+                  <Field name={[name, "id"]} hidden>
                     <Input />
-                  </Form.Item>
+                  </Field>
                   <Typography.Text>{name + 1} 级</Typography.Text>
-                  <Form.Item
+                  <Field
                     name={[name, "name"]}
                     label="等级名称"
                     rules={fieldRule}
                   >
                     <Input />
-                  </Form.Item>
-                  <Form.Item
+                  </Field>
+                  <Field
                     name={[name, "minTotalXp"]}
                     label="累计经验下限"
                     rules={fieldRule}
                   >
                     <InputNumber min={0} max={1000000} />
-                  </Form.Item>
-                </Space>
+                  </Field>
+                </div>
               ))}
               <Button
                 onClick={() =>
@@ -1075,19 +1100,19 @@ function Ranks({ catalog, refresh }: Props) {
             </>
           )}
         </Form.List>
-        <Form.Item
+        <Field
           style={{ marginTop: 20 }}
           name="reason"
           label="调整原因"
           rules={fieldRule}
         >
           <Input.TextArea />
-        </Form.Item>
+        </Field>
         <Button type="primary" htmlType="submit" loading={busy}>
           预览影响并保存
         </Button>
       </Form>
-    </Card>
+    </PageCard>
   );
 }
 function Audit() {
@@ -1104,12 +1129,12 @@ function Audit() {
     }[];
   }>("/admin/audit");
   return (
-    <Card
+    <PageCard
       title="管理操作审计"
       extra={<Button onClick={() => void query.refresh()}>刷新</Button>}
     >
       <ErrorNotice error={query.error} retry={() => void query.refresh()} />
-      <Table
+      <AdminTable
         rowKey="id"
         scroll={{ x: 900 }}
         dataSource={query.data?.items || []}
@@ -1132,13 +1157,26 @@ function Audit() {
         }}
         columns={[
           { title: "时间", dataIndex: "created" },
-          { title: "操作", dataIndex: "action" },
+          {
+            title: "操作",
+            dataIndex: "action",
+            width: 180,
+            render: (value) => (
+              <span title={value}>{auditActionLabels[value] || value}</span>
+            ),
+          },
           { title: "操作人 ID", dataIndex: "actor" },
-          { title: "对象类型", dataIndex: "entityType" },
+          {
+            title: "对象类型",
+            dataIndex: "entityType",
+            render: (value) => (
+              <span title={value}>{entityLabels[value] || value}</span>
+            ),
+          },
           { title: "对象 ID", dataIndex: "entityId" },
           { title: "原因", dataIndex: "reason" },
         ]}
       />
-    </Card>
+    </PageCard>
   );
 }

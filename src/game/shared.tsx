@@ -100,6 +100,8 @@ export function LinesInput({
   onChange?: (value: string[]) => void;
   placeholder?: string;
   rows?: number;
+  id?: string;
+  disabled?: boolean;
 }) {
   return (
     <Input.TextArea
@@ -110,6 +112,9 @@ export function LinesInput({
   );
 }
 export const statusLabels: Record<string, string> = {
+  correct: "答对",
+  incorrect: "答错",
+  manual: "人工通过",
   draft: "草稿",
   published: "已发布",
   archived: "已归档",

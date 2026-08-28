@@ -1,3 +1,4 @@
+import { AdminTable, EditorDrawer, Field, PageCard } from "./ui";
 import { createRequestId } from "./request-id";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -5,7 +6,6 @@ import {
   Alert,
   Button,
   Card,
-  Drawer,
   Form,
   Input,
   InputNumber,
@@ -14,7 +14,6 @@ import {
   Select,
   Space,
   Switch,
-  Table,
   Tabs,
   Tag,
   Typography,
@@ -77,7 +76,7 @@ export function ContentPage({
 function PresentationFields({ prefix }: { prefix: (string | number)[] }) {
   return (
     <>
-      <Form.Item name={[...prefix, "bgmMode"]} label="背景音乐模式">
+      <Field name={[...prefix, "bgmMode"]} label="背景音乐模式">
         <Select
           options={[
             { value: "inherit", label: "继承场次 / 不指定" },
@@ -85,11 +84,11 @@ function PresentationFields({ prefix }: { prefix: (string | number)[] }) {
             { value: "silent", label: "静音" },
           ]}
         />
-      </Form.Item>
-      <Form.Item name={[...prefix, "bgmUrl"]} label="背景音乐">
+      </Field>
+      <Field name={[...prefix, "bgmUrl"]} label="背景音乐">
         <AlistMediaInput type="audio" />
-      </Form.Item>
-      <Form.Item name={[...prefix, "backgroundMode"]} label="背景图片模式">
+      </Field>
+      <Field name={[...prefix, "backgroundMode"]} label="背景图片模式">
         <Select
           options={[
             { value: "inherit", label: "继承场次 / 不指定" },
@@ -97,17 +96,17 @@ function PresentationFields({ prefix }: { prefix: (string | number)[] }) {
             { value: "none", label: "不显示背景图" },
           ]}
         />
-      </Form.Item>
-      <Form.Item
+      </Field>
+      <Field
         name={[...prefix, "hideTitle"]}
         label="不显示题目标题"
         valuePropName="checked"
       >
         <Switch />
-      </Form.Item>
-      <Form.Item name={[...prefix, "backgroundUrl"]} label="背景图片">
+      </Field>
+      <Field name={[...prefix, "backgroundUrl"]} label="背景图片">
         <AlistMediaInput type="img" />
-      </Form.Item>
+      </Field>
     </>
   );
 }
@@ -132,6 +131,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
   const [open, setOpen] = useState(false),
     [id, setId] = useState("");
   const [scope, setScope] = useState("available");
+  const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
   const selected = catalog.questions.find((row) => row.id === id);
   const usage = selected ? questionUsage(selected, catalog.sessions) : null;
@@ -153,7 +153,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
     setOpen(true);
   };
   return (
-    <Card
+    <PageCard
       title="题库"
       extra={
         <Space>
@@ -169,25 +169,35 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
         message="线上场次引用的题目不可修改或删除。只有草稿引用时可改题，删除前须解除草稿引用；修改不重算旧结算，删除保留历史关联。"
         style={{ marginBottom: 20 }}
       />
-      <Select
-        aria-label="题库范围"
-        value={scope}
-        style={{ width: 190, marginBottom: 16 }}
-        onChange={setScope}
-        options={[
-          { value: "available", label: "正常题库" },
-          { value: "archived", label: "已移出题库" },
-          { value: "all", label: "全部题目" },
-        ]}
-      />
-      <Table
+      <div className="admin-list-toolbar">
+        <Input.Search
+          aria-label="搜索题目标题"
+          placeholder="搜索题目标题"
+          allowClear
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <Select
+          aria-label="题库范围"
+          value={scope}
+          style={{ width: 190 }}
+          onChange={setScope}
+          options={[
+            { value: "available", label: "正常题库" },
+            { value: "archived", label: "已移出题库" },
+            { value: "all", label: "全部题目" },
+          ]}
+        />
+      </div>
+      <AdminTable
         rowKey="id"
         dataSource={catalog.questions.filter(
           (q) =>
-            scope === "all" ||
-            (scope === "archived"
-              ? q.status === "archived"
-              : q.status !== "archived"),
+            q.title.toLowerCase().includes(search.trim().toLowerCase()) &&
+            (scope === "all" ||
+              (scope === "archived"
+                ? q.status === "archived"
+                : q.status !== "archived")),
         )}
         columns={[
           { title: "题目", dataIndex: "title" },
@@ -271,7 +281,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           },
         ]}
       />
-      <Drawer
+      <EditorDrawer
         title={readOnly ? "查看题目" : id ? "编辑题目" : "新建题目"}
         width={760}
         open={open}
@@ -333,7 +343,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           }}
         >
           {id && !readOnly && (
-            <Form.Item
+            <Field
               name="reason"
               label="修改原因"
               rules={usage?.historyCount ? fieldRule : undefined}
@@ -343,22 +353,22 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                 rows={2}
                 placeholder="例如：修正错别字或答案配置"
               />
-            </Form.Item>
+            </Field>
           )}
-          <Form.Item name="title" label="题目标题" rules={fieldRule}>
+          <Field name="title" label="题目标题" rules={fieldRule}>
             <Input />
-          </Form.Item>
-          <Form.Item name="kind" label="题型" rules={fieldRule}>
+          </Field>
+          <Field name="kind" label="题型" rules={fieldRule}>
             <Select
               options={[
                 { value: "text", label: "填空" },
                 { value: "choice", label: "单选" },
               ]}
             />
-          </Form.Item>
-          <Form.Item name="placeholder" label="输入占位提示">
+          </Field>
+          <Field name="placeholder" label="输入占位提示">
             <Input />
-          </Form.Item>
+          </Field>
           <Form.List name="content">
             {(fields, { add, remove }) => (
               <>
@@ -374,35 +384,32 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                     }
                     style={{ marginBottom: 16 }}
                   >
-                    <Form.Item
+                    <Field
                       name={[name, "text"]}
                       label="正文"
                       extra={<TextSyntaxHelp />}
                     >
                       <Input.TextArea rows={4} />
-                    </Form.Item>
-                    <Form.Item
+                    </Field>
+                    <Field
                       name={[name, "hint"]}
                       label="可展开提示"
                       extra={<TextSyntaxHelp />}
                     >
                       <Input.TextArea />
-                    </Form.Item>
-                    <Form.Item
-                      name={[name, "imageUrl"]}
-                      label="图片 / 视频封面"
-                    >
+                    </Field>
+                    <Field name={[name, "imageUrl"]} label="图片 / 视频封面">
                       <AlistMediaInput type="img" />
-                    </Form.Item>
-                    <Form.Item
+                    </Field>
+                    <Field
                       name={[name, "imageUrls"]}
                       label="更多图片（每行一条 URL）"
                     >
                       <LinesInput />
-                    </Form.Item>
-                    <Form.Item name={[name, "videoUrl"]} label="视频">
+                    </Field>
+                    <Field name={[name, "videoUrl"]} label="视频">
                       <AlistMediaInput type="video" />
-                    </Form.Item>
+                    </Field>
                   </Card>
                 ))}
                 <Button
@@ -429,22 +436,22 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                       }
                       style={{ marginBottom: 12 }}
                     >
-                      <Form.Item
+                      <Field
                         name={[name, "key"]}
                         label="选项标识（如 A）"
                         rules={fieldRule}
                       >
                         <Input />
-                      </Form.Item>
-                      <Form.Item name={[name, "text"]} label="选项文字">
+                      </Field>
+                      <Field name={[name, "text"]} label="选项文字">
                         <Input.TextArea />
-                      </Form.Item>
-                      <Form.Item name={[name, "imageUrl"]} label="选项图片">
+                      </Field>
+                      <Field name={[name, "imageUrl"]} label="选项图片">
                         <AlistMediaInput type="img" />
-                      </Form.Item>
-                      <Form.Item name={[name, "videoUrl"]} label="选项视频">
+                      </Field>
+                      <Field name={[name, "videoUrl"]} label="选项视频">
                         <AlistMediaInput type="video" />
-                      </Form.Item>
+                      </Field>
                     </Card>
                   ))}
                   <Button
@@ -461,7 +468,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
               )}
             </Form.List>
           )}
-          <Form.Item
+          <Field
             name="acceptedAnswers"
             label={
               kind === "choice"
@@ -472,9 +479,9 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             style={{ marginTop: 24 }}
           >
             <LinesInput rows={4} />
-          </Form.Item>
+          </Field>
         </Form>
-      </Drawer>
+      </EditorDrawer>
       <Modal
         title="删除题目（保留历史）"
         open={!!deleting}
@@ -501,12 +508,12 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
               setDeleting(null);
           }}
         >
-          <Form.Item name="reason" label="删除原因" rules={fieldRule}>
+          <Field name="reason" label="删除原因" rules={fieldRule}>
             <Input.TextArea maxLength={1000} />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
-    </Card>
+    </PageCard>
   );
 }
 function SessionEditor({ catalog, refresh }: EditorProps) {
@@ -569,7 +576,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
     return step.question && (!q || q.status === "archived");
   });
   return (
-    <Card
+    <PageCard
       title="场次编排"
       extra={
         <Space>
@@ -604,7 +611,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
         }}
         style={{ maxWidth: 360, marginBottom: 16 }}
       />
-      <Table
+      <AdminTable
         rowKey="id"
         dataSource={filterSessions(catalog.sessions, filter, search)}
         pagination={{
@@ -675,7 +682,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
           },
         ]}
       />
-      <Drawer
+      <EditorDrawer
         title={readOnly ? "查看场次版本" : id ? "编辑场次草稿" : "新建场次"}
         width={900}
         open={open}
@@ -737,35 +744,27 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                 label: "基础与演出",
                 children: (
                   <>
-                    <Form.Item name="title" label="场次名称" rules={fieldRule}>
+                    <Field name="title" label="场次名称" rules={fieldRule}>
                       <Input />
-                    </Form.Item>
-                    <Form.Item name="description" label="场次说明">
+                    </Field>
+                    <Field name="description" label="场次说明">
                       <Input.TextArea />
-                    </Form.Item>
-                    <Space align="start">
-                      <Form.Item name="minLevel" label="最低参与等级">
-                        <Select
-                          allowClear
-                          options={rankOptions}
-                          style={{ width: 220 }}
-                        />
-                      </Form.Item>
-                      <Form.Item name="maxLevel" label="最高参与等级">
-                        <Select
-                          allowClear
-                          options={rankOptions}
-                          style={{ width: 220 }}
-                        />
-                      </Form.Item>
-                    </Space>
+                    </Field>
+                    <div className="admin-field-grid">
+                      <Field name="minLevel" label="最低参与等级">
+                        <Select allowClear options={rankOptions} />
+                      </Field>
+                      <Field name="maxLevel" label="最高参与等级">
+                        <Select allowClear options={rankOptions} />
+                      </Field>
+                    </div>
                     <Alert
                       type="info"
                       message="等级在首次入场时检查，入场后升级不会被中途踢出。"
                       style={{ marginBottom: 20 }}
                     />
                     <PresentationFields prefix={["presentation"]} />
-                    <Form.Item
+                    <Field
                       name={["presentation", "completionStyle"]}
                       label="通关演出"
                     >
@@ -775,8 +774,8 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                           { value: "finale", label: "终章演出" },
                         ]}
                       />
-                    </Form.Item>
-                    <Form.Item
+                    </Field>
+                    <Field
                       name={["completionTarget", "kind"]}
                       label="完成后继续入口"
                     >
@@ -787,9 +786,9 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                           { value: "link", label: "外部网页" },
                         ]}
                       />
-                    </Form.Item>
+                    </Field>
                     {targetKind === "narrative" && (
-                      <Form.Item
+                      <Field
                         name={["completionTarget", "id"]}
                         label="叙事内容"
                         rules={fieldRule}
@@ -799,16 +798,16 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             .filter((n) => n.status === "published")
                             .map((n) => ({ value: n.id, label: n.title }))}
                         />
-                      </Form.Item>
+                      </Field>
                     )}
                     {targetKind === "link" && (
-                      <Form.Item
+                      <Field
                         name={["completionTarget", "url"]}
                         label="HTTP(S) 链接"
                         rules={fieldRule}
                       >
                         <Input />
-                      </Form.Item>
+                      </Field>
                     )}
                   </>
                 ),
@@ -829,7 +828,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             extra={
                               <Space>
                                 <Button
-                                  disabled={name === 0}
+                                  disabled={readOnly || name === 0}
                                   onClick={() => move(name, name - 1)}
                                 >
                                   上移
@@ -841,10 +840,10 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             }
                             style={{ marginBottom: 20 }}
                           >
-                            <Form.Item name={[name, "id"]} hidden>
+                            <Field name={[name, "id"]} hidden>
                               <Input />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "question"]}
                               label="题目版本"
                               rules={fieldRule}
@@ -857,23 +856,23 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                   steps[name]?.question,
                                 )}
                               />
-                            </Form.Item>
-                            <Space>
-                              <Form.Item
+                            </Field>
+                            <div className="admin-field-grid">
+                              <Field
                                 name={[name, "xp"]}
                                 label="通关经验"
                                 rules={fieldRule}
                               >
                                 <InputNumber min={0} max={1000000} />
-                              </Form.Item>
-                              <Form.Item
+                              </Field>
+                              <Field
                                 name={[name, "autoNext"]}
                                 label="自动进入下一题"
                                 valuePropName="checked"
                               >
                                 <Switch />
-                              </Form.Item>
-                            </Space>
+                              </Field>
+                            </div>
                             <Form.List name={[name, "penaltyPolicy"]}>
                               {(
                                 penalties,
@@ -884,10 +883,15 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                     单选答错后的递进惩罚；用完后沿用最后一项。
                                   </Typography.Text>
                                   {penalties.map((p) => (
-                                    <Space key={p.key} align="start">
-                                      <Form.Item name={[p.name, "type"]}>
+                                    <div
+                                      className="admin-penalty-row"
+                                      key={p.key}
+                                    >
+                                      <Field
+                                        name={[p.name, "type"]}
+                                        label="惩罚方式"
+                                      >
                                         <Select
-                                          style={{ width: 160 }}
                                           options={[
                                             {
                                               value: "cooldown",
@@ -899,21 +903,24 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                             },
                                           ]}
                                         />
-                                      </Form.Item>
-                                      <Form.Item name={[p.name, "seconds"]}>
+                                      </Field>
+                                      <Field
+                                        name={[p.name, "seconds"]}
+                                        label="冷却时长"
+                                      >
                                         <InputNumber
                                           min={0}
                                           max={2592000}
                                           addonAfter="秒"
                                         />
-                                      </Form.Item>
+                                      </Field>
                                       <Button
                                         danger
                                         onClick={() => removePenalty(p.name)}
                                       >
                                         移除
                                       </Button>
-                                    </Space>
+                                    </div>
                                   ))}
                                   <Button
                                     onClick={() =>
@@ -972,13 +979,14 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             key={key}
                             size="small"
                             style={{ marginBottom: 16 }}
+                            title={`线索 ${name + 1}`}
                             extra={
                               <Button danger onClick={() => remove(name)}>
                                 移除
                               </Button>
                             }
                           >
-                            <Form.Item
+                            <Field
                               name={[name, "trigger"]}
                               label="解锁时机"
                               rules={fieldRule}
@@ -997,14 +1005,14 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                   { value: "manual", label: "管理员手动解锁" },
                                 ]}
                               />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "sessionLevel"]}
                               label="关联小关卡（指定关卡时必选）"
                             >
                               <Select allowClear options={stepOptions} />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "kind"]}
                               label="线索类型"
                               rules={fieldRule}
@@ -1019,45 +1027,45 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                   { value: "bless", label: "祝福" },
                                 ]}
                               />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "content", "title"]}
                               label="标题"
                             >
                               <Input />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "content", "text"]}
                               label="文字内容"
                               extra={<TextSyntaxHelp />}
                             >
                               <Input.TextArea rows={4} />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "content", "buttonText"]}
                               label="组合线索确认按钮文字"
                             >
                               <Input />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "content", "description"]}
                               label="组合线索底部说明"
                             >
                               <Input.TextArea rows={2} />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "content", "url"]}
                               label="视频 / 外部链接 URL"
                             >
                               <Input />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "content", "imageUrls"]}
                               label="图片 URL（每行一条）"
                             >
                               <LinesInput />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "narrative"]}
                               label="信件 / 祝福内容"
                             >
@@ -1068,14 +1076,14 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                   label: n.title,
                                 }))}
                               />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "autoPlay"]}
                               label="解锁后自动展示（文字、图片、视频）"
                               valuePropName="checked"
                             >
                               <Switch />
-                            </Form.Item>
+                            </Field>
                           </Card>
                         ))}
                         <Button
@@ -1114,13 +1122,14 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             key={key}
                             size="small"
                             style={{ marginBottom: 16 }}
+                            title={`发奖规则 ${name + 1}`}
                             extra={
                               <Button danger onClick={() => remove(name)}>
                                 移除
                               </Button>
                             }
                           >
-                            <Form.Item
+                            <Field
                               name={[name, "trigger"]}
                               label="发奖时机"
                               rules={fieldRule}
@@ -1137,14 +1146,14 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                   },
                                 ]}
                               />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "sessionLevel"]}
                               label="关联小关卡（整场完成时留空）"
                             >
                               <Select allowClear options={stepOptions} />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "reward"]}
                               label="奖品"
                               rules={fieldRule}
@@ -1154,14 +1163,14 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                                   .filter((r) => r.active)
                                   .map((r) => ({ value: r.id, label: r.name }))}
                               />
-                            </Form.Item>
-                            <Form.Item
+                            </Field>
+                            <Field
                               name={[name, "quantity"]}
                               label="数量"
                               rules={fieldRule}
                             >
                               <InputNumber min={1} max={100} />
-                            </Form.Item>
+                            </Field>
                           </Card>
                         ))}
                         <Button
@@ -1180,7 +1189,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
             ]}
           />
         </Form>
-      </Drawer>
+      </EditorDrawer>
       <Modal
         title={closing?.status === "draft" ? "作废场次草稿" : "永久下线场次"}
         open={!!closing}
@@ -1222,16 +1231,16 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
             }
           }}
         >
-          <Form.Item
+          <Field
             name="reason"
             label={closing?.status === "draft" ? "作废原因" : "下线原因"}
             rules={fieldRule}
           >
             <Input.TextArea maxLength={1000} rows={3} />
-          </Form.Item>
+          </Field>
         </Form>
       </Modal>
-    </Card>
+    </PageCard>
   );
 }
 function RewardEditor({ catalog, refresh }: EditorProps) {
@@ -1246,7 +1255,7 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
     setOpen(true);
   };
   return (
-    <Card
+    <PageCard
       title="奖品定义"
       extra={
         <Button type="primary" onClick={() => edit()}>
@@ -1259,7 +1268,7 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
         message="这里只填写可复用的领取说明。取件码等一次性信息请在“奖品核销”中为某一次发放单独配置。"
         style={{ marginBottom: 20 }}
       />
-      <Table
+      <AdminTable
         rowKey="id"
         dataSource={catalog.rewards}
         columns={[
@@ -1283,7 +1292,7 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
           },
         ]}
       />
-      <Drawer
+      <EditorDrawer
         width={640}
         open={open}
         forceRender
@@ -1308,16 +1317,16 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
               setOpen(false);
           }}
         >
-          <Form.Item name="name" label="名称" rules={fieldRule}>
+          <Field name="name" label="名称" rules={fieldRule}>
             <Input />
-          </Form.Item>
-          <Form.Item name="image" label="图片">
+          </Field>
+          <Field name="image" label="图片">
             <AlistMediaInput type="img" />
-          </Form.Item>
-          <Form.Item name="description" label="奖品说明">
+          </Field>
+          <Field name="description" label="奖品说明">
             <Input.TextArea />
-          </Form.Item>
-          <Form.Item name="claimMethod" label="领取方式" rules={fieldRule}>
+          </Field>
+          <Field name="claimMethod" label="领取方式" rules={fieldRule}>
             <Select
               options={[
                 { value: "staff", label: "找工作人员领取" },
@@ -1325,20 +1334,20 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
                 { value: "locker", label: "柜子领取" },
               ]}
             />
-          </Form.Item>
-          <Form.Item
+          </Field>
+          <Field
             name="publicInstructions"
             label="可复用的领取说明"
             extra={<TextSyntaxHelp />}
           >
             <Input.TextArea rows={4} />
-          </Form.Item>
-          <Form.Item name="active" label="启用" valuePropName="checked">
+          </Field>
+          <Field name="active" label="启用" valuePropName="checked">
             <Switch />
-          </Form.Item>
+          </Field>
         </Form>
-      </Drawer>
-    </Card>
+      </EditorDrawer>
+    </PageCard>
   );
 }
 function NarrativeEditor({ catalog, refresh }: EditorProps) {
@@ -1370,7 +1379,7 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
     setOpen(true);
   };
   return (
-    <Card
+    <PageCard
       title="信件与祝福"
       extra={
         <Button type="primary" onClick={() => edit()}>
@@ -1378,12 +1387,16 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
         </Button>
       }
     >
-      <Table
+      <AdminTable
         rowKey="id"
         dataSource={catalog.narratives}
         columns={[
           { title: "标题", dataIndex: "title" },
-          { title: "类型", dataIndex: "kind" },
+          {
+            title: "类型",
+            dataIndex: "kind",
+            render: (value) => (value === "letter" ? "信件" : "祝福"),
+          },
           { title: "版本", dataIndex: "revision" },
           {
             title: "状态",
@@ -1430,8 +1443,8 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
           },
         ]}
       />
-      <Drawer
-        title="编辑叙事内容"
+      <EditorDrawer
+        title={readOnly ? "查看剧情内容" : id ? "编辑剧情草稿" : "新建剧情内容"}
         width={760}
         open={open}
         forceRender
@@ -1460,23 +1473,23 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
               setOpen(false);
           }}
         >
-          <Form.Item name="title" label="标题" rules={fieldRule}>
+          <Field name="title" label="标题" rules={fieldRule}>
             <Input />
-          </Form.Item>
-          <Form.Item name="kind" label="类型" rules={fieldRule}>
+          </Field>
+          <Field name="kind" label="类型" rules={fieldRule}>
             <Select
               options={[
                 { value: "letter", label: "信件" },
                 { value: "bless", label: "祝福" },
               ]}
             />
-          </Form.Item>
-          <Form.Item name={["payload", "mainAudioUrl"]} label="背景音乐">
+          </Field>
+          <Field name={["payload", "mainAudioUrl"]} label="背景音乐">
             <AlistMediaInput type="audio" />
-          </Form.Item>
+          </Field>
           {kind === "letter" && (
             <>
-              <Form.Item name={["payload", "variant"]} label="信件样式">
+              <Field name={["payload", "variant"]} label="信件样式">
                 <Select
                   options={[
                     { value: "modern", label: "现代" },
@@ -1484,31 +1497,28 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
                     { value: "magic", label: "魔法" },
                   ]}
                 />
-              </Form.Item>
-              <Form.Item name={["payload", "description"]} label="说明">
+              </Field>
+              <Field name={["payload", "description"]} label="说明">
                 <Input />
-              </Form.Item>
-              <Form.Item name={["payload", "hintText"]} label="开启提示">
+              </Field>
+              <Field name={["payload", "hintText"]} label="开启提示">
                 <Input />
-              </Form.Item>
-              <Form.Item
+              </Field>
+              <Field
                 name={["payload", "typingSpeedMs"]}
                 label="打字间隔（毫秒）"
               >
                 <InputNumber min={1} />
-              </Form.Item>
-              <Form.Item
+              </Field>
+              <Field
                 name={["payload", "backgroundImages"]}
                 label="信纸背景图（每行一条）"
               >
                 <LinesInput />
-              </Form.Item>
-              <Form.Item
-                name={["payload", "pageBackgroundUrl"]}
-                label="页面背景"
-              >
+              </Field>
+              <Field name={["payload", "pageBackgroundUrl"]} label="页面背景">
                 <AlistMediaInput type="img" />
-              </Form.Item>
+              </Field>
             </>
           )}
           {(kind === "letter"
@@ -1532,17 +1542,17 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
                       }
                       style={{ marginBottom: 16 }}
                     >
-                      <Form.Item
+                      <Field
                         name={[name, kind === "letter" ? "content" : "text"]}
                         label="文字"
                         rules={fieldRule}
                       >
                         <Input.TextArea rows={4} />
-                      </Form.Item>
-                      <Form.Item name={[name, "audioUrl"]} label="段落配音">
+                      </Field>
+                      <Field name={[name, "audioUrl"]} label="段落配音">
                         <AlistMediaInput type="audio" />
-                      </Form.Item>
-                      <Form.Item
+                      </Field>
+                      <Field
                         name={[
                           name,
                           kind === "letter" ? "delayMs" : "durationMs",
@@ -1554,9 +1564,9 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
                         }
                       >
                         <InputNumber min={0} />
-                      </Form.Item>
+                      </Field>
                       {kind === "letter" && (
-                        <Form.Item name={[name, "align"]} label="对齐">
+                        <Field name={[name, "align"]} label="对齐">
                           <Select
                             options={[
                               "left",
@@ -1564,9 +1574,20 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
                               "right",
                               "top",
                               "bottom",
-                            ].map((value) => ({ value, label: value }))}
+                            ].map((value) => ({
+                              value,
+                              label: (
+                                {
+                                  left: "左对齐",
+                                  center: "居中",
+                                  right: "右对齐",
+                                  top: "靠上",
+                                  bottom: "靠下",
+                                } as Record<string, string>
+                              )[value],
+                            }))}
                           />
-                        </Form.Item>
+                        </Field>
                       )}
                     </Card>
                   ))}
@@ -1586,7 +1607,7 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
             </Form.List>
           ))}
         </Form>
-      </Drawer>
-    </Card>
+      </EditorDrawer>
+    </PageCard>
   );
 }

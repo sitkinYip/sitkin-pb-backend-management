@@ -6,6 +6,7 @@ import { LoginModal } from "./LoginModal";
 import { CSSProperties } from "react";
 
 interface AlistMediaInputProps {
+  id?: string;
   value?: string;
   onChange?: (value: string) => void;
   type?: "img" | "video" | "audio";
@@ -16,6 +17,7 @@ interface AlistMediaInputProps {
 }
 
 export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
+  id,
   value,
   onChange,
   type = "img",
@@ -109,8 +111,9 @@ export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
   };
 
   return (
-    <div style={{ display: "flex", gap: 8, ...style }} className={className}>
+    <div style={style} className={`admin-media-input ${className ?? ""}`}>
       <Input
+        id={id}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={getPlaceholder()}

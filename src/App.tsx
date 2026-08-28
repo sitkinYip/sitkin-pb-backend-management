@@ -7,6 +7,7 @@ import {
   useNotificationProvider,
 } from "@refinedev/antd";
 import "@refinedev/antd/dist/reset.css";
+import "./styles/admin.css";
 
 import routerProvider, {
   CatchAllNavigate,
@@ -18,17 +19,14 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Header } from "./components/header";
 import { Title } from "./components/title";
+import { navigationResources } from "./components/navigation";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { ContentPage } from "./game/ContentPages";
 import { OperationPage } from "./game/OperationPages";
 import { ResourceManager } from "./pages/resourceManager";
 import { LoginRoute } from "./pages/login";
 import { authProvider } from "./providers/auth";
-import {
-  ADMIN_HOME,
-  ADMIN_LOGIN,
-  adminResources,
-} from "./providers/admin-routing";
+import { ADMIN_HOME, ADMIN_LOGIN } from "./providers/admin-routing";
 import { dataProvider } from "./providers/data";
 import "./i18n";
 
@@ -54,7 +52,7 @@ function App() {
               routerProvider={routerProvider}
               authProvider={authProvider}
               i18nProvider={i18nProvider}
-              resources={adminResources}
+              resources={navigationResources}
               options={{
                 syncWithLocation: true,
                 warnWhenUnsavedChanges: true,
@@ -68,14 +66,18 @@ function App() {
                       key="authenticated-inner"
                       fallback={<CatchAllNavigate to={ADMIN_LOGIN} />}
                     >
-                      <ThemedLayout
-                        Header={Header}
-                        Sider={(props) => (
-                          <ThemedSider {...props} fixed Title={Title} />
-                        )}
-                      >
-                        <Outlet />
-                      </ThemedLayout>
+                      <div className="admin-shell">
+                        <ThemedLayout
+                          Header={Header}
+                          Sider={(props) => (
+                            <ThemedSider {...props} fixed Title={Title} />
+                          )}
+                        >
+                          <div className="admin-workspace">
+                            <Outlet />
+                          </div>
+                        </ThemedLayout>
+                      </div>
                     </Authenticated>
                   }
                 >

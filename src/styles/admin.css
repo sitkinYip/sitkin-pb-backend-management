@@ -1,0 +1,615 @@
+/* A shared operator workspace, including the portalled Ant Design editors. */
+:root {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --admin-canvas: #f4f6f8;
+  --admin-surface: #fff;
+  --admin-subtle: #f8fafc;
+  --admin-line: #e5eaf0;
+  --admin-ink: #1f2f46;
+  --admin-muted: #66768a;
+  --admin-accent: #285ea8;
+}
+:root[data-color-mode="dark"] {
+  color-scheme: dark;
+  --admin-canvas: #111820;
+  --admin-surface: #19222d;
+  --admin-subtle: #202c39;
+  --admin-line: #304052;
+  --admin-ink: #e7edf5;
+  --admin-muted: #a0afc0;
+  --admin-accent: #82afe8;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  min-width: 0;
+  min-height: 100%;
+}
+body {
+  background: var(--admin-canvas);
+  color: var(--admin-ink);
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+.admin-shell,
+.admin-shell .ant-layout,
+.admin-shell .ant-layout-content {
+  min-width: 0;
+}
+.admin-shell .ant-layout {
+  background: var(--admin-canvas);
+}
+.admin-shell .ant-layout-sider {
+  border-right: 1px solid var(--admin-line);
+}
+.admin-shell .ant-menu {
+  padding: 8px;
+}
+.admin-shell .ant-menu-item {
+  margin-block: 4px;
+  height: 42px;
+  line-height: 42px;
+}
+.admin-workspace {
+  width: 100%;
+  max-width: 1600px;
+  min-width: 0;
+  margin: 4px auto 24px;
+}
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px;
+  height: 64px;
+  line-height: 1.4;
+  background: var(--admin-surface);
+  border-bottom: 1px solid var(--admin-line);
+}
+.admin-header-context {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-header-context > span {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--admin-ink);
+}
+.admin-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.admin-header-user {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-mobile-menu {
+  display: none;
+}
+.admin-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--admin-ink);
+  white-space: nowrap;
+}
+.admin-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #285ea8;
+  color: white;
+  display: inline-grid;
+  place-items: center;
+  font-size: 18px;
+  flex: none;
+}
+.admin-brand-name {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.admin-page {
+  min-width: 0;
+}
+.admin-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 22px;
+}
+.admin-page-heading > div:first-child {
+  min-width: 0;
+}
+.admin-page-heading h1.ant-typography {
+  font-size: 26px;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  margin: 0 0 6px;
+}
+.admin-page-heading .ant-typography-secondary {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.admin-page-actions {
+  flex-shrink: 0;
+}
+.admin-page-actions .ant-space {
+  flex-wrap: wrap;
+}
+.admin-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.admin-list-toolbar > .ant-input-group-wrapper {
+  width: 360px;
+  max-width: 100%;
+}
+.admin-page-body {
+  border-color: var(--admin-line);
+  box-shadow: 0 2px 4px rgb(20 40 65 / 2%);
+}
+.admin-page-body > .ant-card-body {
+  padding: 24px;
+  min-width: 0;
+}
+.admin-guide.ant-collapse {
+  margin: -4px 0 20px;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+}
+.admin-guide.ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  padding: 12px 14px;
+  align-items: center;
+  color: var(--admin-ink);
+}
+.admin-guide .anticon-book {
+  margin-right: 6px;
+}
+.admin-guide ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--admin-muted);
+  line-height: 1.9;
+}
+.admin-guide li + li {
+  margin-top: 6px;
+}
+.admin-table-region {
+  min-width: 0;
+  width: 100%;
+}
+.admin-table-hint {
+  display: none;
+  color: var(--admin-muted);
+  font-size: 12px;
+  margin: 4px 0 10px;
+}
+.admin-table .ant-table-container {
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+}
+.admin-table .ant-table-cell {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.admin-table .ant-table-thead > tr > th {
+  white-space: nowrap;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.admin-table .ant-table-tbody > tr > td {
+  line-height: 1.65;
+}
+.admin-table .ant-table-cell .ant-space {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.admin-table .ant-table-cell .ant-space-item {
+  min-width: 0;
+}
+.admin-table .ant-table-cell .ant-btn {
+  white-space: nowrap;
+}
+.admin-table .ant-table-cell .ant-tag {
+  white-space: nowrap;
+}
+.admin-table .ant-table-cell a {
+  overflow-wrap: anywhere;
+}
+.admin-table .ant-pagination {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.admin-page .ant-form:not(.ant-form-inline) {
+  max-width: 1000px;
+}
+.admin-page .ant-form-item,
+.admin-editor .ant-form-item,
+.ant-modal .ant-form-item {
+  margin-bottom: 22px;
+}
+.admin-field-help {
+  font-size: 12px;
+  line-height: 1.75;
+  margin-top: 5px;
+  color: var(--admin-muted);
+  overflow-wrap: anywhere;
+}
+.admin-field-help > .ant-collapse {
+  margin-top: 8px;
+}
+.admin-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+}
+.admin-field-grid > *,
+.admin-penalty-row > *,
+.admin-rank-row > * {
+  min-width: 0;
+}
+.admin-field-grid .ant-picker,
+.admin-field-grid .ant-input-number,
+.admin-rank-row .ant-input-number,
+.admin-penalty-row .ant-input-number-group-wrapper,
+.admin-penalty-row .ant-input-number {
+  width: 100%;
+}
+.admin-penalty-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+.admin-penalty-row > .ant-btn {
+  margin-top: 30px;
+}
+.admin-rank-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 20px;
+  padding: 20px 0 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+.admin-rank-row > .ant-typography {
+  align-self: start;
+  margin-top: 32px;
+  font-weight: 600;
+  color: var(--admin-accent);
+}
+.admin-rank-row:last-of-type {
+  margin-bottom: 20px;
+}
+.admin-editor .ant-drawer-header {
+  padding: 20px 24px;
+}
+.admin-editor .ant-drawer-body {
+  padding: 24px;
+}
+.admin-editor .ant-drawer-footer {
+  padding: 14px 24px max(14px, env(safe-area-inset-bottom));
+}
+.admin-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.admin-editor .ant-card-small {
+  border-color: var(--admin-line);
+  background: var(--admin-surface);
+}
+.admin-editor .ant-card-small > .ant-card-head {
+  background: var(--admin-subtle);
+  min-height: 52px;
+  padding: 10px 16px;
+}
+.admin-editor .ant-card-small > .ant-card-body {
+  padding: 20px;
+}
+.admin-editor .ant-card-head-title {
+  white-space: normal;
+}
+.admin-editor .ant-tabs-nav {
+  margin-bottom: 24px;
+}
+.admin-editor .ant-tabs-tab {
+  padding: 12px 0;
+}
+.admin-editor details {
+  border-top: 1px solid var(--admin-line);
+  padding-top: 16px;
+}
+.admin-editor summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--admin-accent);
+  padding: 4px 0 16px;
+}
+.admin-media-input {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.admin-media-input > .ant-input-affix-wrapper {
+  min-width: 0;
+  flex: 1;
+}
+.admin-media-input > .ant-btn {
+  flex: none;
+}
+.admin-resource-account {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.admin-resource-page .ant-upload-hint {
+  padding: 0 16px;
+}
+.admin-login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 32px 20px;
+  display: grid;
+  place-items: center;
+  background: var(--admin-canvas);
+}
+.admin-login-panel {
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+}
+.admin-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  font-weight: 600;
+  color: var(--admin-ink);
+}
+.admin-login-card {
+  border: 1px solid var(--admin-line);
+  box-shadow: 0 8px 30px rgb(20 40 65 / 4%);
+}
+.admin-login-card > .ant-card-body {
+  padding: 32px;
+}
+.admin-login-card h1.ant-typography {
+  font-size: 26px;
+  margin: 0 0 8px;
+  letter-spacing: -0.025em;
+}
+.admin-login-card .ant-form {
+  margin-top: 28px;
+}
+.admin-login-card .ant-form-item {
+  margin-bottom: 22px;
+}
+.admin-login-note {
+  margin: 22px 0 0 !important;
+  font-size: 12px;
+  line-height: 1.8;
+}
+@media (max-width: 1199px) {
+  .admin-table-hint {
+    display: block;
+  }
+}
+@media (max-width: 991px) {
+  .admin-mobile-menu {
+    display: inline-flex;
+  }
+  /* Refine's floating drawer trigger is replaced by the labelled header control. */
+  .admin-shell > .ant-layout > .ant-btn {
+    display: none;
+  }
+  .admin-header {
+    padding: 0 16px;
+  }
+  .admin-header-tools {
+    gap: 10px;
+  }
+}
+@media (max-width: 575px) {
+  /* AntD's default side-by-side date/time panel is wider than a phone. */
+  .ant-picker-dropdown {
+    position: fixed !important;
+    top: auto !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 16px);
+  }
+  .ant-picker-dropdown .ant-picker-panel-container {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
+  .ant-picker-dropdown .ant-picker-datetime-panel {
+    flex-direction: column;
+  }
+  .ant-picker-dropdown .ant-picker-time-panel {
+    border-inline-start: 0;
+    border-top: 1px solid var(--admin-line);
+  }
+  .ant-picker-dropdown .ant-picker-time-panel .ant-picker-content {
+    height: 112px;
+  }
+  .ant-picker-dropdown .ant-picker-time-panel-column {
+    overflow-y: auto;
+  }
+  .admin-workspace {
+    margin: 2px auto 16px;
+  }
+  .admin-page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .admin-page-heading h1.ant-typography {
+    font-size: 23px;
+  }
+  .admin-page-heading .ant-typography-secondary {
+    font-size: 13px;
+  }
+  .admin-page-actions {
+    width: 100%;
+  }
+  .admin-page-actions > .ant-space {
+    width: 100%;
+  }
+  .admin-list-toolbar {
+    gap: 10px;
+  }
+  .admin-list-toolbar > .ant-input-group-wrapper,
+  .admin-list-toolbar > .ant-select {
+    width: 100% !important;
+  }
+  .admin-page-body > .ant-card-body {
+    padding: 14px;
+  }
+  .admin-guide.ant-collapse > .ant-collapse-item > .ant-collapse-header {
+    padding: 10px;
+  }
+  .admin-guide .ant-collapse-content-box {
+    padding-inline: 12px !important;
+  }
+  .admin-header {
+    height: 56px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .admin-header-context {
+    gap: 4px;
+  }
+  .admin-header-context > span {
+    font-size: 14px;
+  }
+  .admin-header-user,
+  .admin-resource-account {
+    display: none;
+  }
+  .admin-header-tools {
+    gap: 8px;
+  }
+  .admin-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .admin-penalty-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 12px;
+    background: var(--admin-subtle);
+    border-radius: 8px;
+  }
+  .admin-penalty-row > .ant-btn {
+    margin-top: 0;
+    justify-self: start;
+  }
+  .admin-rank-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-rank-row > .ant-typography {
+    margin: 0 0 14px;
+  }
+  .admin-editor .ant-drawer-header {
+    padding: 16px;
+  }
+  .admin-editor .ant-drawer-body {
+    padding: 16px;
+  }
+  .admin-editor .ant-drawer-footer {
+    padding-inline: 16px;
+  }
+  .admin-editor .ant-card-small > .ant-card-body {
+    padding: 14px;
+  }
+  .admin-editor .ant-card-small > .ant-card-head {
+    padding: 10px 12px;
+  }
+  .admin-editor .ant-tabs-tab + .ant-tabs-tab {
+    margin-left: 24px;
+  }
+  .admin-editor .ant-descriptions-item-content {
+    overflow-wrap: anywhere;
+  }
+  .admin-editor-actions > .ant-space {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .admin-editor-actions .ant-btn {
+    min-width: 88px;
+  }
+  .ant-modal {
+    max-width: calc(100vw - 24px);
+  }
+  .ant-modal .ant-modal-content {
+    padding: 20px 16px;
+  }
+  .ant-modal .ant-modal-title {
+    padding-right: 20px;
+  }
+  .admin-login {
+    padding: 24px 16px;
+  }
+  .admin-login-brand {
+    margin-bottom: 20px;
+  }
+  .admin-login-card > .ant-card-body {
+    padding: 26px 22px;
+  }
+  /* Keep text inputs legible and avoid iOS focus zoom. */
+  .admin-login .ant-input,
+  .admin-editor input.ant-input,
+  .admin-editor textarea.ant-input,
+  .admin-page input.ant-input,
+  .admin-page textarea.ant-input,
+  .ant-modal input.ant-input {
+    font-size: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *,
+  .admin-editor *,
+  .admin-login * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

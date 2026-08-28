@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modal, Form, Input, message } from "antd";
+import { Modal, Form, Input, message, Typography } from "antd";
 import { alistService } from "@/services/alist";
 
 interface LoginModalProps {
@@ -40,28 +40,35 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   return (
     <Modal
-      title="登录 ALIST"
+      title="连接资源库（Alist）"
       open={open}
       onOk={handleOk}
       onCancel={onCancel}
       confirmLoading={loading}
-      okText="登录"
+      okText="连接"
       cancelText="取消"
     >
-      <Form form={form} layout="vertical">
+      <Typography.Paragraph type="secondary">
+        用于上传和管理图片、视频、音频。这里使用 Alist
+        账号，与答题后台管理员账号相互独立；仅粘贴已有链接不需要连接。
+      </Typography.Paragraph>
+      <Form form={form} layout="vertical" onFinish={handleOk}>
         <Form.Item
           name="username"
           label="用户名"
           rules={[{ required: true, message: "请输入用户名" }]}
         >
-          <Input placeholder="即使默认admin也请在此处填入" />
+          <Input placeholder="输入 Alist 用户名" autoComplete="username" />
         </Form.Item>
         <Form.Item
           name="password"
           label="密码"
           rules={[{ required: true, message: "请输入密码" }]}
         >
-          <Input.Password placeholder="ALIST 密码" />
+          <Input.Password
+            placeholder="输入 Alist 密码"
+            autoComplete="current-password"
+          />
         </Form.Item>
       </Form>
     </Modal>

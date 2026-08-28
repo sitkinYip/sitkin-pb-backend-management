@@ -81,7 +81,7 @@ async function helpFields(path) {
   const visit = (node) => {
     if (
       ts.isJsxElement(node) &&
-      node.openingElement.tagName.getText(tree) === "Form.Item"
+      ["Form.Item", "Field"].includes(node.openingElement.tagName.getText(tree))
     ) {
       const attributes = node.openingElement.attributes.properties;
       const extra = attributes.find(

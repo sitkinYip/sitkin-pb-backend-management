@@ -35,6 +35,12 @@ function assignment(app, id, playerId) {
     r.fail("NOT_FOUND", "场次不存在", 404);
   return row;
 }
+function onlineSession(app, row) {
+  const session = db.get(app, "game_sessions", row.getString("session"));
+  if (session.getString("status") !== "published")
+    r.fail("SESSION_OFFLINE", "该场次已下线", 409);
+  return session;
+}
 function availability(row, time) {
   if (row.getString("status") === "cancelled")
     r.fail("ASSIGNMENT_CANCELLED", "本次场次已撤回", 409);
@@ -64,7 +70,7 @@ function progressFor(app, row, levelId) {
     { a: row.id, l: levelId },
   );
 }
-function summary(app, row) {
+function summary(app, row, privileged = false) {
   const session = db.get(app, "game_sessions", row.getString("session"));
   const minimum = session.getString("minLevel")
     ? db
@@ -88,6 +94,7 @@ function summary(app, row) {
       "completedAt",
       "previousAssignment",
     ]),
+    ...(privileged ? { sessionStatus: session.getString("status") } : {}),
     title: session.getString("title"),
     description: session.getString("description"),
     minLevel: minimum,
@@ -98,8 +105,10 @@ function summary(app, row) {
     totalLevels: levels(app, row).length,
   };
 }
-function detail(app, row) {
-  const session = db.get(app, "game_sessions", row.getString("session"));
+function detail(app, row, privileged = false) {
+  const session = privileged
+    ? db.get(app, "game_sessions", row.getString("session"))
+    : onlineSession(app, row);
   const steps = levels(app, row);
   const records = progress(app, row);
   const byId = {};
@@ -109,7 +118,8 @@ function detail(app, row) {
   );
   if (currentIndex < 0) currentIndex = Math.max(0, steps.length - 1);
   const unlocked =
-    row.getString("startedAt") && row.getString("status") !== "cancelled";
+    privileged ||
+    (row.getString("startedAt") && row.getString("status") !== "cancelled");
   const clues = unlocked
     ? db
         .all(app, "game_clue_unlocks", "assignment={:id}", { id: row.id })
@@ -134,7 +144,7 @@ function detail(app, row) {
         .sort((a, b) => a.position - b.position)
     : [];
   return {
-    ...summary(app, row),
+    ...summary(app, row, privileged),
     presentation: db.json(session, "presentation", {}),
     completionTarget:
       row.getString("status") === "completed"
@@ -155,7 +165,7 @@ function detail(app, row) {
         locked: p ? p.getBool("locked") : false,
         presentationOverride: db.json(step, "presentationOverride", {}),
       };
-      if (!unlocked || index > currentIndex)
+      if (!privileged && (!unlocked || index > currentIndex))
         return { ...base, question: null, lastAnswer: "" };
       const q = db.get(app, "game_questions", step.getString("question"));
       const last =
@@ -251,35 +261,42 @@ function award(app, row, trigger, levelId) {
   return ids;
 }
 function start(e, id, body) {
-  db.command(e, `start:${id}`, body, false, (app, player) => {
-    const row = assignment(app, id, player.id);
-    availability(row, Date.now());
-    if (row.getString("startedAt")) return { assignmentId: row.id };
-    const user = me(app, player),
-      configuration = summary(app, row);
-    if (
-      user.level.order < configuration.minLevel ||
-      (configuration.maxLevel !== null &&
-        user.level.order > configuration.maxLevel)
-    )
-      r.fail("LEVEL_NOT_ELIGIBLE", "当前等级不符合参与要求", 409);
-    row.set("status", "active");
-    row.set("startedAt", db.now());
-    row.set("admissionSnapshot", {
-      level: user.level.order,
-      totalXp: user.totalXp,
-      minLevel: configuration.minLevel,
-      maxLevel: configuration.maxLevel,
-    });
-    app.save(row);
-    for (const step of levels(app, row))
-      db.create(app, "game_level_progress", {
-        assignment: row.id,
-        sessionLevel: step.id,
+  db.command(
+    e,
+    `start:${id}`,
+    body,
+    false,
+    (app, player) => {
+      const row = assignment(app, id, player.id);
+      availability(row, Date.now());
+      if (row.getString("startedAt")) return { assignmentId: row.id };
+      const user = me(app, player),
+        configuration = summary(app, row);
+      if (
+        user.level.order < configuration.minLevel ||
+        (configuration.maxLevel !== null &&
+          user.level.order > configuration.maxLevel)
+      )
+        r.fail("LEVEL_NOT_ELIGIBLE", "当前等级不符合参与要求", 409);
+      row.set("status", "active");
+      row.set("startedAt", db.now());
+      row.set("admissionSnapshot", {
+        level: user.level.order,
+        totalXp: user.totalXp,
+        minLevel: configuration.minLevel,
+        maxLevel: configuration.maxLevel,
       });
-    unlock(app, row, "start", "");
-    return { assignmentId: row.id };
-  });
+      app.save(row);
+      for (const step of levels(app, row))
+        db.create(app, "game_level_progress", {
+          assignment: row.id,
+          sessionLevel: step.id,
+        });
+      unlock(app, row, "start", "");
+      return { assignmentId: row.id };
+    },
+    (app, player) => onlineSession(app, assignment(app, id, player.id)),
+  );
   const player = db.actor(e.app, e);
   return detail(e.app, assignment(e.app, id, player.id));
 }
@@ -318,76 +335,87 @@ function complete(app, row, step, p, submission, actor) {
 function answer(e, id, body) {
   const answer = r.text(body.answer, "回答", 4000);
   const stepId = r.text(body.sessionLevelId, "关卡", 30);
-  const result = db.command(e, `answer:${id}`, body, false, (app, player) => {
-    const row = assignment(app, id, player.id);
-    availability(row, Date.now());
-    if (!row.getString("startedAt")) r.fail("NOT_STARTED", "请先进入场次", 409);
-    const step = levels(app, row).find((level) => level.id === stepId);
-    if (!step) r.fail("NOT_FOUND", "关卡不存在", 404);
-    const p = progressFor(app, row, stepId);
-    if (p.getString("completedAt"))
-      return { result: "already_completed", xpDelta: 0, rewardIds: [] };
-    const first = levels(app, row).find(
-      (level) => !progressFor(app, row, level.id).getString("completedAt"),
-    );
-    if (!first || first.id !== stepId)
-      r.fail("PREVIOUS_LEVEL_REQUIRED", "请先完成前一关", 409);
-    if (p.getBool("locked"))
-      r.fail("LOCKED", "本关已锁定，请联系工作人员", 409);
-    if (
-      p.getString("cooldownUntil") &&
-      Date.parse(p.getString("cooldownUntil")) > Date.now()
-    )
-      r.fail("COOLDOWN", "请等待冷却结束", 409);
-    const recent = db.all(
-      app,
-      "game_answer_submissions",
-      "assignment={:a} && submittedAt>{:since}",
-      { a: row.id, since: new Date(Date.now() - 60000).toISOString() },
-    );
-    if (recent.length >= 30)
-      r.fail("RATE_LIMITED", "提交过于频繁，请稍后再试", 429);
-    const q = db.get(app, "game_questions", step.getString("question"));
-    if (
-      q.getString("kind") === "choice" &&
-      !db.json(q, "options", []).some((option) => option.key === answer)
-    )
-      r.fail("INVALID_INPUT", "请选择有效选项");
-    const key = db.maybe(app, "game_answer_keys", "question={:id}", {
-      id: q.id,
-    });
-    const isCorrect = r.correct(
-      q.getString("kind"),
-      answer,
-      db.json(key, "acceptedAnswers", []),
-    );
-    const submission = db.create(app, "game_answer_submissions", {
-      assignment: row.id,
-      sessionLevel: step.id,
-      requestId: body.requestId,
-      answer,
-      result: isCorrect ? "correct" : "incorrect",
-      submittedAt: db.now(),
-      rulesRevision: key.getString("normalizationVersion"),
-    });
-    if (isCorrect)
-      return { result: "correct", ...complete(app, row, step, p, submission) };
-    p.set("lastSubmission", submission.id);
-    if (q.getString("kind") === "choice") {
-      const count = p.getInt("wrongCount") + 1;
-      p.set("wrongCount", count);
-      const policy = db.json(step, "penaltyPolicy", []);
-      const penalty = policy[Math.min(count - 1, policy.length - 1)];
-      if (penalty && penalty.type === "lock") p.set("locked", true);
-      else if (penalty)
-        p.set(
-          "cooldownUntil",
-          new Date(Date.now() + penalty.seconds * 1000).toISOString(),
-        );
-    }
-    app.save(p);
-    return { result: "incorrect", xpDelta: 0, rewardIds: [] };
-  });
+  const result = db.command(
+    e,
+    `answer:${id}`,
+    body,
+    false,
+    (app, player) => {
+      const row = assignment(app, id, player.id);
+      availability(row, Date.now());
+      if (!row.getString("startedAt"))
+        r.fail("NOT_STARTED", "请先进入场次", 409);
+      const step = levels(app, row).find((level) => level.id === stepId);
+      if (!step) r.fail("NOT_FOUND", "关卡不存在", 404);
+      const p = progressFor(app, row, stepId);
+      if (p.getString("completedAt"))
+        return { result: "already_completed", xpDelta: 0, rewardIds: [] };
+      const first = levels(app, row).find(
+        (level) => !progressFor(app, row, level.id).getString("completedAt"),
+      );
+      if (!first || first.id !== stepId)
+        r.fail("PREVIOUS_LEVEL_REQUIRED", "请先完成前一关", 409);
+      if (p.getBool("locked"))
+        r.fail("LOCKED", "本关已锁定，请联系工作人员", 409);
+      if (
+        p.getString("cooldownUntil") &&
+        Date.parse(p.getString("cooldownUntil")) > Date.now()
+      )
+        r.fail("COOLDOWN", "请等待冷却结束", 409);
+      const recent = db.all(
+        app,
+        "game_answer_submissions",
+        "assignment={:a} && submittedAt>{:since}",
+        { a: row.id, since: new Date(Date.now() - 60000).toISOString() },
+      );
+      if (recent.length >= 30)
+        r.fail("RATE_LIMITED", "提交过于频繁，请稍后再试", 429);
+      const q = db.get(app, "game_questions", step.getString("question"));
+      if (
+        q.getString("kind") === "choice" &&
+        !db.json(q, "options", []).some((option) => option.key === answer)
+      )
+        r.fail("INVALID_INPUT", "请选择有效选项");
+      const key = db.maybe(app, "game_answer_keys", "question={:id}", {
+        id: q.id,
+      });
+      const isCorrect = r.correct(
+        q.getString("kind"),
+        answer,
+        db.json(key, "acceptedAnswers", []),
+      );
+      const submission = db.create(app, "game_answer_submissions", {
+        assignment: row.id,
+        sessionLevel: step.id,
+        requestId: body.requestId,
+        answer,
+        result: isCorrect ? "correct" : "incorrect",
+        submittedAt: db.now(),
+        rulesRevision: key.getString("normalizationVersion"),
+      });
+      if (isCorrect)
+        return {
+          result: "correct",
+          ...complete(app, row, step, p, submission),
+        };
+      p.set("lastSubmission", submission.id);
+      if (q.getString("kind") === "choice") {
+        const count = p.getInt("wrongCount") + 1;
+        p.set("wrongCount", count);
+        const policy = db.json(step, "penaltyPolicy", []);
+        const penalty = policy[Math.min(count - 1, policy.length - 1)];
+        if (penalty && penalty.type === "lock") p.set("locked", true);
+        else if (penalty)
+          p.set(
+            "cooldownUntil",
+            new Date(Date.now() + penalty.seconds * 1000).toISOString(),
+          );
+      }
+      app.save(p);
+      return { result: "incorrect", xpDelta: 0, rewardIds: [] };
+    },
+    (app, player) => onlineSession(app, assignment(app, id, player.id)),
+  );
   const player = db.actor(e.app, e);
   return {
     ...result,
@@ -421,6 +449,7 @@ module.exports = {
   ranks,
   me,
   assignment,
+  onlineSession,
   availability,
   levels,
   progress,

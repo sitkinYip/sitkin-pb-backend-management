@@ -7,6 +7,7 @@ import {
   copyFile,
   writeFile,
   readFile,
+  readdir,
   rm,
 } from "node:fs/promises";
 import path from "node:path";
@@ -14,12 +15,29 @@ import os from "node:os";
 import { backendRoot, version } from "./runtime.mjs";
 
 // Local packaging only: never contacts a production server or includes pb_data.
-if (!process.argv[2])
+const args = process.argv.slice(2);
+const upgrade = args.includes("--upgrade");
+const positional = args.filter((arg) => arg !== "--upgrade");
+if (positional.length !== 1 || positional[0].startsWith("-"))
   throw new Error(
-    "Usage: node scripts/package-1panel.mjs /new/output-directory",
+    "Usage: node scripts/package-1panel.mjs /new/output-directory [--upgrade] (upgrade requires PB_DOCKER_IMAGE)",
   );
-const output = path.resolve(process.argv[2]);
-const image = `questions-pocketbase:${version}-v1.1-amd64`;
+const output = path.resolve(positional[0]);
+const image = upgrade
+  ? process.env.PB_DOCKER_IMAGE
+  : `questions-pocketbase:${version}-v1.1-amd64`;
+if (
+  !image ||
+  !image.startsWith(`questions-pocketbase:${version}-`) ||
+  !/^questions-pocketbase:[a-z0-9][a-z0-9._-]*-amd64$/.test(image)
+)
+  throw new Error(
+    "Expected an explicit, versioned questions-pocketbase AMD64 image tag.",
+  );
+if (upgrade && image === `questions-pocketbase:${version}-v1.1-amd64`)
+  throw new Error(
+    "Use a new upgrade image tag; do not overwrite the original release.",
+  );
 const docker = (args) =>
   execFileSync("docker", args, {
     encoding: "utf8",
@@ -56,15 +74,16 @@ docker([
   "diff -qr /pb/pb_hooks /verify-source/pb_hooks && diff -qr /pb/pb_migrations /verify-source/pb_migrations",
 ]);
 const template = path.join(backendRoot, "deploy/1panel");
-docker([
-  "compose",
-  "--env-file",
-  "/dev/null",
-  "-f",
-  path.join(template, "compose.yaml"),
-  "config",
-  "--quiet",
-]);
+if (!upgrade)
+  docker([
+    "compose",
+    "--env-file",
+    "/dev/null",
+    "-f",
+    path.join(template, "compose.yaml"),
+    "config",
+    "--quiet",
+  ]);
 
 // Refuse to overwrite an earlier release.
 await mkdir(output, { mode: 0o700 });
@@ -84,8 +103,15 @@ try {
     path.join(staging, "pocketbase-image.tar"),
     image,
   ]);
-  for (const name of ["compose.yaml", "README.md"])
-    await copyFile(path.join(template, name), path.join(staging, name));
+  if (!upgrade)
+    await copyFile(
+      path.join(template, "compose.yaml"),
+      path.join(staging, "compose.yaml"),
+    );
+  await copyFile(
+    path.join(template, upgrade ? "UPGRADE.md" : "README.md"),
+    path.join(staging, "README.md"),
+  );
   const archiveManifest = JSON.parse(
     execFileSync(
       "tar",
@@ -113,6 +139,11 @@ try {
     containsBusinessData: false,
     containsCredentials: false,
     containsFrontendBuilds: false,
+    deploymentMode: upgrade ? "upgrade-in-place" : "initial-install",
+    containsComposeTemplate: !upgrade,
+    migrationFiles: (await readdir(path.join(backendRoot, "pb_migrations")))
+      .filter((name) => name.endsWith(".js"))
+      .sort(),
     imageCodeMatchesRepository: true,
     note: "Docker engines may report an index or config digest as image ID. Verify archive SHA256, platform and runtime version after loading.",
   };
@@ -122,7 +153,7 @@ try {
   );
   const files = [
     "pocketbase-image.tar",
-    "compose.yaml",
+    ...(!upgrade ? ["compose.yaml"] : []),
     "README.md",
     "release.json",
   ];
@@ -133,7 +164,9 @@ try {
     path.join(staging, "SHA256SUMS"),
     checksums.join("\n") + "\n",
   );
-  const name = `questions-game-v1-pb-${version}-linux-amd64.tar.gz`;
+  const name = upgrade
+    ? `${image.replace(":", "-")}-upgrade.tar.gz`
+    : `questions-game-v1-pb-${version}-linux-amd64.tar.gz`;
   const archive = path.join(output, name);
   execFileSync(
     "tar",

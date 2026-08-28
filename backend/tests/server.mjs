@@ -12,7 +12,7 @@ import {
   version,
 } from "../scripts/runtime.mjs";
 
-export async function createTestServer() {
+export async function createTestServer({ migrationNames } = {}) {
   const containerImage = process.env.PB_DOCKER_IMAGE;
   if (containerImage) {
     const actual = execFileSync(
@@ -25,6 +25,16 @@ export async function createTestServer() {
   } else assertVersion();
   const directory = await mkdtemp(path.join(os.tmpdir(), "questions-pb-test-"));
   const dataDir = path.join(directory, "pb_data");
+  const migrationsDir = path.join(directory, "pb_migrations");
+  const copyMigrations = () =>
+    cp(path.join(backendRoot, "pb_migrations"), migrationsDir, {
+      recursive: true,
+      filter: (source) =>
+        !migrationNames ||
+        path.basename(source) === "pb_migrations" ||
+        migrationNames.includes(path.basename(source)),
+    });
+  await copyMigrations();
   await cp(
     path.join(backendRoot, "pb_hooks"),
     path.join(directory, "pb_hooks"),
@@ -44,14 +54,16 @@ export async function createTestServer() {
   const runtimeArgs = containerImage
     ? [
         "--dir=/test-data/pb_data",
-        "--migrationsDir=/backend/pb_migrations",
+        "--migrationsDir=/test-data/pb_migrations",
         "--hooksDir=/test-data/pb_hooks",
         "--automigrate=false",
       ]
     : argumentsFor(dataDir).map((arg) =>
         arg.startsWith("--hooksDir=")
           ? `--hooksDir=${path.join(directory, "pb_hooks")}`
-          : arg,
+          : arg.startsWith("--migrationsDir=")
+            ? `--migrationsDir=${migrationsDir}`
+            : arg,
       );
   const invoke = (args) =>
     containerImage
@@ -92,36 +104,42 @@ export async function createTestServer() {
     });
   });
   const containerName = `questions-pb-test-${randomUUID()}`;
-  const child = containerImage
-    ? spawn(
-        "docker",
-        [
-          "run",
-          "--rm",
-          "--name",
-          containerName,
-          "-p",
-          `127.0.0.1:${port}:8090`,
-          ...mountArgs,
-          containerImage,
-          "serve",
-          "--http=0.0.0.0:8090",
-          ...runtimeArgs,
-        ],
-        { stdio: ["ignore", "pipe", "pipe"] },
-      )
-    : spawn(binary, ["serve", `--http=127.0.0.1:${port}`, ...runtimeArgs], {
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+  const spawnServer = () =>
+    containerImage
+      ? spawn(
+          "docker",
+          [
+            "run",
+            "--rm",
+            "--name",
+            containerName,
+            "-p",
+            `127.0.0.1:${port}:8090`,
+            ...mountArgs,
+            containerImage,
+            "serve",
+            "--http=0.0.0.0:8090",
+            ...runtimeArgs,
+          ],
+          { stdio: ["ignore", "pipe", "pipe"] },
+        )
+      : spawn(binary, ["serve", `--http=127.0.0.1:${port}`, ...runtimeArgs], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
   let logs = "";
-  child.stdout.on("data", (data) => {
-    logs = (logs + data).slice(-10000);
-  });
-  child.stderr.on("data", (data) => {
-    logs = (logs + data).slice(-10000);
-  });
+  let child;
+  const startProcess = () => {
+    child = spawnServer();
+    child.stdout.on("data", (data) => {
+      logs = (logs + data).slice(-10000);
+    });
+    child.stderr.on("data", (data) => {
+      logs = (logs + data).slice(-10000);
+    });
+  };
+  startProcess();
   const base = `http://127.0.0.1:${port}`;
-  const stop = async () => {
+  const stopProcess = async () => {
     if (child.exitCode === null) {
       const exited = new Promise((resolve) => child.once("exit", resolve));
       if (containerImage)
@@ -131,9 +149,12 @@ export async function createTestServer() {
       else child.kill("SIGTERM");
       await exited;
     }
+  };
+  const stop = async () => {
+    await stopProcess();
     await rm(directory, { recursive: true, force: true });
   };
-  try {
+  const waitReady = async () => {
     let ready = false;
     for (let i = 0; i < 400; i++) {
       if (child.exitCode !== null)
@@ -147,6 +168,17 @@ export async function createTestServer() {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     if (!ready) throw new Error(`PocketBase did not become ready: ${logs}`);
+  };
+  const upgradeMigrations = async () => {
+    await stopProcess();
+    migrationNames = undefined;
+    await copyMigrations();
+    invoke(["migrate", "up", ...runtimeArgs]);
+    startProcess();
+    await waitReady();
+  };
+  try {
+    await waitReady();
     async function request(route, options = {}) {
       const response = await fetch(base + route, {
         method: options.method || "GET",
@@ -198,6 +230,7 @@ export async function createTestServer() {
       base,
       request,
       stop,
+      upgradeMigrations,
       superToken: auth.data.token,
       adminToken: admin.data.token,
       logs: () => logs,

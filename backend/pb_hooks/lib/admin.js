@@ -1,6 +1,7 @@
 const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const game = require(`${__hooks}/lib/gameplay.js`);
+const policy = require(`${__hooks}/lib/content-policy.js`);
 function playerDto(app, row) {
   return { ...game.me(app, row), status: row.getString("status") };
 }
@@ -72,13 +73,19 @@ function sessionDto(app, row) {
 }
 function catalog(e) {
   db.actor(e.app, e, true);
+  const references = policy.references(e.app);
+  const counts = policy.assignmentCounts(e.app);
   return {
     players: db.all(e.app, "game_players").map((p) => playerDto(e.app, p)),
     ranks: game.ranks(e.app),
-    questions: db
-      .all(e.app, "game_questions")
-      .map((q) => questionDto(e.app, q)),
-    sessions: db.all(e.app, "game_sessions").map((s) => sessionDto(e.app, s)),
+    questions: db.all(e.app, "game_questions").map((q) => ({
+      ...questionDto(e.app, q),
+      usage: policy.usage(q, references),
+    })),
+    sessions: db.all(e.app, "game_sessions").map((s) => ({
+      ...sessionDto(e.app, s),
+      assignmentCounts: counts[s.id] || policy.emptyCounts(),
+    })),
     rewards: db
       .all(e.app, "game_rewards")
       .map((reward) =>
@@ -232,7 +239,18 @@ function saveQuestion(e, id, body) {
     true,
     (app, actor) => {
       const prior = id ? db.get(app, "game_questions", id) : null;
-      const fields = version(app, "game_questions", prior, body.clone === true);
+      const updating = prior && body.clone !== true;
+      const usage = updating ? policy.requireEditable(app, prior) : null;
+      const before = updating ? questionDto(app, prior) : null;
+      const reason = r.text(
+        body.reason || "",
+        "修改原因",
+        1000,
+        Boolean(usage && usage.historyCount),
+      );
+      const fields = updating
+        ? {}
+        : version(app, "game_questions", prior, body.clone === true);
       const source =
         body.clone === true && prior ? questionDto(app, prior) : body;
       if (!["text", "choice"].includes(source.kind))
@@ -257,7 +275,7 @@ function saveQuestion(e, id, body) {
       )
         r.fail("INVALID_INPUT", "选择题至少两个选项，答案须为选项标识");
       let row;
-      if (prior && !body.clone) {
+      if (updating) {
         row = prior;
         for (const key of Object.keys(fields)) row.set(key, fields[key]);
         app.save(row);
@@ -275,7 +293,15 @@ function saveQuestion(e, id, body) {
           acceptedAnswers: answers,
           normalizationVersion: "nfkc-v1",
         });
-      db.audit(app, actor, "save_question", row, "", body.requestId);
+      db.audit(
+        app,
+        actor,
+        "save_question",
+        row,
+        reason,
+        body.requestId,
+        updating ? { before, after: questionDto(app, row) } : {},
+      );
       return { id: row.id };
     },
   );
@@ -578,7 +604,37 @@ function archive(e, table, id, body) {
   return db.command(e, `archive:${table}:${id}`, body, true, (app, actor) => {
     const row = db.get(app, table, id);
     const previous = row.getString("status");
+    if (table === "game_sessions") {
+      const reason = r.text(body.reason, "下线原因", 1000);
+      // Also reconcile records archived under the earlier stop-new-dispatch
+      // semantics. Never rewrite progress, submissions or settled rewards.
+      const pending = db.all(
+        app,
+        "game_assignments",
+        "session={:id} && (status='assigned' || status='active')",
+        { id },
+      );
+      const counts = { assigned: 0, active: 0 };
+      for (const assignment of pending) {
+        counts[assignment.getString("status")]++;
+        assignment.set("status", "cancelled");
+        app.save(assignment);
+      }
+      if (previous !== "archived") {
+        row.set("status", "archived");
+        app.save(row);
+      }
+      if (previous !== "archived" || pending.length)
+        db.audit(app, actor, "close_session", row, reason, body.requestId, {
+          from: previous,
+          to: "archived",
+          cancelledCount: pending.length,
+          counts,
+        });
+      return { id, cancelledCount: pending.length };
+    }
     if (previous !== "archived") {
+      if (table === "game_questions") policy.requireEditable(app, row, true);
       row.set("status", "archived");
       app.save(row);
       db.audit(
@@ -595,87 +651,94 @@ function archive(e, table, id, body) {
   });
 }
 function assignmentAction(e, id, body) {
-  return db.command(e, `assignment-action:${id}`, body, true, (app, actor) => {
-    const row = game.assignment(app, id),
-      reason = r.text(body.reason, "操作原因", 1000);
-    if (body.action === "cancel") {
-      if (row.getString("status") === "completed")
-        r.fail("INVALID_STATE", "已完成场次不能撤回", 409);
-      row.set("status", "cancelled");
-      app.save(row);
-    } else if (body.action === "extend") {
-      if (!["assigned", "active"].includes(row.getString("status")))
-        r.fail("INVALID_STATE", "仅未结束场次可延时", 409);
-      const end = r.date(body.endsAt, "截止时间");
-      if (
-        end &&
-        (Date.parse(end) <= Date.now() ||
-          (row.getString("startsAt") &&
-            Date.parse(end) <= Date.parse(row.getString("startsAt"))))
-      )
-        r.fail("INVALID_INPUT", "截止时间必须晚于现在和开始时间");
-      row.set("endsAt", end);
-      app.save(row);
-    } else if (body.action === "unlock_clue") {
-      if (
-        !row.getString("startedAt") ||
-        row.getString("status") === "cancelled"
-      )
-        r.fail("INVALID_STATE", "场次尚未开始或已撤回", 409);
-      const clue = db.get(app, "game_clues", body.clueId);
-      if (clue.getString("session") !== row.getString("session"))
-        r.fail("INVALID_INPUT", "线索不属于本场");
-      if (
-        !db.maybe(app, "game_clue_unlocks", "assignment={:a} && clue={:c}", {
-          a: id,
-          c: clue.id,
-        })
-      )
-        db.create(app, "game_clue_unlocks", {
-          assignment: id,
-          clue: clue.id,
-          unlockedAt: db.now(),
-          sourceType: "manual",
-          actor: actor.id,
-        });
-    } else if (["clear_penalty", "complete_level"].includes(body.action)) {
-      if (row.getString("status") !== "active")
-        r.fail("INVALID_STATE", "场次必须进行中", 409);
-      const step = game
-        .levels(app, row)
-        .find((level) => level.id === body.sessionLevelId);
-      if (!step) r.fail("NOT_FOUND", "关卡不存在", 404);
-      const p = game.progressFor(app, row, step.id);
-      if (body.action === "clear_penalty") {
-        p.set("locked", false);
-        p.set("cooldownUntil", "");
-        app.save(p);
-      } else {
-        const first = game
-          .levels(app, row)
-          .find(
-            (level) =>
-              !game.progressFor(app, row, level.id).getString("completedAt"),
-          );
-        if (!p.getString("completedAt") && (!first || first.id !== step.id))
-          r.fail("PREVIOUS_LEVEL_REQUIRED", "请先处理前一关", 409);
-        if (!p.getString("completedAt")) {
-          const submission = db.create(app, "game_answer_submissions", {
+  return db.command(
+    e,
+    `assignment-action:${id}`,
+    body,
+    true,
+    (app, actor) => {
+      const row = game.assignment(app, id),
+        reason = r.text(body.reason, "操作原因", 1000);
+      if (body.action === "cancel") {
+        if (row.getString("status") === "completed")
+          r.fail("INVALID_STATE", "已完成场次不能撤回", 409);
+        row.set("status", "cancelled");
+        app.save(row);
+      } else if (body.action === "extend") {
+        if (!["assigned", "active"].includes(row.getString("status")))
+          r.fail("INVALID_STATE", "仅未结束场次可延时", 409);
+        const end = r.date(body.endsAt, "截止时间");
+        if (
+          end &&
+          (Date.parse(end) <= Date.now() ||
+            (row.getString("startsAt") &&
+              Date.parse(end) <= Date.parse(row.getString("startsAt"))))
+        )
+          r.fail("INVALID_INPUT", "截止时间必须晚于现在和开始时间");
+        row.set("endsAt", end);
+        app.save(row);
+      } else if (body.action === "unlock_clue") {
+        if (
+          !row.getString("startedAt") ||
+          row.getString("status") === "cancelled"
+        )
+          r.fail("INVALID_STATE", "场次尚未开始或已撤回", 409);
+        const clue = db.get(app, "game_clues", body.clueId);
+        if (clue.getString("session") !== row.getString("session"))
+          r.fail("INVALID_INPUT", "线索不属于本场");
+        if (
+          !db.maybe(app, "game_clue_unlocks", "assignment={:a} && clue={:c}", {
+            a: id,
+            c: clue.id,
+          })
+        )
+          db.create(app, "game_clue_unlocks", {
             assignment: id,
-            sessionLevel: step.id,
-            requestId: body.requestId,
-            answer: "",
-            result: "manual",
-            submittedAt: db.now(),
-            rulesRevision: "manual-v1",
+            clue: clue.id,
+            unlockedAt: db.now(),
+            sourceType: "manual",
+            actor: actor.id,
           });
-          game.complete(app, row, step, p, submission, actor);
+      } else if (["clear_penalty", "complete_level"].includes(body.action)) {
+        if (row.getString("status") !== "active")
+          r.fail("INVALID_STATE", "场次必须进行中", 409);
+        const step = game
+          .levels(app, row)
+          .find((level) => level.id === body.sessionLevelId);
+        if (!step) r.fail("NOT_FOUND", "关卡不存在", 404);
+        const p = game.progressFor(app, row, step.id);
+        if (body.action === "clear_penalty") {
+          p.set("locked", false);
+          p.set("cooldownUntil", "");
+          app.save(p);
+        } else {
+          const first = game
+            .levels(app, row)
+            .find(
+              (level) =>
+                !game.progressFor(app, row, level.id).getString("completedAt"),
+            );
+          if (!p.getString("completedAt") && (!first || first.id !== step.id))
+            r.fail("PREVIOUS_LEVEL_REQUIRED", "请先处理前一关", 409);
+          if (!p.getString("completedAt")) {
+            const submission = db.create(app, "game_answer_submissions", {
+              assignment: id,
+              sessionLevel: step.id,
+              requestId: body.requestId,
+              answer: "",
+              result: "manual",
+              submittedAt: db.now(),
+              rulesRevision: "manual-v1",
+            });
+            game.complete(app, row, step, p, submission, actor);
+          }
         }
-      }
-    } else r.fail("INVALID_INPUT", "未知场次操作");
-    db.audit(app, actor, body.action, row, reason, body.requestId);
-    return { id };
-  });
+      } else r.fail("INVALID_INPUT", "未知场次操作");
+      db.audit(app, actor, body.action, row, reason, body.requestId);
+      return { id };
+    },
+    (app) => game.onlineSession(app, game.assignment(app, id)),
+  );
 }
 function saveReward(e, id, body) {
   return db.command(

@@ -6,6 +6,8 @@
 
 ## 已完成的正式部署（2026-08-28）
 
+最新后端已更新为 `questions-pocketbase:0.40.1-session-offline-20260828-amd64`，包含场次下线、题库编辑限制及 2MB 审计迁移，见 [正式发布记录](../../../docs/session-offline-deployment-20260828.md)。现有实例升级使用 [升级操作单](UPGRADE.md)，下文首次安装与 v1.1 步骤保留作历史参考，不得重建或重导当前生产库。
+
 新容器已接管 `127.0.0.1:8090:8090`，旧容器停止并取消自动重启，服务器 18090 已关闭。生产模板为 `compose.production.yaml`；下文 `compose.yaml` 保留 18090 隔离演练用途，不要直接覆盖当前生产配置。玩家为 https://sitkin.top/questions/，管理后台为 https://vae.sitkin.top/。
 
 生产还关闭了空的默认 `users` 认证集合注册。维护脚本 `lock-unused-auth.pb.js` 在确认该集合为空后才关闭 createRule；需先备份、停止服务，用独立 `--hooksDir` 挂载本脚本后执行 `questions-lock-unused-auth`，再启动服务。不要将维护命令挂载到在线 hooks，不得对已有其他项目账号的集合执行。登录限速和可信代理也属于实例配置，恢复旧快照时需复查。

@@ -1,5 +1,6 @@
 import { createRequestId } from "./request-id";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import {
   Alert,
   Button,
@@ -8,6 +9,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Modal,
   Popconfirm,
   Select,
   Space,
@@ -26,7 +28,16 @@ import type {
   AdminSessionLevel,
   AdminNarrative,
   AdminRewardDefinition,
+  AdminSessionReference,
 } from "./contracts";
+import {
+  filterSessions,
+  questionOptions,
+  questionUsage,
+  sessionCounts,
+  sessionStatusLabels,
+  type SessionFilter,
+} from "./content-policy";
 import {
   ErrorNotice,
   FormFooter,
@@ -100,13 +111,31 @@ function PresentationFields({ prefix }: { prefix: (string | number)[] }) {
     </>
   );
 }
+function QuestionReferences({
+  references,
+}: {
+  references: AdminSessionReference[];
+}) {
+  return (
+    <Space direction="vertical" size={0}>
+      {references.map((s) => (
+        <Link key={s.id} to={`/sessions?sessionId=${encodeURIComponent(s.id)}`}>
+          {s.title} · v{s.revision}（{sessionStatusLabels[s.status]}）
+        </Link>
+      ))}
+    </Space>
+  );
+}
 function QuestionEditor({ catalog, refresh }: EditorProps) {
   const [form] = Form.useForm();
+  const [deleteForm] = Form.useForm();
   const [open, setOpen] = useState(false),
     [id, setId] = useState("");
-  const readOnly = Boolean(
-    id && catalog.questions.find((row) => row.id === id)?.status !== "draft",
-  );
+  const [scope, setScope] = useState("available");
+  const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
+  const selected = catalog.questions.find((row) => row.id === id);
+  const usage = selected ? questionUsage(selected, catalog.sessions) : null;
+  const readOnly = Boolean(id && (!selected || !usage?.canEdit));
   const { run, busy } = useAdminCommand(refresh);
   const kind = Form.useWatch("kind", form);
   const edit = (row?: AdminQuestion) => {
@@ -127,19 +156,39 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
     <Card
       title="题库"
       extra={
-        <Button type="primary" onClick={() => edit()}>
-          新建题目
-        </Button>
+        <Space>
+          <Button onClick={() => void refresh()}>刷新</Button>
+          <Button type="primary" onClick={() => edit()}>
+            新建题目
+          </Button>
+        </Space>
       }
     >
       <Alert
         type="info"
-        message="答案仅供管理员查看。发布后不可原地修改，可创建新版本；题目不再配置用户、经验或最终关。"
+        message="线上场次引用的题目不可修改或删除。只有草稿引用时可改题，删除前须解除草稿引用；修改不重算旧结算，删除保留历史关联。"
         style={{ marginBottom: 20 }}
+      />
+      <Select
+        aria-label="题库范围"
+        value={scope}
+        style={{ width: 190, marginBottom: 16 }}
+        onChange={setScope}
+        options={[
+          { value: "available", label: "正常题库" },
+          { value: "archived", label: "已移出题库" },
+          { value: "all", label: "全部题目" },
+        ]}
       />
       <Table
         rowKey="id"
-        dataSource={catalog.questions}
+        dataSource={catalog.questions.filter(
+          (q) =>
+            scope === "all" ||
+            (scope === "archived"
+              ? q.status === "archived"
+              : q.status !== "archived"),
+        )}
         columns={[
           { title: "题目", dataIndex: "title" },
           {
@@ -151,14 +200,45 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           {
             title: "状态",
             dataIndex: "status",
-            render: (value) => <Tag>{statusLabels[value]}</Tag>,
+            render: (value) => (
+              <Tag>
+                {value === "archived" ? "已移出题库" : statusLabels[value]}
+              </Tag>
+            ),
+          },
+          {
+            title: "引用 / 编辑限制",
+            render: (_, row: AdminQuestion) => {
+              const info = questionUsage(row, catalog.sessions);
+              return (
+                <Space direction="vertical" size={4}>
+                  <Tag color={info.online.length ? "orange" : "default"}>
+                    {row.status === "archived"
+                      ? "只读"
+                      : info.canEdit
+                        ? "可编辑"
+                        : "线上引用，已锁定"}
+                  </Tag>
+                  <QuestionReferences
+                    references={[...info.online, ...info.drafts]}
+                  />
+                  {!!info.historyCount && (
+                    <Typography.Text type="secondary">
+                      另有 {info.historyCount} 个已下线场次引用
+                    </Typography.Text>
+                  )}
+                </Space>
+              );
+            },
           },
           {
             title: "操作",
             render: (_, row: AdminQuestion) => (
-              <Space>
+              <Space wrap>
                 <Button onClick={() => edit(row)}>
-                  {row.status === "draft" ? "编辑" : "查看"}
+                  {questionUsage(row, catalog.sessions).canEdit
+                    ? "编辑"
+                    : "查看"}
                 </Button>
                 <Button
                   disabled={row.status !== "draft" || busy}
@@ -174,25 +254,25 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                 >
                   新版本
                 </Button>
-                <Popconfirm
-                  title="归档后不能再用于新配置，已有场次仍可回顾。确认归档？"
-                  onConfirm={() =>
-                    run(`/admin/questions/${row.id}/archive`, {
-                      reason: "管理员归档内容",
-                    })
+                <Button
+                  danger
+                  disabled={
+                    busy || !questionUsage(row, catalog.sessions).canDelete
                   }
+                  onClick={() => {
+                    deleteForm.resetFields();
+                    setDeleting(row);
+                  }}
                 >
-                  <Button disabled={busy || row.status === "archived"}>
-                    归档
-                  </Button>
-                </Popconfirm>
+                  删除
+                </Button>
               </Space>
             ),
           },
         ]}
       />
       <Drawer
-        title={readOnly ? "查看题目版本" : id ? "编辑题目草稿" : "新建题目"}
+        title={readOnly ? "查看题目" : id ? "编辑题目" : "新建题目"}
         width={760}
         open={open}
         forceRender
@@ -205,12 +285,40 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           )
         }
       >
+        {usage && (
+          <Alert
+            style={{ marginBottom: 16 }}
+            type={readOnly ? "warning" : "info"}
+            message={
+              selected?.status === "archived"
+                ? "题目已移出题库，仅可查看或复制。"
+                : usage.online.length
+                  ? "请先下线所有引用场次，再修改此题。"
+                  : usage.drafts.length
+                    ? "保存后，引用此题的草稿将同步使用新配置。"
+                    : "保存更新原题，题目 ID 不变。"
+            }
+            description={
+              <>
+                <QuestionReferences
+                  references={[...usage.online, ...usage.drafts]}
+                />
+                {!!usage.historyCount && (
+                  <p>
+                    后台旧场次会显示当前题面；历史提交与结算不重算。请填写修改原因。
+                  </p>
+                )}
+              </>
+            }
+          />
+        )}
         <Form
           name="question-editor"
           disabled={readOnly}
           form={form}
           layout="vertical"
           onFinish={async (values) => {
+            if (readOnly) return;
             const result = await run(
               id ? `/admin/questions/${id}` : "/admin/questions",
               {
@@ -224,6 +332,19 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             if (result) setOpen(false);
           }}
         >
+          {id && !readOnly && (
+            <Form.Item
+              name="reason"
+              label="修改原因"
+              rules={usage?.historyCount ? fieldRule : undefined}
+            >
+              <Input.TextArea
+                maxLength={1000}
+                rows={2}
+                placeholder="例如：修正错别字或答案配置"
+              />
+            </Form.Item>
+          )}
           <Form.Item name="title" label="题目标题" rules={fieldRule}>
             <Input />
           </Form.Item>
@@ -354,11 +475,50 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           </Form.Item>
         </Form>
       </Drawer>
+      <Modal
+        title="删除题目（保留历史）"
+        open={!!deleting}
+        forceRender
+        confirmLoading={busy}
+        onCancel={() => setDeleting(null)}
+        onOk={() => deleteForm.submit()}
+        okText="确认删除"
+        okButtonProps={{ danger: true }}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message={`将“${deleting?.title || ""}”移出题库，历史关联保留；不能直接恢复，可复制成新题。`}
+        />
+        <Form
+          form={deleteForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            if (
+              deleting &&
+              (await run(`/admin/questions/${deleting.id}/archive`, values))
+            )
+              setDeleting(null);
+          }}
+        >
+          <Form.Item name="reason" label="删除原因" rules={fieldRule}>
+            <Input.TextArea maxLength={1000} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Card>
   );
 }
 function SessionEditor({ catalog, refresh }: EditorProps) {
   const [form] = Form.useForm();
+  const [closeForm] = Form.useForm();
+  const [params, setParams] = useSearchParams();
+  const [filter, setFilter] = useState<SessionFilter>("published");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [closingId, setClosingId] = useState("");
+  const closing = catalog.sessions.find((s) => s.id === closingId);
+  const counts = sessionCounts(catalog.sessions);
   const [open, setOpen] = useState(false),
     [id, setId] = useState("");
   const readOnly = Boolean(
@@ -389,18 +549,70 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
     );
     setOpen(true);
   };
+  useEffect(() => {
+    const target = params.get("sessionId");
+    const row = target ? catalog.sessions.find((s) => s.id === target) : null;
+    if (!row) return;
+    setId(row.id);
+    form.resetFields();
+    form.setFieldsValue(row);
+    setOpen(true);
+    setFilter(row.status);
+    setSearch("");
+    setPage(1);
+    const next = new URLSearchParams(params);
+    next.delete("sessionId");
+    setParams(next, { replace: true });
+  }, [params, catalog.sessions, form, setParams]);
+  const unavailable = steps.filter((step) => {
+    const q = catalog.questions.find((q) => q.id === step.question);
+    return step.question && (!q || q.status === "archived");
+  });
   return (
     <Card
       title="场次编排"
       extra={
-        <Button type="primary" onClick={() => edit()}>
-          新建场次
-        </Button>
+        <Space>
+          <Button onClick={() => void refresh()}>刷新</Button>
+          <Button type="primary" onClick={() => edit()}>
+            新建场次
+          </Button>
+        </Space>
       }
     >
+      <Tabs
+        activeKey={filter}
+        onChange={(value) => {
+          setFilter(value as SessionFilter);
+          setPage(1);
+        }}
+        items={(["published", "draft", "archived", "all"] as const).map(
+          (key) => ({
+            key,
+            label: `${key === "all" ? "全部" : sessionStatusLabels[key]}（${counts[key]}）`,
+          }),
+        )}
+      />
+      <Input.Search
+        aria-label="搜索场次标题"
+        placeholder="搜索场次标题"
+        allowClear
+        value={search}
+        onChange={(event) => {
+          setSearch(event.target.value);
+          setPage(1);
+        }}
+        style={{ maxWidth: 360, marginBottom: 16 }}
+      />
       <Table
         rowKey="id"
-        dataSource={catalog.sessions}
+        dataSource={filterSessions(catalog.sessions, filter, search)}
+        pagination={{
+          current: page,
+          pageSize: 10,
+          showSizeChanger: false,
+          onChange: setPage,
+        }}
         columns={[
           { title: "场次", dataIndex: "title" },
           {
@@ -411,41 +623,53 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
           {
             title: "状态",
             dataIndex: "status",
-            render: (value) => <Tag>{statusLabels[value]}</Tag>,
+            render: (value: AdminSession["status"]) => (
+              <Tag color={value === "published" ? "green" : "default"}>
+                {sessionStatusLabels[value]}
+              </Tag>
+            ),
           },
           {
             title: "操作",
             render: (_, row: AdminSession) => (
-              <Space>
+              <Space wrap>
                 <Button onClick={() => edit(row)}>
                   {row.status === "draft" ? "编辑" : "查看"}
                 </Button>
                 <Button
                   disabled={busy || row.status !== "draft"}
-                  onClick={() => void run(`/admin/sessions/${row.id}/publish`)}
+                  onClick={async () => {
+                    if (await run(`/admin/sessions/${row.id}/publish`)) {
+                      setFilter("published");
+                      setSearch("");
+                      setPage(1);
+                    }
+                  }}
                 >
                   发布
                 </Button>
                 <Button
                   disabled={busy}
-                  onClick={() =>
-                    void run(`/admin/sessions/${row.id}`, { clone: true })
-                  }
+                  onClick={async () => {
+                    const result = await run<{ id: string }>(
+                      `/admin/sessions/${row.id}`,
+                      { clone: true },
+                    );
+                    if (result) setParams({ sessionId: result.id });
+                  }}
                 >
-                  新版本
+                  复制为新草稿
                 </Button>
-                <Popconfirm
-                  title="归档后不能再用于新配置，已有场次仍可回顾。确认归档？"
-                  onConfirm={() =>
-                    run(`/admin/sessions/${row.id}/archive`, {
-                      reason: "管理员归档内容",
-                    })
-                  }
+                <Button
+                  danger
+                  disabled={busy || row.status === "archived"}
+                  onClick={() => {
+                    closeForm.resetFields();
+                    setClosingId(row.id);
+                  }}
                 >
-                  <Button disabled={busy || row.status === "archived"}>
-                    归档
-                  </Button>
-                </Popconfirm>
+                  {row.status === "draft" ? "作废" : "下线"}
+                </Button>
               </Space>
             ),
           },
@@ -465,12 +689,28 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
           )
         }
       >
+        {readOnly && (
+          <Alert
+            type="info"
+            style={{ marginBottom: 16 }}
+            message="此场次只读；下线后不能恢复上线，需要复制为新草稿。题面为题库当前配置，历史判定未重算。"
+          />
+        )}
+        {!!unavailable.length && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={`有 ${unavailable.length} 个关卡引用了已移出题库的题目，发布前必须替换；旧记录仍保留。`}
+          />
+        )}
         <Form
           name="session-editor"
           disabled={readOnly}
           form={form}
           layout="vertical"
           onFinish={async (values) => {
+            if (readOnly) return;
             const result = await run(
               id ? `/admin/sessions/${id}` : "/admin/sessions",
               {
@@ -481,13 +721,19 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
               },
               id ? "PATCH" : "POST",
             );
-            if (result) setOpen(false);
+            if (result) {
+              setOpen(false);
+              setFilter("draft");
+              setSearch("");
+              setPage(1);
+            }
           }}
         >
           <Tabs
             items={[
               {
                 key: "basic",
+                forceRender: true,
                 label: "基础与演出",
                 children: (
                   <>
@@ -569,6 +815,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
               },
               {
                 key: "levels",
+                forceRender: true,
                 label: "小关卡",
                 children: (
                   <Form.List name="levels">
@@ -605,10 +852,10 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                               <Select
                                 showSearch
                                 optionFilterProp="label"
-                                options={catalog.questions.map((q) => ({
-                                  value: q.id,
-                                  label: `${q.title} · v${q.revision} · ${statusLabels[q.status]}`,
-                                }))}
+                                options={questionOptions(
+                                  catalog.questions,
+                                  steps[name]?.question,
+                                )}
                               />
                             </Form.Item>
                             <Space>
@@ -714,6 +961,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
               },
               {
                 key: "clues",
+                forceRender: true,
                 label: "解锁线索",
                 children: (
                   <Form.List name="clues">
@@ -855,6 +1103,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
               },
               {
                 key: "rewards",
+                forceRender: true,
                 label: "发奖规则",
                 children: (
                   <Form.List name="rewardRules">
@@ -932,6 +1181,56 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
           />
         </Form>
       </Drawer>
+      <Modal
+        title={closing?.status === "draft" ? "作废场次草稿" : "永久下线场次"}
+        open={!!closing}
+        forceRender
+        confirmLoading={busy}
+        onCancel={() => setClosingId("")}
+        onOk={() => closeForm.submit()}
+        okText={closing?.status === "draft" ? "确认作废" : "确认下线"}
+        okButtonProps={{ danger: true, disabled: !closing?.assignmentCounts }}
+      >
+        <Typography.Paragraph>
+          {closing?.title} · v{closing?.revision}
+        </Typography.Paragraph>
+        <Alert
+          type="warning"
+          showIcon
+          message="此操作不可恢复；只能复制为新草稿再发布。"
+          description="玩家待答和历史列表将不再显示，旧链接不可访问。未完成下发结束；已获经验、奖品、领取信息与核销记录全部保留。"
+        />
+        <Typography.Paragraph style={{ marginTop: 16 }}>
+          {closing?.assignmentCounts
+            ? `当前共 ${closing.assignmentCounts.total} 条下发；将结束 ${closing.assignmentCounts.assigned + closing.assignmentCounts.active} 条未完成下发；${closing.assignmentCounts.completed} 条已完成记录保留原状态。`
+            : "暂时无法读取下发统计，请刷新或检查后端版本。"}
+          实际处理数量以服务端执行结果为准。
+        </Typography.Paragraph>
+        <Form
+          form={closeForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            if (!closing) return;
+            const result = await run<{ id: string; cancelledCount: number }>(
+              `/admin/sessions/${closing.id}/archive`,
+              values,
+            );
+            if (result) {
+              setClosingId("");
+              if (id === closing.id) setOpen(false);
+              setPage(1);
+            }
+          }}
+        >
+          <Form.Item
+            name="reason"
+            label={closing?.status === "draft" ? "作废原因" : "下线原因"}
+            rules={fieldRule}
+          >
+            <Input.TextArea maxLength={1000} rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Card>
   );
 }

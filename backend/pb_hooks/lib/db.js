@@ -38,12 +38,15 @@ function actor(app, e, admin = false, allowPasswordChange = false) {
     rules.fail("PASSWORD_CHANGE_REQUIRED", "请先修改初始密码", 403);
   return result;
 }
-function command(e, operation, input, admin, execute) {
+function command(e, operation, input, admin, execute, beforeReplay) {
   const requestId = rules.text(input.requestId, "请求标识", 100);
   const hash = $security.sha256(rules.canonical(input));
   let result;
   e.app.runInTransaction((app) => {
     const owner = actor(app, e, admin);
+    // Some commands lose authorization when their session is closed. Check
+    // inside the transaction even when an earlier successful receipt exists.
+    if (beforeReplay) beforeReplay(app, owner);
     const collection = owner.collection().name;
     const prior = maybe(
       app,

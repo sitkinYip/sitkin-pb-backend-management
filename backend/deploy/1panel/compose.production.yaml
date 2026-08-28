@@ -2,7 +2,7 @@ name: questions-game-v1
 
 services:
   pocketbase:
-    image: questions-pocketbase:0.40.1-v1.1-amd64
+    image: questions-pocketbase:0.40.1-session-offline-20260828-amd64
     platform: linux/amd64
     pull_policy: never
     container_name: questions-game-v1

@@ -465,7 +465,7 @@ test(
       },
     );
     await t.test(
-      "notification receipts and published content immutability",
+      "notification receipts and online question reference locks",
       async () => {
         const note = ok(
           await command("/admin/notifications", {
@@ -490,7 +490,7 @@ test(
               { requestId: randomUUID(), title: "修改" },
             )
           ).data.error.code,
-          "PUBLISHED_IMMUTABLE",
+          "QUESTION_IN_USE",
         );
       },
     );
@@ -821,7 +821,7 @@ test(
       },
     );
     await t.test(
-      "narrative unlock and archival preserve old assignments without allowing new dispatch",
+      "session closure blocks old narrative access without allowing new dispatch",
       async () => {
         const narrative = ok(
           await command("/admin/narratives", {
@@ -873,8 +873,12 @@ test(
           }),
         );
         assert.equal(
-          ok(await call(route, alice.token)).payload.paragraphs[0].content,
-          "只给完成冒险的你",
+          (await call(route, alice.token)).data.error.code,
+          "SESSION_OFFLINE",
+        );
+        assert.equal(
+          ok(await call(`/admin/assignments/${id}`)).status,
+          "completed",
         );
         assert.equal((await call(route, bob.token)).status, 404);
         assert.equal(

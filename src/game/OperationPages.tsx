@@ -23,8 +23,8 @@ import { TextSyntaxHelp } from "../components/TextSyntaxHelp";
 import type {
   AdminCatalog,
   AssignmentBatchResult,
-  GameAssignment,
-  GameAssignmentSummary,
+  AdminAssignment,
+  AdminAssignmentSummary,
   GamePlayer,
   GameReward,
   GameRank,
@@ -396,11 +396,11 @@ function Dispatch({ catalog, refresh }: Props) {
   );
 }
 function Progress({ catalog }: { catalog: AdminCatalog }) {
-  const query = useAdminData<{ items: GameAssignmentSummary[] }>(
+  const query = useAdminData<{ items: AdminAssignmentSummary[] }>(
     "/admin/assignments",
   );
   const [selected, setSelected] = useState("");
-  const detail = useAdminData<GameAssignment>(
+  const detail = useAdminData<AdminAssignment>(
     selected ? `/admin/assignments/${selected}` : "",
   );
   const submissions = useAdminData<{
@@ -461,27 +461,38 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
           {
             title: "状态",
             dataIndex: "status",
-            render: (value) => <Tag>{statusLabels[value]}</Tag>,
+            render: (value, row: AdminAssignmentSummary) => (
+              <Space>
+                <Tag>{statusLabels[value]}</Tag>
+                {row.sessionStatus === "archived" && <Tag>所属场次已下线</Tag>}
+              </Space>
+            ),
           },
           {
             title: "进度",
-            render: (_, row: GameAssignmentSummary) =>
+            render: (_, row: AdminAssignmentSummary) =>
               `${row.completedLevels}/${row.totalLevels}`,
           },
           {
             title: "操作",
-            render: (_, row: GameAssignmentSummary) => (
+            render: (_, row: AdminAssignmentSummary) => (
               <Space>
                 <Button onClick={() => setSelected(row.id)}>查看 / 协助</Button>
                 <Button
-                  disabled={!["assigned", "active"].includes(row.status)}
+                  disabled={
+                    row.sessionStatus !== "published" ||
+                    !["assigned", "active"].includes(row.status)
+                  }
                   onClick={() => prepare(row.id, "extend")}
                 >
                   延时
                 </Button>
                 <Button
                   danger
-                  disabled={!["assigned", "active"].includes(row.status)}
+                  disabled={
+                    row.sessionStatus !== "published" ||
+                    !["assigned", "active"].includes(row.status)
+                  }
                   onClick={() => prepare(row.id, "cancel")}
                 >
                   撤回
@@ -500,6 +511,20 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
         <ErrorNotice error={detail.error} retry={() => void detail.refresh()} />
         {detail.data && (
           <>
+            <Alert
+              type="info"
+              style={{ marginBottom: 16 }}
+              message={
+                detail.data.sessionStatus === "archived"
+                  ? "场次已下线：旧进度和结算保留，不再允许推进。奖品领取与核销仍可正常处理。"
+                  : "后台题面为题库当前配置，历史提交与判定不重算。"
+              }
+              description={
+                detail.data.sessionStatus === "archived"
+                  ? "题面显示当前配置；题目修正后可能与当时不同，请结合原始答题记录和修改审计查看。"
+                  : undefined
+              }
+            />
             <Descriptions
               items={[
                 {
@@ -522,6 +547,11 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
               columns={[
                 { title: "关卡", dataIndex: "position" },
                 {
+                  title: "当前题目",
+                  render: (_, row) => row.question?.title || "—",
+                },
+                { title: "最近原始回答", dataIndex: "lastAnswer" },
+                {
                   title: "状态",
                   render: (_, row) =>
                     row.completedAt
@@ -539,7 +569,9 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
                     <Space>
                       <Button
                         disabled={
-                          !!row.completedAt || detail.data?.status !== "active"
+                          !!row.completedAt ||
+                          detail.data?.status !== "active" ||
+                          detail.data?.sessionStatus !== "published"
                         }
                         onClick={() =>
                           prepare(selected, "clear_penalty", row.id)
@@ -549,7 +581,9 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
                       </Button>
                       <Button
                         disabled={
-                          !!row.completedAt || detail.data?.status !== "active"
+                          !!row.completedAt ||
+                          detail.data?.status !== "active" ||
+                          detail.data?.sessionStatus !== "published"
                         }
                         onClick={() =>
                           prepare(selected, "complete_level", row.id)
@@ -568,6 +602,8 @@ function Progress({ catalog }: { catalog: AdminCatalog }) {
                 <Button
                   key={clue.id}
                   disabled={
+                    detail.data?.sessionStatus !== "published" ||
+                    detail.data?.status === "cancelled" ||
                     detail.data?.clues.some((c) => c.id === clue.id) ||
                     !detail.data?.startedAt
                   }
@@ -1064,6 +1100,7 @@ function Audit() {
       entityId: string;
       reason: string;
       created: string;
+      safeDiff?: Record<string, unknown>;
     }[];
   }>("/admin/audit");
   return (
@@ -1076,6 +1113,23 @@ function Audit() {
         rowKey="id"
         scroll={{ x: 900 }}
         dataSource={query.data?.items || []}
+        expandable={{
+          columnTitle: "变更",
+          rowExpandable: (row) =>
+            !!row.safeDiff && Object.keys(row.safeDiff).length > 0,
+          expandedRowRender: (row) => (
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+                maxHeight: 400,
+                overflow: "auto",
+              }}
+            >
+              {JSON.stringify(row.safeDiff, null, 2)}
+            </pre>
+          ),
+        }}
         columns={[
           { title: "时间", dataIndex: "created" },
           { title: "操作", dataIndex: "action" },

@@ -275,7 +275,7 @@ function handle(e) {
         .all(
           e.app,
           "game_assignments",
-          "player={:id}",
+          "player={:id} && session.status='published'",
           { id: player.id },
           "order,-created,-id",
         )
@@ -398,10 +398,10 @@ function handle(e) {
       return {
         items: db
           .all(e.app, "game_assignments", "", {}, "-created,-id")
-          .map((a) => game.summary(e.app, a)),
+          .map((a) => game.summary(e.app, a, true)),
       };
     if (parts[1] === "assignments" && parts.length === 3 && method === "GET")
-      return game.detail(e.app, game.assignment(e.app, parts[2]));
+      return game.detail(e.app, game.assignment(e.app, parts[2]), true);
     if (
       parts[1] === "assignments" &&
       parts.length === 4 &&

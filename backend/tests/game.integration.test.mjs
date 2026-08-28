@@ -495,8 +495,24 @@ test(
       },
     );
     await t.test(
-      "avatar content, size and owner-only file access",
+      "multipart profile updates with and without avatars, and owner-only file access",
       async () => {
+        const nicknameOnly = new FormData();
+        nicknameOnly.set("displayName", "只改昵称");
+        const renamed = ok(
+          await server.request(root + "/me/profile", {
+            token: alice.token,
+            method: "PATCH",
+            form: nicknameOnly,
+          }),
+        );
+        assert.equal(renamed.displayName, "只改昵称");
+        assert.equal(renamed.avatar, "");
+        assert.equal(
+          ok(await call("/me", alice.token)).displayName,
+          "只改昵称",
+        );
+
         const png = Buffer.from(
           "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
           "base64",
@@ -516,6 +532,16 @@ test(
           }),
         );
         assert(profile.avatar);
+        nicknameOnly.set("displayName", "保留原头像");
+        const renamedWithAvatar = ok(
+          await server.request(root + "/me/profile", {
+            token: alice.token,
+            method: "PATCH",
+            form: nicknameOnly,
+          }),
+        );
+        assert.equal(renamedWithAvatar.displayName, "保留原头像");
+        assert.equal(renamedWithAvatar.avatar, profile.avatar);
         const fileToken = ok(
           await server.request("/api/files/token", {
             token: alice.token,
@@ -566,6 +592,18 @@ test(
           ).status,
           400,
         );
+        const removeAvatar = new FormData();
+        removeAvatar.set("removeAvatar", "true");
+        const removed = ok(
+          await server.request(root + "/me/profile", {
+            token: alice.token,
+            method: "PATCH",
+            form: removeAvatar,
+          }),
+        );
+        assert.equal(removed.avatar, "");
+        assert.equal(removed.displayName, "保留原头像");
+        assert.equal(ok(await call("/me", alice.token)).avatar, "");
       },
     );
     await t.test(

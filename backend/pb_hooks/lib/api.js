@@ -14,11 +14,14 @@ function profile(e, body) {
     const player = db.actor(app, e, false, true);
     if (body.displayName !== undefined)
       player.set("displayName", r.text(body.displayName, "昵称", 40));
-    const files = e.request.header
-      .get("Content-Type")
-      .includes("multipart/form-data")
-      ? e.findUploadedFiles("avatar") || []
-      : [];
+    // requestInfo() has already parsed multipart fields. PocketBase throws
+    // ErrMissingFile for an absent avatar, so check for a file before reading it.
+    const form = e.request.multipartForm;
+    const avatarHeaders = form && form.file && form.file.avatar;
+    const files =
+      avatarHeaders && avatarHeaders.length
+        ? e.findUploadedFiles("avatar")
+        : [];
     if (files.length > 1) r.fail("INVALID_INPUT", "只能上传一张头像");
     if (files.length) player.set("avatar", files);
     else if (body.removeAvatar === true || body.removeAvatar === "true")

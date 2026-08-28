@@ -1,5 +1,5 @@
 import { Form, Input, Switch } from "antd";
-import { TextSyntaxHelp } from "../levels/components/ThreadEditor";
+import { TextSyntaxHelp } from "@/components/TextSyntaxHelp";
 
 export const NotificationFormFields = () => {
   return (

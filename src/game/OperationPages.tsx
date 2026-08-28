@@ -19,6 +19,7 @@ import {
   Typography,
 } from "antd";
 import dayjs from "dayjs";
+import { TextSyntaxHelp } from "../components/TextSyntaxHelp";
 import type {
   AdminCatalog,
   AssignmentBatchResult,
@@ -770,6 +771,7 @@ function Grants({ catalog }: { catalog: AdminCatalog }) {
             <Form.Item
               name="claimDetails"
               label="仅此用户可见的取件码 / 领取说明"
+              extra={<TextSyntaxHelp />}
             >
               <Input.TextArea rows={4} />
             </Form.Item>
@@ -889,6 +891,7 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
           name="content"
           label="正文（支持原有富文本标记）"
           rules={fieldRule}
+          extra={<TextSyntaxHelp />}
         >
           <Input.TextArea rows={4} />
         </Form.Item>

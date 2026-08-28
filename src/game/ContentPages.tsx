@@ -18,6 +18,7 @@ import {
   Typography,
 } from "antd";
 import { AlistMediaInput } from "../components/Alist/AlistMediaInput";
+import { TextSyntaxHelp } from "../components/TextSyntaxHelp";
 import type {
   AdminCatalog,
   AdminQuestion,
@@ -252,10 +253,18 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                     }
                     style={{ marginBottom: 16 }}
                   >
-                    <Form.Item name={[name, "text"]} label="正文">
+                    <Form.Item
+                      name={[name, "text"]}
+                      label="正文"
+                      extra={<TextSyntaxHelp />}
+                    >
                       <Input.TextArea rows={4} />
                     </Form.Item>
-                    <Form.Item name={[name, "hint"]} label="可展开提示">
+                    <Form.Item
+                      name={[name, "hint"]}
+                      label="可展开提示"
+                      extra={<TextSyntaxHelp />}
+                    >
                       <Input.TextArea />
                     </Form.Item>
                     <Form.Item
@@ -772,6 +781,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             <Form.Item
                               name={[name, "content", "text"]}
                               label="文字内容"
+                              extra={<TextSyntaxHelp />}
                             >
                               <Input.TextArea rows={4} />
                             </Form.Item>
@@ -1017,7 +1027,11 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
               ]}
             />
           </Form.Item>
-          <Form.Item name="publicInstructions" label="可复用的领取说明">
+          <Form.Item
+            name="publicInstructions"
+            label="可复用的领取说明"
+            extra={<TextSyntaxHelp />}
+          >
             <Input.TextArea rows={4} />
           </Form.Item>
           <Form.Item name="active" label="启用" valuePropName="checked">

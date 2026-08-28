@@ -1,55 +1,6 @@
-import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from "@ant-design/icons";
-import { Button, Card, Collapse, Descriptions, Form, Input, InputNumber, Radio, Select, Typography } from "antd";
-
-const { Text } = Typography;
-
-export const TextSyntaxHelp = () => (
-  <Collapse
-    size="small"
-    ghost
-    items={[
-      {
-        key: "help",
-        label: (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            <QuestionCircleOutlined /> 文本语法说明
-          </Text>
-        ),
-        children: (
-          <Descriptions
-            size="small"
-            column={1}
-            bordered
-            labelStyle={{ fontSize: 12, whiteSpace: "nowrap" }}
-            contentStyle={{ fontSize: 12, wordBreak: "break-all" }}
-          >
-            <Descriptions.Item label="高亮文字">
-              <code>{"[[高亮内容]]"}</code> → 将文字渲染为高亮样式
-            </Descriptions.Item>
-            <Descriptions.Item label="链接/路由">
-              <code>{"((显示文字||链接地址))"}</code> → 可点击的链接，http 开头会打开新窗口，否则作为路由跳转
-            </Descriptions.Item>
-            <Descriptions.Item label="内嵌图片">
-              <code>{"\u007B\u007B图片URL\u007D\u007D"}</code> → 在文本中嵌入图片，点击可预览大图
-            </Descriptions.Item>
-            <Descriptions.Item label="内嵌视频">
-              <code>{"<<视频URL>>"}</code> → 在文本中嵌入视频播放器，点击播放
-            </Descriptions.Item>
-            <Descriptions.Item label="视频+封面图">
-              <code>{"<<视频URL||封面图URL>>"}</code> → 带封面预览图的视频，封面图可选
-            </Descriptions.Item>
-            <Descriptions.Item label="换行">
-              <code>{"\\n"}</code> → 文本换行
-            </Descriptions.Item>
-            <Descriptions.Item label="完整示例">
-              <code>{"这是普通文字，[[高亮文字]]，((点击跳转||https://example.com))，\u007B\u007Bhttps://img.url/a.png\u007D\u007D，<<https://video.url/v.mp4||https://img.url/poster.jpg>>"}</code>
-            </Descriptions.Item>
-          </Descriptions>
-        ),
-      },
-    ]}
-  />
-);
+import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Form, Input, InputNumber, Radio, Select } from "antd";
+import { TextSyntaxHelp } from "@/components/TextSyntaxHelp";
 import { ListStringEditor } from "./ListStringEditor";
 import { MapEditor } from "./MapEditor";
 import { AlistMediaInput } from "@/components/Alist/AlistMediaInput";

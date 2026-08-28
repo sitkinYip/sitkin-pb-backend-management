@@ -215,7 +215,10 @@ export const ResourceManager: React.FC = () => {
 
     setUploading(true);
     try {
-      const { url, taskId } = await alistService.uploadFile(file, activeType);
+      const { url, filename, taskId } = await alistService.uploadFile(
+        file,
+        activeType,
+      );
 
       if (taskId) {
         // 大文件：任务已提交，立即停止 loading 并通知用户
@@ -223,7 +226,7 @@ export const ResourceManager: React.FC = () => {
         // 后台非阻塞轮询，完成后自动刷新列表
         alistService.pollUploadTask(
           taskId,
-          file.name,
+          filename,
           activeType,
           () => {
             message.success(

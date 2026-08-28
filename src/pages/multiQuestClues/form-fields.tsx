@@ -1,5 +1,5 @@
 import { Form, Input } from "antd";
-import { TextSyntaxHelp } from "../levels/components/ThreadEditor";
+import { TextSyntaxHelp } from "@/components/TextSyntaxHelp";
 
 export const MultiQuestClueFormFields = () => {
   return (
@@ -37,7 +37,7 @@ export const MultiQuestClueFormFields = () => {
           },
         ]}
       >
-        <Input.TextArea rows={8} placeholder="支持 \n 或者 {{imgUrl}} 语法" />
+        <Input.TextArea rows={8} placeholder="支持 [[高亮]]、{{图片URL}}，按 Enter 换行" />
       </Form.Item>
       <Form.Item style={{ marginTop: "-16px" }}>
         <TextSyntaxHelp />

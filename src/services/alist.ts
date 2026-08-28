@@ -1,4 +1,5 @@
 import { ALIST_CONFIG } from "../config/alist";
+import { createUploadFilename } from "./upload-filename";
 
 const TOKEN_KEY = "alist_token";
 
@@ -261,21 +262,23 @@ export const alistService = {
 
   /**
    * 上传文件
-   * 小文件（< 10MB）：同步上传，完成即可刷新列表
+   * 小文件（≤ 50MB）：同步上传，完成即可刷新列表
    * 大文件：提交 As-Task 后立即返回（不锁住载入状态）
-   *   返回的 taskId 不为空时，调用方可用 pollUploadTask 进行后台轮询
+   *   返回的 taskId 不为空时，调用方可用返回的 filename 进行后台轮询
    */
   async uploadFile(
     file: File,
     type: "img" | "video" | "audio"
-  ): Promise<{ url: string; taskId?: string }> {
+  ): Promise<{ url: string; filename: string; taskId?: string }> {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       throw new Error("请先登录");
     }
 
     const isLargeFile = file.size > ASYNC_UPLOAD_THRESHOLD;
-    const filePath = this.getUploadPath(file.name, type);
+    // AList uses File-Path as the stored object name; keep the original file bytes.
+    const filename = createUploadFilename(file);
+    const filePath = this.getUploadPath(filename, type);
     const encodedFilePath = encodeURIComponent(filePath);
 
     const response = await fetch(`${ALIST_CONFIG.HOST}/api/fs/put`, {
@@ -293,10 +296,10 @@ export const alistService = {
     const data: UploadResponse = await response.json();
 
     if (data.code === 200) {
-      const url = this.getPublicUrl(file.name, type);
+      const url = this.getPublicUrl(filename, type);
       // 大文件返回 taskId，由调用方决定是否进行后台轮询
       const taskId = isLargeFile ? data.data?.task?.id : undefined;
-      return { url, taskId };
+      return { url, filename, taskId };
     } else {
       throw new Error(data.message || "上传失败");
     }

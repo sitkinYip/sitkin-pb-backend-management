@@ -561,7 +561,7 @@ test(
     );
 
     await t.test(
-      "only the closed session is hidden; individual withdrawal and narrative archival keep their own semantics",
+      "only the closed session is hidden; individual withdrawal and legacy narrative archival keep their own semantics",
       async () => {
         const q = await question(),
           session = await scene(q),
@@ -594,10 +594,16 @@ test(
         });
         const active = (await assign(second, subject)).assignmentId;
         ok(await start(active, subject));
-        ok(
+        denied(
           await command("/admin/narratives/" + narrative + "/archive", {
             reason: "不再新配置",
           }),
+          "NARRATIVE_IN_USE",
+        );
+        // Simulate an archive made before reference protection was introduced.
+        // New commands cannot create this state, but legacy readers must work.
+        ok(
+          await rawPatch("game_narratives", narrative, { status: "archived" }),
         );
         ok(
           await call(

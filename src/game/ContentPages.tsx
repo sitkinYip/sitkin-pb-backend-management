@@ -10,7 +10,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Select,
   Space,
   Switch,
@@ -31,11 +30,17 @@ import type {
 } from "./contracts";
 import {
   filterSessions,
+  filterNarratives,
+  narrativeDeletionHint,
+  narrativeOptions,
+  narrativeUsage,
+  unavailableNarrativeReferences,
   questionOptions,
   questionUsage,
   sessionCounts,
   sessionStatusLabels,
   type SessionFilter,
+  type NarrativeFilter,
 } from "./content-policy";
 import {
   ErrorNotice,
@@ -110,7 +115,7 @@ function PresentationFields({ prefix }: { prefix: (string | number)[] }) {
     </>
   );
 }
-function QuestionReferences({
+function SessionReferences({
   references,
 }: {
   references: AdminSessionReference[];
@@ -229,7 +234,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                         ? "可编辑"
                         : "线上引用，已锁定"}
                   </Tag>
-                  <QuestionReferences
+                  <SessionReferences
                     references={[...info.online, ...info.drafts]}
                   />
                   {!!info.historyCount && (
@@ -310,7 +315,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             }
             description={
               <>
-                <QuestionReferences
+                <SessionReferences
                   references={[...usage.online, ...usage.drafts]}
                 />
                 {!!usage.historyCount && (
@@ -534,6 +539,26 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
   const { run, busy } = useAdminCommand(refresh);
   const steps: AdminSessionLevel[] = Form.useWatch("levels", form) || [];
   const targetKind = Form.useWatch(["completionTarget", "kind"], form);
+  const targetId = Form.useWatch(["completionTarget", "id"], form);
+  const clues: AdminSession["clues"] = Form.useWatch("clues", form) || [];
+  const unavailableNarratives = unavailableNarrativeReferences(
+    catalog.narratives,
+    {
+      clues,
+      completionTarget:
+        targetKind === "narrative" ? { kind: "narrative", id: targetId } : null,
+    },
+  );
+  const narrativeRule = {
+    validator: (_: unknown, value?: string) => {
+      const row = catalog.narratives.find((n) => n.id === value);
+      return value && (!row || row.status === "archived")
+        ? Promise.reject(
+            new Error("内容已移出或不存在，请替换或移除引用后再保存。"),
+          )
+        : Promise.resolve();
+    },
+  };
   const stepOptions = steps.map((step, index) => ({
     value: step.id,
     label: `第 ${index + 1} 关：${catalog.questions.find((q) => q.id === step.question)?.title || "未选题"}`,
@@ -711,13 +736,39 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
             message={`有 ${unavailable.length} 个关卡引用了已移出题库的题目，发布前必须替换；旧记录仍保留。`}
           />
         )}
+        {!!unavailableNarratives.length && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={
+              readOnly
+                ? "此场次保留了已移出的剧情内容引用。"
+                : "有已移出的剧情内容，替换或移除后才能保存、发布。"
+            }
+            description={
+              <>
+                {unavailableNarratives.map((ref) => (
+                  <p key={ref.id}>
+                    {ref.label}：{ref.locations.join("、")}
+                  </p>
+                ))}
+                <span>
+                  复制旧场次会保留原引用；如需沿用正文，可到
+                  <Link to="/narratives">信件与祝福</Link>
+                  的“已移出”列表复制新版本，发布后再替换。旧场次和历史记录不变。
+                </span>
+              </>
+            }
+          />
+        )}
         <Form
           name="session-editor"
           disabled={readOnly}
           form={form}
           layout="vertical"
           onFinish={async (values) => {
-            if (readOnly) return;
+            if (readOnly || unavailableNarratives.length) return;
             const result = await run(
               id ? `/admin/sessions/${id}` : "/admin/sessions",
               {
@@ -791,12 +842,15 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                       <Field
                         name={["completionTarget", "id"]}
                         label="叙事内容"
-                        rules={fieldRule}
+                        rules={[...fieldRule, narrativeRule]}
                       >
                         <Select
-                          options={catalog.narratives
-                            .filter((n) => n.status === "published")
-                            .map((n) => ({ value: n.id, label: n.title }))}
+                          showSearch
+                          optionFilterProp="label"
+                          options={narrativeOptions(
+                            catalog.narratives,
+                            targetId,
+                          )}
                         />
                       </Field>
                     )}
@@ -1068,13 +1122,16 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             <Field
                               name={[name, "narrative"]}
                               label="信件 / 祝福内容"
+                              rules={[narrativeRule]}
                             >
                               <Select
                                 allowClear
-                                options={catalog.narratives.map((n) => ({
-                                  value: n.id,
-                                  label: n.title,
-                                }))}
+                                showSearch
+                                optionFilterProp="label"
+                                options={narrativeOptions(
+                                  catalog.narratives,
+                                  clues[name]?.narrative,
+                                )}
                               />
                             </Field>
                             <Field
@@ -1354,9 +1411,15 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
   const [form] = Form.useForm(),
     [open, setOpen] = useState(false),
     [id, setId] = useState("");
-  const readOnly = Boolean(
-    id && catalog.narratives.find((row) => row.id === id)?.status !== "draft",
-  );
+  const [deleteForm] = Form.useForm();
+  const [scope, setScope] = useState<NarrativeFilter>("available");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [deletingId, setDeletingId] = useState("");
+  const [copiedId, setCopiedId] = useState("");
+  const selected = catalog.narratives.find((row) => row.id === id);
+  const deleting = catalog.narratives.find((row) => row.id === deletingId);
+  const readOnly = Boolean(id && selected?.status !== "draft");
   const { run, busy } = useAdminCommand(refresh);
   const kind = Form.useWatch("kind", form);
   const edit = (row?: AdminNarrative) => {
@@ -1378,18 +1441,82 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
     );
     setOpen(true);
   };
+  useEffect(() => {
+    const row = copiedId
+      ? catalog.narratives.find((n) => n.id === copiedId)
+      : null;
+    if (!row) return;
+    setId(row.id);
+    form.resetFields();
+    form.setFieldsValue(row);
+    setOpen(true);
+    setCopiedId("");
+  }, [copiedId, catalog.narratives, form]);
+  const clone = async (row: AdminNarrative) => {
+    const result = await run<{ id: string }>(`/admin/narratives/${row.id}`, {
+      clone: true,
+    });
+    if (result) {
+      setScope("available");
+      setSearch("");
+      setPage(1);
+      setCopiedId(result.id);
+    }
+  };
   return (
     <PageCard
       title="信件与祝福"
       extra={
-        <Button type="primary" onClick={() => edit()}>
-          新建内容
-        </Button>
+        <Space>
+          <Button onClick={() => void refresh()}>刷新</Button>
+          <Button type="primary" onClick={() => edit()}>
+            新建内容
+          </Button>
+        </Space>
       }
     >
+      <Alert
+        type="info"
+        showIcon
+        message="无引用或仅被已下线场次引用时可删除；线上和草稿引用会阻止删除。"
+        description="删除只移出内容库，保留正文、历史关联和玩家权益，不删除媒体文件。已移出内容不可恢复发布，需要再用时请复制新版本。"
+        style={{ marginBottom: 20 }}
+      />
+      <div className="admin-list-toolbar">
+        <Input.Search
+          aria-label="搜索信件或祝福标题"
+          placeholder="搜索信件或祝福标题"
+          allowClear
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+        />
+        <Select
+          aria-label="剧情内容范围"
+          value={scope}
+          style={{ width: 250 }}
+          onChange={(value: NarrativeFilter) => {
+            setScope(value);
+            setPage(1);
+          }}
+          options={[
+            { value: "available", label: "正常内容" },
+            { value: "archived", label: "已移出（含历史归档）" },
+            { value: "all", label: "全部" },
+          ]}
+        />
+      </div>
       <AdminTable
         rowKey="id"
-        dataSource={catalog.narratives}
+        dataSource={filterNarratives(catalog.narratives, scope, search)}
+        pagination={{
+          current: page,
+          pageSize: 10,
+          showSizeChanger: false,
+          onChange: setPage,
+        }}
         columns={[
           { title: "标题", dataIndex: "title" },
           {
@@ -1401,12 +1528,43 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
           {
             title: "状态",
             dataIndex: "status",
-            render: (value) => statusLabels[value],
+            render: (value) => (
+              <Tag>{value === "archived" ? "已移出" : statusLabels[value]}</Tag>
+            ),
+          },
+          {
+            title: "引用 / 删除限制",
+            width: 320,
+            render: (_, row: AdminNarrative) => {
+              const info = narrativeUsage(row, catalog.sessions);
+              return (
+                <Space direction="vertical" size={4}>
+                  <Typography.Text
+                    type={
+                      info.online.length || info.drafts.length
+                        ? "warning"
+                        : "secondary"
+                    }
+                  >
+                    {narrativeDeletionHint(row, catalog.sessions)}
+                  </Typography.Text>
+                  <SessionReferences
+                    references={[...info.online, ...info.drafts]}
+                  />
+                  {!!info.history.length && (
+                    <details>
+                      <summary>{info.history.length} 个已下线场次引用</summary>
+                      <SessionReferences references={info.history} />
+                    </details>
+                  )}
+                </Space>
+              );
+            },
           },
           {
             title: "操作",
             render: (_, row: AdminNarrative) => (
-              <Space>
+              <Space wrap>
                 <Button onClick={() => edit(row)}>
                   {row.status === "draft" ? "编辑" : "查看"}
                 </Button>
@@ -1418,26 +1576,21 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
                 >
                   发布
                 </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(`/admin/narratives/${row.id}`, { clone: true })
-                  }
-                >
-                  新版本
+                <Button disabled={busy} onClick={() => void clone(row)}>
+                  复制新版本
                 </Button>
-                <Popconfirm
-                  title="归档后不能再用于新配置，已有场次仍可回顾。确认归档？"
-                  onConfirm={() =>
-                    run(`/admin/narratives/${row.id}/archive`, {
-                      reason: "管理员归档内容",
-                    })
+                <Button
+                  danger
+                  disabled={
+                    busy || !narrativeUsage(row, catalog.sessions).canDelete
                   }
+                  onClick={() => {
+                    deleteForm.resetFields();
+                    setDeletingId(row.id);
+                  }}
                 >
-                  <Button disabled={busy || row.status === "archived"}>
-                    归档
-                  </Button>
-                </Popconfirm>
+                  删除
+                </Button>
               </Space>
             ),
           },
@@ -1451,18 +1604,40 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
         onClose={() => setOpen(false)}
         extra={
           readOnly ? (
-            <Button onClick={() => setOpen(false)}>关闭</Button>
+            <Space>
+              <Button
+                disabled={busy || !selected}
+                onClick={() => selected && void clone(selected)}
+              >
+                复制新版本
+              </Button>
+              <Button onClick={() => setOpen(false)}>关闭</Button>
+            </Space>
           ) : (
             <FormFooter busy={busy} form={form} cancel={() => setOpen(false)} />
           )
         }
       >
+        {readOnly && selected && (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={
+              selected.status === "archived"
+                ? "已移出内容库，只读且不可恢复发布。"
+                : "已发布内容只读，修改请复制新版本。"
+            }
+            description={`${narrativeDeletionHint(selected, catalog.sessions)}复制的新版本不会自动替换旧场次引用。`}
+          />
+        )}
         <Form
           name="narrative-editor"
           disabled={readOnly}
           form={form}
           layout="vertical"
           onFinish={async (values) => {
+            if (readOnly) return;
             if (
               await run(
                 id ? `/admin/narratives/${id}` : "/admin/narratives",
@@ -1608,6 +1783,73 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
           ))}
         </Form>
       </EditorDrawer>
+      <Modal
+        title="删除剧情内容（保留历史）"
+        open={!!deleting}
+        forceRender
+        confirmLoading={busy}
+        onCancel={() => setDeletingId("")}
+        onOk={() => deleteForm.submit()}
+        okText="确认删除"
+        cancelText="取消"
+        okButtonProps={{
+          danger: true,
+          disabled:
+            !deleting || !narrativeUsage(deleting, catalog.sessions).canDelete,
+        }}
+      >
+        <Typography.Paragraph>
+          {deleting?.title} · v{deleting?.revision}
+        </Typography.Paragraph>
+        <Alert
+          type="warning"
+          showIcon
+          message="移出后不可直接恢复，只能复制新版本再使用。"
+          description="原 ID、正文和历史关联保留，不影响经验、奖品、领取信息或核销记录，也不删除 CDN 文件。"
+        />
+        {deleting && (
+          <Typography.Paragraph style={{ marginTop: 16 }}>
+            {narrativeDeletionHint(deleting, catalog.sessions)}
+            实际能否删除以服务端最新引用检查为准。
+          </Typography.Paragraph>
+        )}
+        <Form
+          name="narrative-delete"
+          form={deleteForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            if (
+              !deleting ||
+              !narrativeUsage(deleting, catalog.sessions).canDelete
+            )
+              return;
+            if (await run(`/admin/narratives/${deleting.id}/archive`, values)) {
+              setDeletingId("");
+              if (id === deleting.id) setOpen(false);
+              setPage(1);
+            }
+          }}
+        >
+          <Field
+            name="reason"
+            label="删除原因"
+            rules={[
+              {
+                required: true,
+                whitespace: true,
+                message: "请填写删除原因，便于追溯此次操作",
+              },
+            ]}
+          >
+            <Input.TextArea
+              maxLength={1000}
+              showCount
+              rows={3}
+              placeholder="例如：旧活动已下线，保留历史记录后移出内容库"
+            />
+          </Field>
+        </Form>
+      </Modal>
     </PageCard>
   );
 }

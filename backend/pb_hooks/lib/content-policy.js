@@ -55,6 +55,61 @@ function requireEditable(app, question, deleting = false) {
   return result;
 }
 
+function narrativeReferences(app, narrativeId) {
+  const sessions = {},
+    refs = {};
+  for (const row of db.all(app, "game_sessions")) {
+    const session = db.pick(row, ["title", "revision", "status"]);
+    sessions[row.id] = session;
+    const target = db.json(row, "completionTarget");
+    if (target && target.kind === "narrative" && target.id === narrativeId)
+      refs[row.id] = session;
+  }
+  for (const clue of db.all(app, "game_clues", "narrative={:id}", {
+    id: narrativeId,
+  })) {
+    const session = sessions[clue.getString("session")];
+    if (session) refs[session.id] = session;
+  }
+  return Object.values(refs);
+}
+
+function requireNarrativeDeletable(app, narrative) {
+  const refs = narrativeReferences(app, narrative.id);
+  const blockers = refs.filter((s) => s.status !== "archived");
+  if (blockers.length) {
+    const names = blockers
+      .slice(0, 3)
+      .map(
+        (s) =>
+          `${s.title}（v${s.revision}，${s.status === "published" ? "线上" : "草稿"}）`,
+      )
+      .join("、");
+    r.fail(
+      "NARRATIVE_IN_USE",
+      `内容被${names}${blockers.length > 3 ? "等场次" : ""}引用；请先下线线上场次，并替换或移除草稿引用（也可作废草稿），再删除`,
+      409,
+    );
+  }
+  return refs;
+}
+
+function requireNarrativeAvailable(app, id, publishing = false) {
+  const row = db.get(app, "game_narratives", id);
+  if (row.getString("status") === "archived")
+    r.fail(
+      "NARRATIVE_DELETED",
+      `“${row.getString("title")}”（v${row.getInt("revision")}）已移出内容库，请替换或移除引用；如需沿用内容，请先复制为新版本`,
+      409,
+    );
+  if (publishing && row.getString("status") !== "published")
+    r.fail(
+      "INVALID_INPUT",
+      `请先发布关联内容“${row.getString("title")}”（v${row.getInt("revision")}）`,
+    );
+  return row;
+}
+
 function assignmentCounts(app) {
   const result = {};
   for (const row of db.all(app, "game_assignments")) {
@@ -73,6 +128,9 @@ module.exports = {
   references,
   usage,
   requireEditable,
+  narrativeReferences,
+  requireNarrativeDeletable,
+  requireNarrativeAvailable,
   assignmentCounts,
   emptyCounts,
 };

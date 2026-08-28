@@ -357,7 +357,11 @@ function saveSession(e, id, body) {
       if (target) {
         r.object(target, "完成目标");
         if (target.kind === "narrative") {
-          db.get(app, "game_narratives", target.id);
+          // Copies preserve historical references for repair; normal saves must
+          // replace removed content. Publication rechecks in its transaction.
+          if (body.clone === true && prior)
+            db.get(app, "game_narratives", target.id);
+          else policy.requireNarrativeAvailable(app, target.id);
           fields.completionTarget = { kind: "narrative", id: target.id };
         } else if (target.kind === "link")
           fields.completionTarget = {
@@ -440,7 +444,11 @@ function saveSession(e, id, body) {
           )
         )
           r.fail("INVALID_INPUT", "线索类型无效");
-        if (input.narrative) db.get(app, "game_narratives", input.narrative);
+        if (input.narrative) {
+          if (body.clone === true && prior)
+            db.get(app, "game_narratives", input.narrative);
+          else policy.requireNarrativeAvailable(app, input.narrative);
+        }
         if (["letter", "bless"].includes(input.kind) && !input.narrative)
           r.fail("INVALID_INPUT", "请选择叙事内容");
         const content = r.object(input.content || {}, "线索内容");
@@ -498,12 +506,8 @@ function publish(e, table, id, body) {
         .map((clue) => clue.getString("narrative"))
         .filter(Boolean);
       if (target && target.kind === "narrative") narrativeIds.push(target.id);
-      for (const contentId of narrativeIds)
-        if (
-          db.get(app, "game_narratives", contentId).getString("status") !==
-          "published"
-        )
-          r.fail("INVALID_INPUT", "请先发布关联叙事内容");
+      for (const contentId of new Set(narrativeIds))
+        policy.requireNarrativeAvailable(app, contentId, true);
       for (const rule of db.all(app, "game_reward_rules", "session={:id}", {
         id,
       }))
@@ -632,6 +636,20 @@ function archive(e, table, id, body) {
           counts,
         });
       return { id, cancelledCount: pending.length };
+    }
+    if (table === "game_narratives") {
+      const reason = r.text(body.reason, "删除原因", 1000);
+      // Do not reinterpret or break legacy archives still used by live scenes.
+      if (previous === "archived") return { id };
+      const refs = policy.requireNarrativeDeletable(app, row);
+      row.set("status", "archived");
+      app.save(row);
+      db.audit(app, actor, "delete_narrative", row, reason, body.requestId, {
+        from: previous,
+        to: "archived",
+        historyCount: refs.length,
+      });
+      return { id };
     }
     if (previous !== "archived") {
       if (table === "game_questions") policy.requireEditable(app, row, true);

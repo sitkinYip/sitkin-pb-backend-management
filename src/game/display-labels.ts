@@ -11,6 +11,7 @@ export const auditActionLabels: Record<string, string> = {
   save_rank: "调整等级",
   publish: "发布内容",
   archive: "归档内容",
+  delete_narrative: "移出信件 / 祝福（保留历史）",
   archive_question: "移出题库",
   close_session: "永久下线场次",
   assign: "下发场次",

@@ -6,7 +6,7 @@
 
 ## 已完成的正式部署（2026-08-28）
 
-最新后端已更新为 `questions-pocketbase:0.40.1-session-offline-20260828-amd64`，包含场次下线、题库编辑限制及 2MB 审计迁移，见 [正式发布记录](../../../docs/session-offline-deployment-20260828.md)。现有实例升级使用 [升级操作单](UPGRADE.md)，下文首次安装与 v1.1 步骤保留作历史参考，不得重建或重导当前生产库。
+最新后端已更新为 `questions-pocketbase:0.40.1-narrative-delete-20260828-amd64`，新增信件 / 祝福软删除与引用保护，保留场次下线、题库编辑及 2MB 审计能力，见 [最新正式发布记录](../../../docs/narrative-soft-delete-deployment-20260828.md)。本次无新增数据库迁移。现有实例升级使用 [升级操作单](UPGRADE.md)，下文首次安装与 v1.1 步骤保留作历史参考，不得重建或重导当前生产库。
 
 新容器已接管 `127.0.0.1:8090:8090`，旧容器停止并取消自动重启，服务器 18090 已关闭。生产模板为 `compose.production.yaml`；下文 `compose.yaml` 保留 18090 隔离演练用途，不要直接覆盖当前生产配置。玩家为 https://sitkin.top/questions/，管理后台为 https://vae.sitkin.top/。
 

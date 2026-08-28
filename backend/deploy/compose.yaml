@@ -1,0 +1,13 @@
+services:
+  pocketbase:
+    image: questions-pocketbase:0.40.1-v1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ./pb_data:/pb/pb_data
+    stop_grace_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

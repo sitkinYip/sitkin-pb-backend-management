@@ -1,3 +1,4 @@
+import "@ant-design/v5-patch-for-react-19";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
@@ -9,5 +10,5 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

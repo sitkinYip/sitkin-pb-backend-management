@@ -1,5 +1,7 @@
 import { RefineThemes } from "@refinedev/antd";
 import { ConfigProvider, theme } from "antd";
+import zhCN from "antd/locale/zh_CN";
+import "dayjs/locale/zh-cn";
 import {
   type PropsWithChildren,
   createContext,
@@ -13,7 +15,7 @@ type ColorModeContextType = {
 };
 
 export const ColorModeContext = createContext<ColorModeContextType>(
-  {} as ColorModeContextType
+  {} as ColorModeContextType,
 );
 
 export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
@@ -21,12 +23,12 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
 }) => {
   const colorModeFromLocalStorage = localStorage.getItem("colorMode");
   const isSystemPreferenceDark = window?.matchMedia(
-    "(prefers-color-scheme: dark)"
+    "(prefers-color-scheme: dark)",
   ).matches;
 
   const systemPreference = isSystemPreferenceDark ? "dark" : "light";
   const [mode, setMode] = useState(
-    colorModeFromLocalStorage || systemPreference
+    colorModeFromLocalStorage || systemPreference,
   );
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       }}
     >
       <ConfigProvider
+        locale={zhCN}
         // you can change the theme colors here. example: ...RefineThemes.Magenta,
         theme={{
           ...RefineThemes.Blue,

@@ -2,7 +2,6 @@ import { Authenticated, Refine } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 
 import {
-  ErrorComponent,
   ThemedLayout,
   ThemedSider,
   useNotificationProvider,
@@ -12,57 +11,34 @@ import "@refinedev/antd/dist/reset.css";
 import routerProvider, {
   CatchAllNavigate,
   DocumentTitleHandler,
-  NavigateToResource,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
 import { App as AntdApp } from "antd";
-import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Header } from "./components/header";
 import { Title } from "./components/title";
 import { ColorModeContextProvider } from "./contexts/color-mode";
-import {
-  LevelCreate,
-  LevelEdit,
-  LevelList,
-  LevelShow,
-} from "./pages/levels";
-import {
-  LetterCreate,
-  LetterEdit,
-  LetterList,
-} from "./pages/letter";
-import {
-  PhraseCreate,
-  PhraseEdit,
-  PhraseList,
-} from "./pages/phrase";
-import {
-  MultiQuestClueCreate,
-  MultiQuestClueEdit,
-  MultiQuestClueList,
-  MultiQuestClueShow,
-} from "./pages/multiQuestClues";
-import {
-  NotificationCreate,
-  NotificationEdit,
-  NotificationList,
-} from "./pages/notifications";
+import { ContentPage } from "./game/ContentPages";
+import { OperationPage } from "./game/OperationPages";
 import { ResourceManager } from "./pages/resourceManager";
-import { ForgotPassword } from "./pages/forgotPassword";
-import { Login } from "./pages/login";
-import { Register } from "./pages/register";
+import { LoginRoute } from "./pages/login";
 import { authProvider } from "./providers/auth";
+import {
+  ADMIN_HOME,
+  ADMIN_LOGIN,
+  adminResources,
+} from "./providers/admin-routing";
 import { dataProvider } from "./providers/data";
 import "./i18n";
-
 
 function App() {
   const { t, i18n } = useTranslation();
 
   const i18nProvider = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    translate: (key: string, params?: unknown) => t(key, params as any) as string,
+    translate: (key: string, params?: unknown) =>
+      t(key, params as any) as string,
     changeLocale: (lang: string) => i18n.changeLanguage(lang),
     getLocale: () => i18n.language,
   };
@@ -72,151 +48,91 @@ function App() {
       <RefineKbarProvider>
         <ColorModeContextProvider>
           <AntdApp>
-              <Refine
-                dataProvider={dataProvider}
-                notificationProvider={useNotificationProvider}
-                routerProvider={routerProvider}
-                authProvider={authProvider}
-                i18nProvider={i18nProvider}
-                resources={[
-                  {
-                    name: "levels",
-                    list: "/levels",
-                    create: "/levels/create",
-                    edit: "/levels/edit/:id",
-                    show: "/levels/show/:id",
-                    meta: {
-                      canDelete: true,
-                    },
-                  },
-                  {
-                    name: "letter",
-                    list: "/letter",
-                    create: "/letter/create",
-                    edit: "/letter/edit/:id",
-                    meta: {
-                      canDelete: true,
-                    },
-                  },
-                  {
-                    name: "phrase",
-                    list: "/phrase",
-                    create: "/phrase/create",
-                    edit: "/phrase/edit/:id",
-                    meta: {
-                      canDelete: true,
-                    },
-                  },
-                  {
-                    name: "multi_quest_clues",
-                    list: "/multi_quest_clues",
-                    create: "/multi_quest_clues/create",
-                    edit: "/multi_quest_clues/edit/:id",
-                    show: "/multi_quest_clues/show/:id",
-                    meta: {
-                      label: "多题线索",
-                      canDelete: true,
-                    },
-                  },
-                  {
-                    name: "notifications",
-                    list: "/notifications",
-                    create: "/notifications/create",
-                    edit: "/notifications/edit/:id",
-                    meta: {
-                      label: "实时通知",
-                      canDelete: true,
-                    },
-                  },
-                  {
-                    name: "resource_manager",
-                    list: "/resource_manager",
-                    meta: {
-                      label: "资源管理",
-                    },
-                  },
-                ]}
-                options={{
-                  syncWithLocation: true,
-                  warnWhenUnsavedChanges: true,
-                  projectId: "nPH8aP-lBMaHM-vDDgNK",
-                }}
-              >
-                <Routes>
-                  <Route
-                    element={
-                      <Authenticated
-                        key="authenticated-inner"
-                        fallback={<CatchAllNavigate to="/login" />}
+            <Refine
+              dataProvider={dataProvider}
+              notificationProvider={useNotificationProvider}
+              routerProvider={routerProvider}
+              authProvider={authProvider}
+              i18nProvider={i18nProvider}
+              resources={adminResources}
+              options={{
+                syncWithLocation: true,
+                warnWhenUnsavedChanges: true,
+                projectId: "nPH8aP-lBMaHM-vDDgNK",
+              }}
+            >
+              <Routes>
+                <Route
+                  element={
+                    <Authenticated
+                      key="authenticated-inner"
+                      fallback={<CatchAllNavigate to={ADMIN_LOGIN} />}
+                    >
+                      <ThemedLayout
+                        Header={Header}
+                        Sider={(props) => (
+                          <ThemedSider {...props} fixed Title={Title} />
+                        )}
                       >
-                        <ThemedLayout
-                          Header={Header}
-                          Sider={(props) => <ThemedSider {...props} fixed Title={Title} />}
-                        >
-                          <Outlet />
-                        </ThemedLayout>
-                      </Authenticated>
-                    }
-                  >
+                        <Outlet />
+                      </ThemedLayout>
+                    </Authenticated>
+                  }
+                >
+                  <Route index element={<Navigate to={ADMIN_HOME} replace />} />
+                  {(
+                    ["questions", "sessions", "rewards", "narratives"] as const
+                  ).map((section) => (
                     <Route
-                      index
-                      element={<NavigateToResource resource="levels" />}
+                      key={section}
+                      path={`/${section}`}
+                      element={<ContentPage section={section} />}
                     />
-                    <Route path="/levels">
-                      <Route index element={<LevelList />} />
-                      <Route path="create" element={<LevelCreate />} />
-                      <Route path="edit/:id" element={<LevelEdit />} />
-                      <Route path="show/:id" element={<LevelShow />} />
-                    </Route>
-                    <Route path="/letter">
-                      <Route index element={<LetterList />} />
-                      <Route path="create" element={<LetterCreate />} />
-                      <Route path="edit/:id" element={<LetterEdit />} />
-                    </Route>
-                    <Route path="/phrase">
-                      <Route index element={<PhraseList />} />
-                      <Route path="create" element={<PhraseCreate />} />
-                      <Route path="edit/:id" element={<PhraseEdit />} />
-                    </Route>
-                    <Route path="/multi_quest_clues">
-                      <Route index element={<MultiQuestClueList />} />
-                      <Route path="create" element={<MultiQuestClueCreate />} />
-                      <Route path="edit/:id" element={<MultiQuestClueEdit />} />
-                      <Route path="show/:id" element={<MultiQuestClueShow />} />
-                    </Route>
-                    <Route path="/resource_manager"
-                      element={<ResourceManager />}
+                  ))}
+                  {(
+                    [
+                      "players",
+                      "dispatch",
+                      "progress",
+                      "grants",
+                      "notifications",
+                      "ranks",
+                      "audit",
+                    ] as const
+                  ).map((section) => (
+                    <Route
+                      key={section}
+                      path={`/${section}`}
+                      element={<OperationPage section={section} />}
                     />
-                    <Route path="/notifications">
-                      <Route index element={<NotificationList />} />
-                      <Route path="create" element={<NotificationCreate />} />
-                      <Route path="edit/:id" element={<NotificationEdit />} />
-                    </Route>
-                    <Route path="*" element={<ErrorComponent />} />
-                  </Route>
+                  ))}
                   <Route
-                    element={
-                      <Authenticated
-                        key="authenticated-outer"
-                        fallback={<Outlet />}
-                      >
-                        <NavigateToResource />
-                      </Authenticated>
-                    }
-                  >
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route
-                      path="/forgot-password"
-                      element={<ForgotPassword />}
-                    />
-                  </Route>
-                </Routes>
+                    path="/resource_manager"
+                    element={<ResourceManager />}
+                  />
+                  <Route
+                    path="*"
+                    element={<Navigate to={ADMIN_HOME} replace />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <Authenticated
+                      key="authenticated-outer"
+                      fallback={<Outlet />}
+                    >
+                      <Navigate to={ADMIN_HOME} replace />
+                    </Authenticated>
+                  }
+                >
+                  <Route path={ADMIN_LOGIN} element={<LoginRoute />} />
+                </Route>
+              </Routes>
 
-                <RefineKbar />
-                <UnsavedChangesNotifier />
-                <DocumentTitleHandler />
-              </Refine>
+              <RefineKbar />
+              <UnsavedChangesNotifier />
+              <DocumentTitleHandler />
+            </Refine>
           </AntdApp>
         </ColorModeContextProvider>
       </RefineKbarProvider>

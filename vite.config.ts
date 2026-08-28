@@ -14,6 +14,9 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: ["local.sitkin.top"],
-    open: true,
+    open: false,
+    fs: {
+      deny: [".env", ".env.*", "**/.git/**", "**/backend/**", "**/*.local/**"],
+    },
   },
 });

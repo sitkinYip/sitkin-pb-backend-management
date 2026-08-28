@@ -10,7 +10,8 @@ i18n
   .init({
     fallbackLng: "zh",
     lng: "zh", // force default to Chinese
-    debug: true,
+    debug: false,
+    ns: ["common"],
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },

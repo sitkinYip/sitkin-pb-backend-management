@@ -1,0 +1,9 @@
+**
+!deploy/
+!deploy/Dockerfile
+!deploy/runtime/
+!deploy/runtime/pocketbase
+!pb_hooks/
+!pb_hooks/**
+!pb_migrations/
+!pb_migrations/**

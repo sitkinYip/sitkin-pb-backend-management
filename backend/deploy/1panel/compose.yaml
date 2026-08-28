@@ -1,0 +1,41 @@
+name: questions-game-v1
+
+services:
+  pocketbase:
+    image: questions-pocketbase:0.40.1-v1.1-amd64
+    platform: linux/amd64
+    pull_policy: never
+    container_name: questions-game-v1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18090:8090"
+    volumes:
+      - type: bind
+        source: /opt/1panel/apps/questions-game-v1/pb_data
+        target: /pb/pb_data
+        bind:
+          create_host_path: false
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1:8090/api/health",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

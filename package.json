@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "@ant-design/icons": "^5.5.2",
+    "@ant-design/v5-patch-for-react-19": "1.0.3",
     "@refinedev/antd": "^6.0.1",
     "@refinedev/cli": "^2.16.48",
     "@refinedev/core": "^5.0.8",
@@ -42,7 +47,10 @@
   },
   "scripts": {
     "dev": "refine dev",
-    "build": "tsc && refine build",
+    "build": "tsc && vite build",
+    "test:admin": "node --test tests/*.test.mjs",
+    "test:backend": "node --test backend/tests/*.test.mjs",
+    "check:contracts": "node backend/scripts/sync-contracts.mjs --check",
     "start": "refine start",
     "refine": "refine"
   },

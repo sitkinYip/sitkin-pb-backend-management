@@ -1,83 +1,54 @@
-# Sitkin Backend Management (Sitkin 后台管理系统)
+# Sitkin 后台管理系统
 
-<div align="center" style="margin: 30px;">
-    <a href="https://refine.dev">
-    <img alt="refine logo" src="https://refine.ams3.cdn.digitaloceanspaces.com/readme/refine-readme-banner.png">
-    </a>
-</div>
-<br/>
+基于 React、Refine、Ant Design 和 PocketBase 的游戏运营后台。
 
-Sitkin Backend Management 是一个基于 [Refine](https://github.com/refinedev/refine) 和 React 构建的现代后台管理系统，旨在提供高效的内容管理体验。本项目集成 Pocketbase 作为后端服务，支持多语言（i18n）和丰富的交互功能。
+- 管理后台：https://vae.sitkin.top/
+- 接口：https://api.sitkin.top
+- 玩家端：https://sitkin.top/questions/
 
-## 🛠️ 技术栈 (Tech Stack)
+## 本地开发
 
-- **核心框架**: [Refine](https://refine.dev/), [React 19](https://react.dev/)
-- **构建工具**: [Vite](https://vitejs.dev/)
-- **UI 组件库**: [Ant Design](https://ant.design/)
-- **后端服务**: [Pocketbase](https://pocketbase.io/)
-- **国际化**: i18next
-
-## ✨ 功能模块 (Features)
-
-本项目包含以下核心管理模块：
-
-- **用户认证 (Authentication)**
-
-  - 支持完整的登录、注册及找回密码流程。
-
-- **信件管理 (Letter Management)**
-
-  - 管理应用内的信件内容，支持富文本编辑及样式预览。
-
-- **关卡管理 (Levels Management)**
-
-  - 灵活配置游戏或应用关卡，支持题目编辑与选项管理。
-
-- **短语管理 (Phrase Management)**
-  - 维护常用短语及词条库，提升内容复用性。
-
-## 🚀 快速开始 (Getting Started)
-
-### 环境要求
-
-请确保你的开发环境已安装以下工具：
-
-- [Node.js](https://nodejs.org/) (推荐 LTS 版本)
-
-### 安装依赖
+只需 **Node.js 24、pnpm 10.28.2**。不需要 Docker、本地数据库、SSH 隧道，也不需要同时克隆玩家端。
 
 ```bash
-npm install
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-### 启动开发服务器
+打开 `http://localhost:5173`。与玩家端同时开发时可使用 `pnpm dev --port 5174`，然后访问 `http://localhost:5174`。
+
+默认直接连接线上接口，无须创建环境文件。要切换接口时，复制 `.env.example` 为 `.env.local`，修改 `VITE_POCKET_BASE_HOST`（根地址，不含 `/api`）。前端变量会进入浏览器，不能放超级管理员密码或其他密钥。
+
+**本地操作同样会修改线上真实数据**。请使用专门的测试玩家和场次验证，不要把线上数据库作为集成测试库。旧媒体若有防盗链限制，可沿用 `local.sitkin.top` 并在本机 hosts 添加 `127.0.0.1 local.sitkin.top`；不需要 Docker。
+
+后台使用 `game_admins` 中的账号登录，不是 PocketBase 超级管理员邮箱。默认首页为玩家管理；注册入口不开放。
+
+## 常用命令
 
 ```bash
-npm run dev
+pnpm test:admin                    # 登录、退出和路由的单元测试，无需数据库
+pnpm check:contracts --admin-only  # 仅检查当前仓库的协议副本
+pnpm build                        # 生成 dist/，无需 Docker
 ```
 
-访问 http://localhost:5173 即可查看开发环境。
+修改共享协议后，将两个仓库放在同级目录，执行 `node backend/scripts/sync-contracts.mjs` 同步两份代码，再运行 `pnpm check:contracts` 检查两端。普通页面开发、构建和发布不需要相邻仓库。
 
-### 构建生产版本
+## GitHub Actions 发布
 
-```bash
-npm run build
-```
+沿用原流程：**push 到 `main` 自动构建并部署管理端**，也支持手动触发 `Deploy to Server`。
 
-### 预览生产构建
+使用已有 Secrets：`HOST`、`USERNAME`、`SSH_KEY`、`SERVER_PATH`。API 默认使用线上地址；`QUESTIONS_POCKETBASE_URL` 只作为可选覆盖，不再要求 `QUESTIONS_BACKEND_V1_READY` 迁移开关。
 
-```bash
-npm run start
-```
+发布前执行管理端单元测试、协议检查、只读 API 探测和构建，然后上传 `dist/`。不会创建 Docker 容器、导入数据或更新 PocketBase。源码需要提交并 push，Actions 才会部署这些修改；此前的本地打包上线不会替你提交 Git。
 
-## 📚 了解更多 (Learn More)
+## 后端源码与可选验收
 
-想要了解更多关于 Refine 的信息，请查看官方文档：
+`backend/` 是线上后端的可维护源码，包含数据库迁移、服务端判题/经验/奖品逻辑、协议和测试，不能当作临时数据删除。
 
-- **Refine Documentation** [Docs](https://refine.dev/docs)
-- **Ant Design** [Docs](https://refine.dev/docs/ui-frameworks/antd/tutorial/)
-- **React Router** [Docs](https://refine.dev/docs/core/providers/router-provider/)
+只有修改后端逻辑时才需要运行 `pnpm test:backend` 等隔离验收；Docker 是这种后端测试/镜像打包方案的工具，不是前端启动要求。`PocketBase backend CI` 在后端文件变化时独立运行，其容器只在 GitHub runner 中创建，不是管理端静态发布的依赖。
 
-## 📄 License
+后端代码变更仍需单独验收、备份并发布后端镜像；前端 push 不会更新线上容器。操作说明见 [后端 README](backend/README.md) 和 [1Panel 发布说明](backend/deploy/1panel/README.md)。
 
-MIT
+## 主要管理内容
+
+玩家与账号、等级、题目、叙事内容、场次编排、指定/全部用户下发、进度干预、奖品核销与审计。已发布内容通过新版本修改；结算和权限校验由服务端负责。

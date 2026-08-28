@@ -2,12 +2,22 @@ name: Deploy to Server
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: questions-admin-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_POCKET_BASE_HOST: ${{ vars.QUESTIONS_POCKETBASE_URL || 'https://api.sitkin.top' }}
 
     steps:
       - name: Checkout code
@@ -16,13 +26,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version-file: .node-version
 
       - name: Install dependencies
-        run: npm install
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test admin authentication and routing
+        run: pnpm test:admin
+
+      - name: Check this repository's generated contracts
+        run: pnpm check:contracts --admin-only
+
+      - name: Check backend API compatibility (read-only)
+        run: node backend/scripts/verify-deployment.mjs
 
       - name: Build project
-        run: npm run build
+        run: pnpm build
 
       - name: Deploy to Server
         uses: appleboy/scp-action@v0.1.7

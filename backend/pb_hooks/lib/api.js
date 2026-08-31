@@ -369,6 +369,10 @@ function handle(e) {
     )
       return admin.playerAction(e, parts[2], body);
     if (parts[1] === "questions") {
+      if (parts.length === 4 && parts[3] === "clues" && method === "GET")
+        return admin.questionClueSet(e, parts[2]);
+      if (parts.length === 4 && parts[3] === "clues" && method === "PATCH")
+        return admin.saveQuestionClues(e, parts[2], body);
       if (parts.length === 2 && method === "POST")
         return admin.saveQuestion(e, "", body);
       if (parts.length === 3 && ["POST", "PATCH"].includes(method))
@@ -377,6 +381,12 @@ function handle(e) {
         return admin.publish(e, "game_questions", parts[2], body);
     }
     if (parts[1] === "sessions") {
+      if (
+        parts.length === 4 &&
+        parts[3] === "live-settings" &&
+        method === "PATCH"
+      )
+        return admin.updateSessionLiveSettings(e, parts[2], body);
       if (parts.length === 2 && method === "POST")
         return admin.saveSession(e, "", body);
       if (parts.length === 3 && ["POST", "PATCH"].includes(method))

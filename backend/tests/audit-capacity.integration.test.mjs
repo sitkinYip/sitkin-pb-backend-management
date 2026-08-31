@@ -181,8 +181,20 @@ test(
           (field) => field.name === "safeDiff",
         ).maxSize = capacity;
         expectedAudit.updated = newAudit.updated;
-        assert.deepEqual(afterSchema, expected);
-        assert.deepEqual(await snapshot(), before);
+        const newQuestionClues = afterSchema.find(
+          (row) => row.name === "game_question_clues",
+        );
+        assert(newQuestionClues);
+        assert.equal(newQuestionClues.listRule, null);
+        assert.equal(newQuestionClues.createRule, null);
+        assert.deepEqual(
+          afterSchema.filter((row) => row.name !== "game_question_clues"),
+          expected,
+        );
+        const after = await snapshot();
+        assert.deepEqual(after.game_question_clues, []);
+        delete after.game_question_clues;
+        assert.deepEqual(after, before);
       },
     );
 

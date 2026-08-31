@@ -19,6 +19,9 @@ import {
 } from "antd";
 import { AlistMediaInput } from "../components/Alist/AlistMediaInput";
 import { TextSyntaxHelp } from "../components/TextSyntaxHelp";
+import { PresentationFields } from "./components/PresentationFields";
+import { LiveSessionSettingsDrawer } from "./LiveSessionSettingsDrawer";
+import { QuestionClueManager } from "./QuestionClueManager";
 import type {
   AdminCatalog,
   AdminQuestion,
@@ -78,43 +81,6 @@ export function ContentPage({
     </>
   );
 }
-function PresentationFields({ prefix }: { prefix: (string | number)[] }) {
-  return (
-    <>
-      <Field name={[...prefix, "bgmMode"]} label="背景音乐模式">
-        <Select
-          options={[
-            { value: "inherit", label: "继承场次 / 不指定" },
-            { value: "custom", label: "指定音乐" },
-            { value: "silent", label: "静音" },
-          ]}
-        />
-      </Field>
-      <Field name={[...prefix, "bgmUrl"]} label="背景音乐">
-        <AlistMediaInput type="audio" />
-      </Field>
-      <Field name={[...prefix, "backgroundMode"]} label="背景图片模式">
-        <Select
-          options={[
-            { value: "inherit", label: "继承场次 / 不指定" },
-            { value: "custom", label: "指定背景" },
-            { value: "none", label: "不显示背景图" },
-          ]}
-        />
-      </Field>
-      <Field
-        name={[...prefix, "hideTitle"]}
-        label="不显示题目标题"
-        valuePropName="checked"
-      >
-        <Switch />
-      </Field>
-      <Field name={[...prefix, "backgroundUrl"]} label="背景图片">
-        <AlistMediaInput type="img" />
-      </Field>
-    </>
-  );
-}
 function SessionReferences({
   references,
 }: {
@@ -138,7 +104,11 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
   const [scope, setScope] = useState("available");
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
+  const [clueQuestionId, setClueQuestionId] = useState("");
   const selected = catalog.questions.find((row) => row.id === id);
+  const clueQuestion = catalog.questions.find(
+    (row) => row.id === clueQuestionId,
+  );
   const usage = selected ? questionUsage(selected, catalog.sessions) : null;
   const readOnly = Boolean(id && (!selected || !usage?.canEdit));
   const { run, busy } = useAdminCommand(refresh);
@@ -171,7 +141,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
     >
       <Alert
         type="info"
-        message="线上场次引用的题目不可修改或删除。只有草稿引用时可改题，删除前须解除草稿引用；修改不重算旧结算，删除保留历史关联。"
+        message="线上场次引用时，题面与答案不可修改或删除；通用线索仍可独立增删，不需要下线场次。历史已答用户只会静默看到线索更新。"
         style={{ marginBottom: 20 }}
       />
       <div className="admin-list-toolbar">
@@ -212,6 +182,13 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             render: (value) => (value === "choice" ? "单选" : "填空"),
           },
           { title: "版本", dataIndex: "revision" },
+          {
+            title: "通用线索",
+            dataIndex: "commonClueCount",
+            render: (value: number) => (
+              <Tag color={value ? "blue" : "default"}>{value || 0} 条</Tag>
+            ),
+          },
           {
             title: "状态",
             dataIndex: "status",
@@ -255,6 +232,9 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                     ? "编辑"
                     : "查看"}
                 </Button>
+                <Button onClick={() => setClueQuestionId(row.id)}>
+                  通用线索
+                </Button>
                 <Button
                   disabled={row.status !== "draft" || busy}
                   onClick={() => void run(`/admin/questions/${row.id}/publish`)}
@@ -294,9 +274,27 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
         onClose={() => setOpen(false)}
         extra={
           readOnly ? (
-            <Button onClick={() => setOpen(false)}>关闭</Button>
+            <Space wrap>
+              {selected && (
+                <Button onClick={() => setClueQuestionId(selected.id)}>
+                  {selected.status === "archived" ? "查看" : "管理"}通用线索
+                </Button>
+              )}
+              <Button onClick={() => setOpen(false)}>关闭</Button>
+            </Space>
           ) : (
-            <FormFooter busy={busy} form={form} cancel={() => setOpen(false)} />
+            <Space wrap>
+              {selected && (
+                <Button onClick={() => setClueQuestionId(selected.id)}>
+                  管理通用线索
+                </Button>
+              )}
+              <FormFooter
+                busy={busy}
+                form={form}
+                cancel={() => setOpen(false)}
+              />
+            </Space>
           )
         }
       >
@@ -518,6 +516,12 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           </Field>
         </Form>
       </Modal>
+      <QuestionClueManager
+        question={clueQuestion || null}
+        open={Boolean(clueQuestion)}
+        onClose={() => setClueQuestionId("")}
+        refreshCatalog={refresh}
+      />
     </PageCard>
   );
 }
@@ -529,7 +533,9 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [closingId, setClosingId] = useState("");
+  const [liveEditingId, setLiveEditingId] = useState("");
   const closing = catalog.sessions.find((s) => s.id === closingId);
+  const liveEditing = catalog.sessions.find((s) => s.id === liveEditingId);
   const counts = sessionCounts(catalog.sessions);
   const [open, setOpen] = useState(false),
     [id, setId] = useState("");
@@ -668,6 +674,11 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                 <Button onClick={() => edit(row)}>
                   {row.status === "draft" ? "编辑" : "查看"}
                 </Button>
+                {row.status === "published" && (
+                  <Button onClick={() => setLiveEditingId(row.id)}>
+                    编辑已发布配置
+                  </Button>
+                )}
                 <Button
                   disabled={busy || row.status !== "draft"}
                   onClick={async () => {
@@ -715,7 +726,15 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
         onClose={() => setOpen(false)}
         extra={
           readOnly ? (
-            <Button onClick={() => setOpen(false)}>关闭</Button>
+            <Space wrap>
+              {catalog.sessions.find((row) => row.id === id)?.status ===
+                "published" && (
+                <Button onClick={() => setLiveEditingId(id)}>
+                  编辑已发布配置
+                </Button>
+              )}
+              <Button onClick={() => setOpen(false)}>关闭</Button>
+            </Space>
           ) : (
             <FormFooter busy={busy} form={form} cancel={() => setOpen(false)} />
           )
@@ -725,7 +744,12 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
           <Alert
             type="info"
             style={{ marginBottom: 16 }}
-            message="此场次只读；下线后不能恢复上线，需要复制为新草稿。题面为题库当前配置，历史判定未重算。"
+            message={
+              catalog.sessions.find((row) => row.id === id)?.status ===
+              "published"
+                ? "完整编排保持只读；可使用“编辑已发布配置”单独修正标题、说明、BGM、背景和已有线索展示。"
+                : "此场次只读；下线后不能恢复上线，需要复制为新草稿。题面为题库当前配置，历史判定未重算。"
+            }
           />
         )}
         {!!unavailable.length && (
@@ -1297,6 +1321,13 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
           </Field>
         </Form>
       </Modal>
+      <LiveSessionSettingsDrawer
+        session={liveEditing || null}
+        questions={catalog.questions}
+        open={Boolean(liveEditing)}
+        onClose={() => setLiveEditingId("")}
+        refresh={refresh}
+      />
     </PageCard>
   );
 }

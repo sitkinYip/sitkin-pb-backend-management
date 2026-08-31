@@ -135,12 +135,24 @@ export function EditorDrawer({
   extra,
   footer,
   className = "",
+  classNames,
+  styles,
   ...props
 }: DrawerProps) {
   return (
     <Drawer
       {...props}
       className={`admin-editor ${className}`}
+      classNames={{
+        ...classNames,
+        wrapper: ["admin-editor-wrapper", classNames?.wrapper]
+          .filter(Boolean)
+          .join(" "),
+      }}
+      styles={{
+        ...styles,
+        wrapper: { ...styles?.wrapper, maxWidth: "100vw" },
+      }}
       footer={
         footer ??
         (extra ? (
@@ -161,6 +173,7 @@ const widths: Record<string, number> = {
   奖品: 220,
   原因: 260,
   "引用 / 编辑限制": 280,
+  通用线索: 120,
   状态: 140,
   结果: 190,
   时间: 180,

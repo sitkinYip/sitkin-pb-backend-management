@@ -7,19 +7,29 @@ import { Form, Input, Select } from "antd";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
-let vite, ui, guides, shared;
+let vite, ui, guides, shared, clueFields, questionClues, liveSettings;
 before(async () => {
   vite = await createServer({
     root: fileURLToPath(new URL("..", import.meta.url)),
     configFile: false,
     envFile: false,
     esbuild: { jsx: "automatic" },
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("../src", import.meta.url)) },
+    },
     server: { middlewareMode: true, watch: null, hmr: false, ws: false },
     optimizeDeps: { noDiscovery: true, include: [] },
   });
   ui = await vite.ssrLoadModule("/src/game/ui.tsx");
   guides = await vite.ssrLoadModule("/src/game/guidance.ts");
   shared = await vite.ssrLoadModule("/src/game/shared.tsx");
+  clueFields = await vite.ssrLoadModule("/src/game/components/ClueFields.tsx");
+  questionClues = await vite.ssrLoadModule(
+    "/src/game/QuestionClueManager.tsx",
+  );
+  liveSettings = await vite.ssrLoadModule(
+    "/src/game/LiveSessionSettingsDrawer.tsx",
+  );
 });
 after(async () => {
   await vite?.close();
@@ -133,11 +143,170 @@ test("editors keep forceRender and submit controls while moving actions into the
     forceRender: true,
     width: 900,
     extra: actions,
+    classNames: { wrapper: "caller-wrapper", body: "caller-body" },
+    styles: { wrapper: { width: 850 }, body: { padding: 8 } },
   });
   assert.equal(result.props.forceRender, true);
   assert.equal(result.props.open, true);
   assert.equal(result.props.footer.props.children, actions);
   assert.equal(result.props.extra, undefined);
+  assert.match(result.props.classNames.wrapper, /admin-editor-wrapper/);
+  assert.match(result.props.classNames.wrapper, /caller-wrapper/);
+  assert.equal(result.props.classNames.body, "caller-body");
+  assert.equal(result.props.styles.wrapper.width, 850);
+  assert.equal(result.props.styles.wrapper.maxWidth, "100vw");
+  assert.equal(result.props.styles.body.padding, 8);
+});
+
+test("question clues keep an explicit safe kind allowlist and an authoritative ordered payload", () => {
+  assert.deepEqual(
+    clueFields.questionClueKindOptions.map((option) => option.value),
+    ["text", "image", "video", "link"],
+  );
+  const payload = questionClues.questionClueSavePayload(
+    {
+      reason: "  批量补充线索  ",
+      clues: [
+        {
+          id: "clue-existing",
+          kind: "image",
+          content: { imageUrls: [" one.png ", "", "two.png"] },
+          autoPlay: true,
+        },
+        {
+          kind: "link",
+          content: { title: "资料", url: "https://example.com" },
+          autoPlay: true,
+        },
+      ],
+    },
+    "question-version-3",
+  );
+  assert.equal(payload.reason, "批量补充线索");
+  assert.equal(payload.expectedVersion, "question-version-3");
+  assert.equal(payload.clues[0].id, "clue-existing");
+  assert.deepEqual(payload.clues[0].content.imageUrls, ["one.png", "two.png"]);
+  assert.equal(payload.clues[0].autoPlay, true);
+  assert.equal(payload.clues[1].id, undefined);
+  assert.equal(payload.clues[1].kind, "link");
+  assert.equal(payload.clues[1].autoPlay, false);
+});
+
+test("published-session payload strips every structural and completion field", () => {
+  const payload = liveSettings.liveSettingsPayload(
+    {
+      reason: "  修正线上展示  ",
+      title: "线上标题",
+      description: "线上说明",
+      presentation: {
+        bgmMode: "custom",
+        bgmUrl: "bgm.mp3",
+        backgroundMode: "custom",
+        backgroundUrl: "cover.jpg",
+        hideTitle: true,
+        completionStyle: "finale",
+      },
+      levels: [
+        {
+          id: "level-1",
+          question: "locked-question",
+          presentationOverride: {
+            bgmMode: "silent",
+            completionStyle: "finale",
+          },
+          autoNext: true,
+        },
+      ],
+      clues: [
+        {
+          id: "session-clue-1",
+          position: 99,
+          kind: "text",
+          trigger: "level_completed",
+          sessionLevel: "level-1",
+          content: { text: "更新后的正文" },
+          autoPlay: true,
+        },
+      ],
+      rewardRules: [{ reward: "locked" }],
+      minLevel: 10,
+    },
+    "live-version-7",
+  );
+  assert.equal(payload.reason, "修正线上展示");
+  assert.equal(payload.expectedVersion, "live-version-7");
+  assert.deepEqual(Object.keys(payload.presentation).sort(), [
+    "backgroundMode",
+    "backgroundUrl",
+    "bgmMode",
+    "bgmUrl",
+    "hideTitle",
+  ]);
+  assert.equal(payload.presentation.completionStyle, undefined);
+  assert.deepEqual(payload.levels, [
+    {
+      id: "level-1",
+      presentationOverride: { bgmMode: "silent" },
+    },
+  ]);
+  assert.deepEqual(payload.clues, [
+    {
+      id: "session-clue-1",
+      position: 0,
+      content: {
+        title: "",
+        text: "更新后的正文",
+        url: "",
+        imageUrls: [],
+        buttonText: "",
+        description: "",
+        tips: "",
+      },
+      autoPlay: true,
+    },
+  ]);
+  assert.equal(payload.minLevel, undefined);
+  assert.equal(payload.rewardRules, undefined);
+});
+
+test("clue editors expose batch actions, validation, previews and narrow APIs", async () => {
+  const [content, commonClues, live, fields] = await Promise.all([
+    readFile(new URL("../src/game/ContentPages.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../src/game/QuestionClueManager.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/game/LiveSessionSettingsDrawer.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/game/components/ClueFields.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.match(content, /import \{ PresentationFields \}/);
+  assert.doesNotMatch(content, /function PresentationFields/);
+  assert.match(commonClues, /\/admin\/questions\/\$\{/);
+  assert.match(commonClues, /历史已答/);
+  for (const action of ["上移", "下移", "复制", "删除"]) {
+    assert.match(commonClues, new RegExp(action));
+  }
+  for (const message of [
+    "请填写文字线索正文",
+    "请至少填写一张线索图片",
+    "请填写视频 URL",
+    "请填写外部链接 URL",
+  ]) {
+    assert.match(fields, new RegExp(message));
+  }
+  assert.match(
+    live,
+    /\/admin\/sessions\/\$\{encodeURIComponent\(session\.id\)\}\/live-settings/,
+  );
+  assert.match(live, /CluePlayerPreview/);
+  assert.match(live, /叙事入口预览受限/);
+  assert.match(live, /requirePrimary/);
 });
 
 test("every active area has guidance and critical rules stay explicit", () => {
@@ -160,6 +329,11 @@ test("responsive rules fix viewport sizing and replace fixed form rows with grid
   assert.match(css, /box-sizing: border-box/);
   assert.match(css, /min-height: 100dvh/);
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(css, /\.admin-editor-wrapper\s*\{[^}]*max-width:\s*100vw/s);
+  assert.match(
+    css,
+    /@media[^}]*max-width:\s*575px[\s\S]*\.admin-clue-editor-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+  );
   assert.doesNotMatch(css, /body\s*\{[^}]*overflow:\s*hidden/);
   for (const path of ["ContentPages.tsx", "OperationPages.tsx"]) {
     const source = await readFile(

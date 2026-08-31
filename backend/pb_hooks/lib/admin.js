@@ -2,10 +2,11 @@ const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const game = require(`${__hooks}/lib/gameplay.js`);
 const policy = require(`${__hooks}/lib/content-policy.js`);
+const cluePolicy = require(`${__hooks}/lib/clues.js`);
 function playerDto(app, row) {
   return { ...game.me(app, row), status: row.getString("status") };
 }
-function questionDto(app, row) {
+function questionDto(app, row, commonClueCount) {
   const secret = db.maybe(app, "game_answer_keys", "question={:id}", {
     id: row.id,
   });
@@ -16,10 +17,44 @@ function questionDto(app, row) {
       ["content", "options"],
     ),
     acceptedAnswers: secret ? db.json(secret, "acceptedAnswers", []) : [],
+    commonClueCount:
+      commonClueCount === undefined
+        ? cluePolicy.questionClues(app, row.id).length
+        : commonClueCount,
+  };
+}
+const LIVE_PRESENTATION_FIELDS = [
+  "bgmMode",
+  "bgmUrl",
+  "backgroundMode",
+  "backgroundUrl",
+  "hideTitle",
+];
+function livePresentation(value) {
+  const result = {};
+  for (const key of LIVE_PRESENTATION_FIELDS)
+    if (value && value[key] !== undefined) result[key] = value[key];
+  return result;
+}
+function liveSettingsState(dto) {
+  return {
+    title: dto.title,
+    description: dto.description,
+    presentation: livePresentation(dto.presentation),
+    levels: dto.levels.map((level) => ({
+      id: level.id,
+      presentationOverride: livePresentation(level.presentationOverride),
+    })),
+    clues: dto.clues.map((clue) => ({
+      id: clue.id,
+      position: clue.position,
+      content: clue.content,
+      autoPlay: clue.autoPlay,
+    })),
   };
 }
 function sessionDto(app, row) {
-  return {
+  const result = {
     ...db.pick(
       row,
       [
@@ -70,16 +105,19 @@ function sessionDto(app, row) {
         db.pick(rule, ["sessionLevel", "trigger", "reward", "quantity"]),
       ),
   };
+  result.liveSettingsVersion = cluePolicy.version(liveSettingsState(result));
+  return result;
 }
 function catalog(e) {
   db.actor(e.app, e, true);
   const references = policy.references(e.app);
   const counts = policy.assignmentCounts(e.app);
+  const commonClueCounts = cluePolicy.questionClueCounts(e.app);
   return {
     players: db.all(e.app, "game_players").map((p) => playerDto(e.app, p)),
     ranks: game.ranks(e.app),
     questions: db.all(e.app, "game_questions").map((q) => ({
-      ...questionDto(e.app, q),
+      ...questionDto(e.app, q, commonClueCounts[q.id] || 0),
       usage: policy.usage(q, references),
     })),
     sessions: db.all(e.app, "game_sessions").map((s) => ({
@@ -293,6 +331,16 @@ function saveQuestion(e, id, body) {
           acceptedAnswers: answers,
           normalizationVersion: "nfkc-v1",
         });
+      if (body.clone === true && prior)
+        for (const clue of cluePolicy.questionClues(app, prior.id))
+          db.create(app, "game_question_clues", {
+            question: row.id,
+            position: clue.getInt("position"),
+            kind: clue.getString("kind"),
+            content: db.json(clue, "content", {}),
+            autoPlay: clue.getBool("autoPlay"),
+            status: "active",
+          });
       db.audit(
         app,
         actor,
@@ -305,6 +353,116 @@ function saveQuestion(e, id, body) {
       return { id: row.id };
     },
   );
+}
+function questionClueSet(e, questionId) {
+  db.actor(e.app, e, true);
+  db.get(e.app, "game_questions", questionId);
+  return cluePolicy.questionClueSet(e.app, questionId);
+}
+function saveQuestionClues(e, questionId, body) {
+  db.command(
+    e,
+    `save-question-clues:${questionId}`,
+    body,
+    true,
+    (app, actor) => {
+      cluePolicy.onlyFields(
+        body,
+        ["requestId", "reason", "expectedVersion", "clues"],
+        "通用线索请求",
+      );
+      const question = db.get(app, "game_questions", questionId);
+      if (question.getString("status") === "archived")
+        r.fail("QUESTION_DELETED", "题目已移出题库，不能配置通用线索", 409);
+      const reason = r.text(body.reason, "修改原因", 1000);
+      const expectedVersion = r.text(
+        body.expectedVersion,
+        "线索版本",
+        100,
+      );
+      const before = cluePolicy.questionClueSet(app, questionId);
+      if (before.version !== expectedVersion)
+        r.fail(
+          "EDIT_CONFLICT",
+          "通用线索已被其他管理员修改，请刷新后重新核对",
+          409,
+        );
+      const existing = cluePolicy.questionClues(app, questionId, true);
+      const byId = {};
+      for (const clue of existing) byId[clue.id] = clue;
+      const retained = new Set();
+      for (const [index, input] of r
+        .list(body.clues, "通用线索", 100)
+        .entries()) {
+        cluePolicy.onlyFields(
+          input,
+          ["id", "position", "kind", "content", "autoPlay"],
+          `通用线索 ${index + 1}`,
+        );
+        if (
+          input.position !== undefined &&
+          r.integer(input.position, "线索顺序", 0, 99) !== index
+        )
+          r.fail("INVALID_INPUT", "通用线索顺序须与列表顺序一致");
+        const kind = cluePolicy.validateQuestionKind(input.kind);
+        const fields = {
+          question: question.id,
+          position: index,
+          kind,
+          content: cluePolicy.cleanQuestionContent(kind, input.content),
+          autoPlay: input.autoPlay === true,
+          status: "active",
+        };
+        if (!input.id) {
+          db.create(app, "game_question_clues", fields);
+          continue;
+        }
+        const id = r.text(input.id, "线索 ID", 30);
+        if (retained.has(id)) r.fail("INVALID_INPUT", "通用线索 ID 重复");
+        const clue = byId[id];
+        if (!clue || clue.getString("question") !== question.id)
+          r.fail("INVALID_INPUT", "通用线索不属于当前题目");
+        if (clue.getString("status") !== "active")
+          r.fail("INVALID_STATE", "已删除线索不能恢复，请新建线索", 409);
+        retained.add(id);
+        for (const key of Object.keys(fields)) clue.set(key, fields[key]);
+        app.save(clue);
+      }
+      for (const clue of existing)
+        if (clue.getString("status") === "active" && !retained.has(clue.id)) {
+          clue.set("status", "archived");
+          app.save(clue);
+        }
+      const after = cluePolicy.questionClueSet(app, questionId);
+      const beforeIds = new Set(before.items.map((item) => item.id));
+      const afterIds = new Set(after.items.map((item) => item.id));
+      db.audit(
+        app,
+        actor,
+        "save_question_clues",
+        question,
+        reason,
+        body.requestId,
+        {
+          beforeVersion: before.version,
+          afterVersion: after.version,
+          beforeCount: before.items.length,
+          afterCount: after.items.length,
+          createdIds: after.items
+            .filter((item) => !beforeIds.has(item.id))
+            .map((item) => item.id),
+          updatedIds: after.items
+            .filter((item) => beforeIds.has(item.id))
+            .map((item) => item.id),
+          archivedIds: before.items
+            .filter((item) => !afterIds.has(item.id))
+            .map((item) => item.id),
+        },
+      );
+      return { questionId, version: after.version };
+    },
+  );
+  return cluePolicy.questionClueSet(e.app, questionId);
 }
 function presentation(value) {
   const p = r.object(value || {}, "演出配置");
@@ -325,6 +483,29 @@ function presentation(value) {
     backgroundUrl: r.safeUrl(p.backgroundUrl || ""),
     completionStyle: p.completionStyle || "normal",
   };
+}
+function patchLivePresentation(current, input, name) {
+  cluePolicy.onlyFields(input, LIVE_PRESENTATION_FIELDS, name);
+  const next = { ...(current || {}) };
+  if (input.bgmMode !== undefined) {
+    if (!["inherit", "custom", "silent"].includes(input.bgmMode))
+      r.fail("INVALID_INPUT", "未知背景音乐模式");
+    next.bgmMode = input.bgmMode;
+  }
+  if (input.bgmUrl !== undefined) next.bgmUrl = r.safeUrl(input.bgmUrl);
+  if (input.backgroundMode !== undefined) {
+    if (!["inherit", "custom", "none"].includes(input.backgroundMode))
+      r.fail("INVALID_INPUT", "未知背景图片模式");
+    next.backgroundMode = input.backgroundMode;
+  }
+  if (input.backgroundUrl !== undefined)
+    next.backgroundUrl = r.safeUrl(input.backgroundUrl);
+  if (input.hideTitle !== undefined) {
+    if (typeof input.hideTitle !== "boolean")
+      r.fail("INVALID_INPUT", "标题显示设置格式不正确");
+    next.hideTitle = input.hideTitle;
+  }
+  return next;
 }
 function saveSession(e, id, body) {
   return db.command(
@@ -451,23 +632,7 @@ function saveSession(e, id, body) {
         }
         if (["letter", "bless"].includes(input.kind) && !input.narrative)
           r.fail("INVALID_INPUT", "请选择叙事内容");
-        const content = r.object(input.content || {}, "线索内容");
-        const clean = {
-          title: r.text(content.title || "", "线索标题", 200, false),
-          text: r.text(content.text || "", "线索文字", 16000, false),
-          url: r.safeUrl(content.url || ""),
-          imageUrls: r
-            .list(content.imageUrls || [], "线索图片", 30)
-            .map((url) => r.safeUrl(url)),
-          buttonText: r.text(content.buttonText || "", "按钮文字", 100, false),
-          description: r.text(
-            content.description || "",
-            "线索说明",
-            1000,
-            false,
-          ),
-          tips: r.text(content.tips || "", "线索入口提示", 500, false),
-        };
+        const clean = cluePolicy.cleanContent(input.content || {});
         db.create(app, "game_clues", {
           session: row.id,
           sessionLevel,
@@ -481,6 +646,156 @@ function saveSession(e, id, body) {
       }
       db.audit(app, actor, "save_session", row, "", body.requestId);
       return { id: row.id };
+    },
+  );
+}
+function updateSessionLiveSettings(e, id, body) {
+  return db.command(
+    e,
+    `update-session-live-settings:${id}`,
+    body,
+    true,
+    (app, actor) => {
+      cluePolicy.onlyFields(
+        body,
+        [
+          "requestId",
+          "reason",
+          "expectedVersion",
+          "title",
+          "description",
+          "presentation",
+          "levels",
+          "clues",
+        ],
+        "线上场次设置请求",
+      );
+      const row = db.get(app, "game_sessions", id);
+      if (row.getString("status") !== "published")
+        r.fail("INVALID_STATE", "仅线上场次可修改展示设置", 409);
+      const reason = r.text(body.reason, "修改原因", 1000);
+      const expectedVersion = r.text(
+        body.expectedVersion,
+        "场次设置版本",
+        100,
+      );
+      const beforeDto = sessionDto(app, row);
+      if (beforeDto.liveSettingsVersion !== expectedVersion)
+        r.fail(
+          "EDIT_CONFLICT",
+          "线上场次设置已被其他管理员修改，请刷新后重新核对",
+          409,
+        );
+      if (
+        !["title", "description", "presentation", "levels", "clues"].some(
+          (key) => body[key] !== undefined,
+        )
+      )
+        r.fail("INVALID_INPUT", "请至少修改一项线上场次设置");
+      if (body.title !== undefined)
+        row.set("title", r.text(body.title, "场次标题", 200));
+      if (body.description !== undefined)
+        row.set(
+          "description",
+          r.text(body.description, "场次说明", 2000, false),
+        );
+      if (body.presentation !== undefined)
+        row.set(
+          "presentation",
+          patchLivePresentation(
+            db.json(row, "presentation", {}),
+            body.presentation,
+            "场次演出设置",
+          ),
+        );
+      app.save(row);
+      const seenLevels = new Set();
+      for (const [index, input] of r
+        .list(body.levels || [], "关卡展示设置", 100)
+        .entries()) {
+        cluePolicy.onlyFields(
+          input,
+          ["id", "presentationOverride"],
+          `关卡展示设置 ${index + 1}`,
+        );
+        const levelId = r.text(input.id, "关卡 ID", 30);
+        if (seenLevels.has(levelId)) r.fail("INVALID_INPUT", "关卡 ID 重复");
+        seenLevels.add(levelId);
+        const level = db.get(app, "game_session_levels", levelId);
+        if (level.getString("session") !== row.id)
+          r.fail("INVALID_INPUT", "关卡不属于当前场次");
+        level.set(
+          "presentationOverride",
+          patchLivePresentation(
+            db.json(level, "presentationOverride", {}),
+            input.presentationOverride,
+            `第 ${index + 1} 项关卡演出设置`,
+          ),
+        );
+        app.save(level);
+      }
+      const seenClues = new Set();
+      for (const [index, input] of r
+        .list(body.clues || [], "场次线索设置", 100)
+        .entries()) {
+        cluePolicy.onlyFields(
+          input,
+          ["id", "position", "content", "autoPlay"],
+          `场次线索设置 ${index + 1}`,
+        );
+        const clueId = r.text(input.id, "场次线索 ID", 30);
+        if (seenClues.has(clueId)) r.fail("INVALID_INPUT", "场次线索 ID 重复");
+        seenClues.add(clueId);
+        const clue = db.get(app, "game_clues", clueId);
+        if (clue.getString("session") !== row.id)
+          r.fail("INVALID_INPUT", "线索不属于当前场次");
+        if (typeof input.autoPlay !== "boolean")
+          r.fail("INVALID_INPUT", "线索自动展示设置格式不正确");
+        clue.set("position", r.integer(input.position, "线索顺序", 0, 1000000));
+        const kind = clue.getString("kind");
+        clue.set(
+          "content",
+          cluePolicy.QUESTION_KINDS.includes(kind)
+            ? cluePolicy.cleanQuestionContent(kind, input.content)
+            : cluePolicy.cleanContent(input.content),
+        );
+        clue.set("autoPlay", input.autoPlay);
+        app.save(clue);
+      }
+      const finalCluePositions = new Set();
+      for (const clue of db.all(
+        app,
+        "game_clues",
+        "session={:id}",
+        { id: row.id },
+      )) {
+        const position = clue.getInt("position");
+        if (finalCluePositions.has(position))
+          r.fail("INVALID_INPUT", "场次线索顺序不能重复");
+        finalCluePositions.add(position);
+      }
+      const afterDto = sessionDto(app, row);
+      db.audit(
+        app,
+        actor,
+        "update_session_live_settings",
+        row,
+        reason,
+        body.requestId,
+        {
+          beforeVersion: beforeDto.liveSettingsVersion,
+          afterVersion: afterDto.liveSettingsVersion,
+          changedFields: ["title", "description", "presentation"].filter(
+            (key) => body[key] !== undefined,
+          ),
+          levelIds: (body.levels || []).map((level) => level.id),
+          levelFields: body.levels === undefined ? [] : ["presentationOverride"],
+          clueIds: (body.clues || []).map((clue) => clue.id),
+          clueFields:
+            body.clues === undefined ? [] : ["position", "content", "autoPlay"],
+        },
+      );
+      return { id: row.id, version: afterDto.liveSettingsVersion };
     },
   );
 }
@@ -837,7 +1152,10 @@ module.exports = {
   createPlayer,
   playerAction,
   saveQuestion,
+  questionClueSet,
+  saveQuestionClues,
   saveSession,
+  updateSessionLiveSettings,
   publish,
   assign,
   assignmentAction,

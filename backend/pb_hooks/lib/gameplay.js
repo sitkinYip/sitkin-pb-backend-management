@@ -1,5 +1,6 @@
 const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
+const cluePolicy = require(`${__hooks}/lib/clues.js`);
 function stats(app, playerId) {
   const record = db.maybe(app, "game_player_stats", "player={:id}", {
     id: playerId,
@@ -70,6 +71,88 @@ function progressFor(app, row, levelId) {
     { a: row.id, l: levelId },
   );
 }
+function questionClueInstanceId(sessionLevelId, definitionId) {
+  return `question:${sessionLevelId}:${definitionId}`;
+}
+function visibleClues(app, row, steps, byId, unlocked) {
+  if (!unlocked) return [];
+  const stepsById = {};
+  for (const step of steps) stepsById[step.id] = step;
+  const sessionClues = db
+    .all(app, "game_clue_unlocks", "assignment={:id}", { id: row.id })
+    .map((unlock) => {
+      const clue = db.get(app, "game_clues", unlock.getString("clue"));
+      const sessionLevel = clue.getString("sessionLevel");
+      const step = stepsById[sessionLevel];
+      return {
+        ...db.pick(
+          clue,
+          [
+            "sessionLevel",
+            "trigger",
+            "kind",
+            "position",
+            "narrative",
+            "autoPlay",
+          ],
+          ["content"],
+        ),
+        source: "session",
+        definitionId: clue.id,
+        question: step ? step.getString("question") : "",
+        unlockedAt: unlock.getString("unlockedAt"),
+        _levelPosition: step ? step.getInt("position") : 0,
+      };
+    });
+  const completedSteps = [];
+  const completedQuestions = new Set();
+  for (const step of steps) {
+    const record = byId[step.id],
+      question = step.getString("question");
+    if (
+      record &&
+      record.getString("completedAt") &&
+      !completedQuestions.has(question)
+    ) {
+      completedQuestions.add(question);
+      completedSteps.push(step);
+    }
+  }
+  const commonByQuestion = cluePolicy.questionCluesByQuestion(
+    app,
+    completedSteps.map((step) => step.getString("question")),
+  );
+  const commonClues = [];
+  for (const step of completedSteps) {
+    const record = byId[step.id];
+    for (const clue of commonByQuestion[step.getString("question")] || []) {
+      const completedAt = record.getString("completedAt"),
+        created = clue.getString("created");
+      commonClues.push({
+        ...db.pick(clue, ["kind", "position", "autoPlay"], ["content"]),
+        id: questionClueInstanceId(step.id, clue.id),
+        source: "question",
+        definitionId: clue.id,
+        question: step.getString("question"),
+        sessionLevel: step.id,
+        trigger: "question_completed",
+        narrative: "",
+        unlockedAt: created && created > completedAt ? created : completedAt,
+        _levelPosition: step.getInt("position"),
+      });
+    }
+  }
+  return sessionClues
+    .concat(commonClues)
+    .sort((a, b) => {
+      if (a.source !== b.source) return a.source === "session" ? -1 : 1;
+      if (a.source === "question" && a._levelPosition !== b._levelPosition)
+        return a._levelPosition - b._levelPosition;
+      if (a.position !== b.position) return a.position - b.position;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    })
+    .map(({ _levelPosition, ...clue }) => clue);
+}
 function summary(app, row, privileged = false) {
   const session = db.get(app, "game_sessions", row.getString("session"));
   const minimum = session.getString("minLevel")
@@ -120,29 +203,7 @@ function detail(app, row, privileged = false) {
   const unlocked =
     privileged ||
     (row.getString("startedAt") && row.getString("status") !== "cancelled");
-  const clues = unlocked
-    ? db
-        .all(app, "game_clue_unlocks", "assignment={:id}", { id: row.id })
-        .map((unlock) => {
-          const clue = db.get(app, "game_clues", unlock.getString("clue"));
-          return {
-            ...db.pick(
-              clue,
-              [
-                "sessionLevel",
-                "trigger",
-                "kind",
-                "position",
-                "narrative",
-                "autoPlay",
-              ],
-              ["content"],
-            ),
-            unlockedAt: unlock.getString("unlockedAt"),
-          };
-        })
-        .sort((a, b) => a.position - b.position)
-    : [];
+  const clues = visibleClues(app, row, steps, byId, unlocked);
   return {
     ...summary(app, row, privileged),
     presentation: db.json(session, "presentation", {}),
@@ -195,7 +256,9 @@ function unlock(app, row, trigger, levelId, actor) {
     "game_clues",
     "session={:id} && trigger={:trigger}",
     { id: row.getString("session"), trigger },
+    "position,id",
   );
+  const activated = [];
   for (const clue of clues) {
     if (
       trigger === "level_completed" &&
@@ -216,7 +279,13 @@ function unlock(app, row, trigger, levelId, actor) {
       sourceType: trigger,
       actor: actor ? actor.id : "",
     });
+    activated.push({
+      type: "clue",
+      clueId: clue.id,
+      autoPlay: clue.getBool("autoPlay"),
+    });
   }
+  return activated;
 }
 function award(app, row, trigger, levelId) {
   const ids = [];
@@ -261,7 +330,7 @@ function award(app, row, trigger, levelId) {
   return ids;
 }
 function start(e, id, body) {
-  db.command(
+  const result = db.command(
     e,
     `start:${id}`,
     body,
@@ -269,7 +338,8 @@ function start(e, id, body) {
     (app, player) => {
       const row = assignment(app, id, player.id);
       availability(row, Date.now());
-      if (row.getString("startedAt")) return { assignmentId: row.id };
+      if (row.getString("startedAt"))
+        return { assignmentId: row.id, transitionEffects: [] };
       const user = me(app, player),
         configuration = summary(app, row);
       if (
@@ -292,16 +362,20 @@ function start(e, id, body) {
           assignment: row.id,
           sessionLevel: step.id,
         });
-      unlock(app, row, "start", "");
-      return { assignmentId: row.id };
+      const transitionEffects = unlock(app, row, "start", "");
+      return { assignmentId: row.id, transitionEffects };
     },
     (app, player) => onlineSession(app, assignment(app, id, player.id)),
   );
   const player = db.actor(e.app, e);
-  return detail(e.app, assignment(e.app, id, player.id));
+  const response = detail(e.app, assignment(e.app, id, player.id));
+  if (Object.prototype.hasOwnProperty.call(result, "transitionEffects"))
+    response.transitionEffects = result.transitionEffects;
+  return response;
 }
 function complete(app, row, step, p, submission, actor) {
-  if (p.getString("completedAt")) return { xpDelta: 0, rewardIds: [] };
+  if (p.getString("completedAt"))
+    return { xpDelta: 0, rewardIds: [], effects: [] };
   const sourceKey = `${row.id}:${step.id}:completion`;
   const xp = step.getInt("xp");
   p.set("completedAt", db.now());
@@ -322,15 +396,45 @@ function complete(app, row, step, p, submission, actor) {
   balance.set("totalXp", balance.getInt("totalXp") + xp);
   app.save(balance);
   let rewardIds = award(app, row, "level_completed", step.id);
-  unlock(app, row, "level_completed", step.id, actor);
+  let activatedSessionClues = unlock(
+    app,
+    row,
+    "level_completed",
+    step.id,
+    actor,
+  );
   if (progress(app, row).every((record) => record.getString("completedAt"))) {
     row.set("status", "completed");
     row.set("completedAt", db.now());
     app.save(row);
     rewardIds = rewardIds.concat(award(app, row, "session_completed", ""));
-    unlock(app, row, "session_completed", "", actor);
+    activatedSessionClues = activatedSessionClues.concat(
+      unlock(app, row, "session_completed", "", actor),
+    );
   }
-  return { xpDelta: xp, rewardIds };
+  const questionWasCompleted = levels(app, row).some((other) => {
+    if (
+      other.id === step.id ||
+      other.getString("question") !== step.getString("question")
+    )
+      return false;
+    const record = progressFor(app, row, other.id);
+    return Boolean(record && record.getString("completedAt"));
+  });
+  const activatedCommonClues = questionWasCompleted
+    ? []
+    : cluePolicy
+        .questionClues(app, step.getString("question"))
+        .map((clue) => ({
+          type: "clue",
+          clueId: questionClueInstanceId(step.id, clue.id),
+          autoPlay: clue.getBool("autoPlay"),
+        }));
+  return {
+    xpDelta: xp,
+    rewardIds,
+    effects: activatedSessionClues.concat(activatedCommonClues),
+  };
 }
 function answer(e, id, body) {
   const answer = r.text(body.answer, "回答", 4000);
@@ -349,7 +453,12 @@ function answer(e, id, body) {
       if (!step) r.fail("NOT_FOUND", "关卡不存在", 404);
       const p = progressFor(app, row, stepId);
       if (p.getString("completedAt"))
-        return { result: "already_completed", xpDelta: 0, rewardIds: [] };
+        return {
+          result: "already_completed",
+          xpDelta: 0,
+          rewardIds: [],
+          effects: [],
+        };
       const first = levels(app, row).find(
         (level) => !progressFor(app, row, level.id).getString("completedAt"),
       );
@@ -412,7 +521,12 @@ function answer(e, id, body) {
           );
       }
       app.save(p);
-      return { result: "incorrect", xpDelta: 0, rewardIds: [] };
+      return {
+        result: "incorrect",
+        xpDelta: 0,
+        rewardIds: [],
+        effects: [],
+      };
     },
     (app, player) => onlineSession(app, assignment(app, id, player.id)),
   );
@@ -454,6 +568,8 @@ module.exports = {
   levels,
   progress,
   progressFor,
+  questionClueInstanceId,
+  visibleClues,
   summary,
   detail,
   unlock,

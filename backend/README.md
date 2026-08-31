@@ -1,10 +1,12 @@
 # Questions 游戏后端
 
-2026-08-28 已发布场次永久下线、题目引用锁及 2MB 审计容量迁移，生产镜像为 `questions-pocketbase:0.40.1-session-offline-20260828-amd64`。管理端状态筛选等页面等待用户 push main 触发 Action。备份、数据保留与验收结果见 [正式发布记录](../docs/session-offline-deployment-20260828.md)。下方 v1/v1.1 初始化步骤为历史参考，不应再次初始化现有库。
+截至 2026-08-28 的最近正式记录，生产镜像为 `questions-pocketbase:0.40.1-narrative-delete-20260828-amd64`，包含信件 / 祝福软删除与引用保护，并保留此前的场次永久下线、题目引用锁及 2MB 审计容量能力。备份、数据保留与验收结果见 [最近正式发布记录](../docs/narrative-soft-delete-deployment-20260828.md)；此前的场次下线记录见 [历史发布记录](../docs/session-offline-deployment-20260828.md)。这些是带日期的快照，生产操作前必须重新核对实际容器、镜像和迁移账本。下方 v1/v1.1 初始化步骤为历史参考，不应再次初始化现有库。
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 只用于开发、测试和部署辅助脚本。2026-08-28 已正式部署 v1.1；api.sitkin.top 代理到新容器的 127.0.0.1:8090，管理后台为 vae.sitkin.top。旧容器保留但停止，不得对旧实例执行新迁移。
 
 **日常开发两个前端不需要启动本目录的服务。** 在各自仓库根目录执行 `pnpm install --frozen-lockfile`、`pnpm dev` 即可，默认直接连接线上 API。以下隔离测试、Docker 和镜像发布仅供修改后端时使用，不是前端开发环境要求；页面上的写操作会影响线上真实数据。
+
+本目录也承担生产后台数据库的版本化维护：`pb_hooks/` 随后端镜像发布，`pb_migrations/` 通过新的增量文件演进集合和索引。管理端静态 Action 不会发布这里的代码或数据库。统一边界、审批与备份要求见 [项目维护与发布边界](../docs/project-maintenance-and-release.md)。
 
 ## 工程边界
 

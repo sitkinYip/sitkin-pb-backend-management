@@ -1,6 +1,6 @@
 # Sitkin 后台管理系统
 
-基于 React、Refine、Ant Design 和 PocketBase 的游戏运营后台。
+基于 React、Refine、Ant Design 和 PocketBase 的游戏运营后台。本仓库同时维护管理前端、PocketBase hooks、数据库增量迁移、共享协议、后端测试和 1Panel 发布材料；不是单纯的静态管理页面项目。
 
 - 管理后台：https://vae.sitkin.top/
 - 接口：https://api.sitkin.top
@@ -41,6 +41,17 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 发布前执行管理端单元测试、协议检查、只读 API 探测和构建，然后上传 `dist/`。不会创建 Docker 容器、导入数据或更新 PocketBase。源码需要提交并 push，Actions 才会部署这些修改；此前的本地打包上线不会替你提交 Git。
 
+## 发布边界
+
+| 内容 | 发布方式 | 数据库影响 |
+| --- | --- | --- |
+| 管理前端 | push `main` 触发 Action，上传 `dist/` | 不修改数据库，也不更新 PB 容器 |
+| PocketBase hooks / API | 隔离测试并打包 AMD64 镜像，获批后维护 1Panel 容器 | 可能改变业务行为，需完整备份与恢复验证 |
+| 集合、字段、索引或数据维护 | 新增增量迁移或专用维护脚本，单独审批和发布 | 会影响数据库，必须停写、备份、隔离验证和记录回退边界 |
+| 玩家端展示 | 相邻 `questions-web` 仓库单独发布 | 取决于是否同时包含后端改动 |
+
+完整维护原则和后端数据库发布流程见 [项目维护与发布边界](docs/project-maintenance-and-release.md)。最近一次生产后端记录见 [信件 / 祝福软删除发布记录](docs/narrative-soft-delete-deployment-20260828.md)；这些带日期的信息是审计快照，生产操作前仍须重新核对线上状态。
+
 ## 后端源码与可选验收
 
 `backend/` 是线上后端的可维护源码，包含数据库迁移、服务端判题/经验/奖品逻辑、协议和测试，不能当作临时数据删除。
@@ -48,6 +59,10 @@ pnpm build                        # 生成 dist/，无需 Docker
 只有修改后端逻辑时才需要运行 `pnpm test:backend` 等隔离验收；Docker 是这种后端测试/镜像打包方案的工具，不是前端启动要求。`PocketBase backend CI` 在后端文件变化时独立运行，其容器只在 GitHub runner 中创建，不是管理端静态发布的依赖。
 
 后端代码变更仍需单独验收、备份并发布后端镜像；前端 push 不会更新线上容器。操作说明见 [后端 README](backend/README.md) 和 [1Panel 发布说明](backend/deploy/1panel/README.md)。
+
+## 项目 Skill
+
+项目内提供 [questions-admin-maintenance Skill](.agents/skills/questions-admin-maintenance/SKILL.md)，用于维护本仓库时识别前端、PocketBase 后端和数据库的边界，并按风险选择验证与发布流程。该 Skill 明确包含生产后端镜像和数据库发布，但不会把管理端 Action 误当成后端发布，也不会在缺少明确授权时操作生产环境。
 
 ## 主要管理内容
 

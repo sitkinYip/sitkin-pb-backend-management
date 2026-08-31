@@ -2,7 +2,7 @@ name: questions-game-v1
 
 services:
   pocketbase:
-    image: questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64
+    image: questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64
     platform: linux/amd64
     pull_policy: never
     container_name: questions-game-v1

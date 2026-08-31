@@ -1,6 +1,6 @@
 # 题目关键词匹配与分组后端升级操作单
 
-<!-- release-status: pending -->
+<!-- release-status: completed -->
 <!-- release-id: question-keywords-groups-r4-20260831 -->
 <!-- source-image: questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64 -->
 <!-- target-image: questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64 -->
@@ -68,3 +68,7 @@
 - 切换前失败：保持生产停止，依据状态记录恢复原 Compose 和原数据备份。
 - 切换后但尚未发生新版本业务写入：可切回旧镜像；新增结构和迁移账本必须保留，不得执行向下迁移或删除集合。
 - 一旦新版本开始写入 `game_question_settings`，禁止恢复旧数据库备份覆盖新数据。本次发布不会激活或回填该集合，因此完成时应仍为 0 行。
+
+## 执行结果
+
+R4 于 2026-08-31 20:57 +08:00 完成并记录。实际目标镜像 ID 为 `sha256:b80955c122e8e6e6b9932d98dfeab80dc123f22baeff88a2b5b47f155f0f164a`，Compose SHA-256 为 `a0144f9794b3c4a84f7f0e8165b0620c5d3e585fa2b432eb75f00dc60a9b3bb5`，迁移账本 SHA-256 为 `296348491ac81cba553be08650417cf89a84d9c89d61472eb0109566dc32032b`。容器 healthy、重启计数 0，HTTPS 验收为 200 / 401 / 401，`game_question_settings` 保持 0 行。完整事实见 `docs/question-keywords-groups-deployment-20260831.md`。

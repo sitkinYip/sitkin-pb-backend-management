@@ -60,6 +60,36 @@ else:
 `);
 });
 
+test("stopped container port validation uses its durable HostConfig binding", () => {
+  runPython(String.raw`
+${loadRunner}
+
+binding = {"8090/tcp": [{"HostIp": "127.0.0.1", "HostPort": "8090"}]}
+running = {
+    "State": {"Running": True},
+    "NetworkSettings": {"Ports": binding},
+    "HostConfig": {"PortBindings": binding},
+}
+stopped = {
+    "State": {"Running": False},
+    "NetworkSettings": {"Ports": {}},
+    "HostConfig": {"PortBindings": binding},
+}
+assert runner._container_port_matches(running, "127.0.0.1", 8090, 8090) is None
+assert runner._container_port_matches(stopped, "127.0.0.1", 8090, 8090) is None
+
+stopped["HostConfig"]["PortBindings"] = {
+    "8090/tcp": [{"HostIp": "0.0.0.0", "HostPort": "8090"}]
+}
+try:
+    runner._container_port_matches(stopped, "127.0.0.1", 8090, 8090)
+except runner.ReleaseError as error:
+    assert error.code == "port_mismatch"
+else:
+    raise AssertionError("an unsafe stopped-container binding was accepted")
+`);
+});
+
 test("require-absent writes have an atomic no-replace publication point", () => {
   runPython(String.raw`
 import os
@@ -306,10 +336,12 @@ with tempfile.TemporaryDirectory(prefix="questions-runner-sqlite-") as directory
         deleteRule TEXT
       );
       CREATE TABLE game_secret (id TEXT PRIMARY KEY, answer TEXT NOT NULL);
+      CREATE INDEX idx_game_secret_answer ON game_secret(answer);
     """)
     connection.execute("INSERT INTO _migrations VALUES (?, ?)", ("1787788800_game_schema.js", 1))
     connection.execute("INSERT INTO _collections VALUES (?, ?, NULL, NULL, NULL, NULL, NULL)", ("game_secret", "base"))
     connection.execute("INSERT INTO game_secret VALUES (?, ?)", ("row-1", secret))
+    connection.execute("ANALYZE game_secret")
     connection.commit()
     connection.close()
 
@@ -320,6 +352,12 @@ with tempfile.TemporaryDirectory(prefix="questions-runner-sqlite-") as directory
     assert secret not in serialized
     assert "row-1" not in serialized
     assert first["tables"]["game_secret"]["rowCount"] == 1
+    assert len(first["sqliteStat1"]) == 2
+    assert all(set(item) == {"table", "index", "statSha256"} for item in first["sqliteStat1"])
+    assert {item["index"] for item in first["sqliteStat1"]} == {
+        "idx_game_secret_answer",
+        "sqlite_autoindex_game_secret_1",
+    }
 
     connection = sqlite3.connect(database)
     connection.execute("UPDATE game_secret SET answer = ? WHERE id = ?", ("changed", "row-1"))
@@ -338,18 +376,21 @@ ${loadRunner}
 table = lambda count, digest: {"rowCount": count, "rowDigest": digest, "columns": ["id"]}
 before = {
     "schemaObjects": [
+        {"type": "index", "name": "idx_game_old", "table": "game_old", "sqlSha256": "0" * 64},
         {"type": "table", "name": "game_old", "table": "game_old", "sqlSha256": "1" * 64},
     ],
     "tables": {
         "_collections": table(1, "2" * 64),
         "_migrations": table(1, "3" * 64),
         "game_old": table(1, "4" * 64),
+        "sqlite_stat1": table(0, "1" * 64),
     },
     "migrationFiles": ["1787788800_game_schema.js"],
     "migrationRows": {"1787788800_game_schema.js": "f" * 64},
     "collections": {
         "game_old": {"type": "base", "private": True, "rowDigest": "5" * 64},
     },
+    "sqliteStat1": [],
     "summarySha256": "6" * 64,
 }
 after = copy.deepcopy(before)
@@ -360,6 +401,7 @@ after["schemaObjects"] += [
 after["tables"]["_collections"] = table(2, "9" * 64)
 after["tables"]["_migrations"] = table(2, "a" * 64)
 after["tables"]["game_new"] = table(0, "b" * 64)
+after["tables"]["sqlite_stat1"] = table(1, "e" * 64)
 after["migrationFiles"].append("1789000000_game_new.js")
 after["migrationRows"]["1789000000_game_new.js"] = "0" * 64
 after["collections"]["game_new"] = {
@@ -367,6 +409,11 @@ after["collections"]["game_new"] = {
     "private": True,
     "rowDigest": "c" * 64,
 }
+after["sqliteStat1"].append({
+    "table": "game_old",
+    "index": "idx_game_old",
+    "statSha256": "1" * 64,
+})
 after["summarySha256"] = "d" * 64
 delta = {
     "newCollections": [{"name": "game_new", "requirePrivate": True}],
@@ -385,6 +432,7 @@ evidence = runner._validate_additive_delta(
 )
 assert evidence["addedCollectionCount"] == 1
 assert evidence["addedTableCount"] == 1
+assert evidence["addedSqliteStatisticCount"] == 1
 
 production_outcome = copy.deepcopy(after)
 production_outcome["migrationRows"]["1789000000_game_new.js"] = "1" * 64
@@ -451,6 +499,40 @@ except runner.ReleaseError as error:
     assert error.code == "delta_mismatch"
 else:
     raise AssertionError("public collection was accepted")
+
+unknown_statistic = copy.deepcopy(after)
+unknown_statistic["sqliteStat1"][0]["index"] = "idx_unknown"
+try:
+    runner._validate_additive_delta(
+        before,
+        unknown_statistic,
+        delta,
+        ["1789000000_game_new.js"],
+    )
+except runner.ReleaseError as error:
+    assert error.code == "delta_mismatch"
+else:
+    raise AssertionError("statistics for an unknown index were accepted")
+
+before_with_statistic = copy.deepcopy(before)
+before_with_statistic["tables"]["sqlite_stat1"] = table(1, "7" * 64)
+before_with_statistic["sqliteStat1"].append({
+    "table": "game_old",
+    "index": "idx_game_old",
+    "statSha256": "2" * 64,
+})
+changed_statistic = copy.deepcopy(after)
+try:
+    runner._validate_additive_delta(
+        before_with_statistic,
+        changed_statistic,
+        delta,
+        ["1789000000_game_new.js"],
+    )
+except runner.ReleaseError as error:
+    assert error.code == "delta_mismatch"
+else:
+    raise AssertionError("an existing SQLite statistic rewrite was accepted")
 `);
 });
 

@@ -10,6 +10,12 @@ const source = readFileSync(
   ),
   "utf8",
 );
+const allowedDelta = JSON.parse(
+  readFileSync(
+    new URL("../deploy/1panel/allowed-delta.json", import.meta.url),
+    "utf8",
+  ),
+);
 let up;
 let down;
 class TestCollection {
@@ -58,4 +64,24 @@ test("question settings migration is additive, private and uniquely related", ()
 
 test("question settings migration refuses a destructive downgrade", () => {
   assert.throws(() => down(), /downgrade is intentionally disabled/i);
+});
+
+test("production delta enumerates the explicit and SQLite-generated indexes", () => {
+  assert.deepEqual(allowedDelta.newSchemaObjects, [
+    {
+      type: "index",
+      name: "idx_game_question_settings_question",
+      table: "game_question_settings",
+    },
+    {
+      type: "index",
+      name: "sqlite_autoindex_game_question_settings_1",
+      table: "game_question_settings",
+    },
+    {
+      type: "table",
+      name: "game_question_settings",
+      table: "game_question_settings",
+    },
+  ]);
 });

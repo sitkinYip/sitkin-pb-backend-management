@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pending",
-  "releaseId": "question-keywords-groups-20260831",
+  "releaseId": "question-keywords-groups-r4-20260831",
   "transport": {
     "sshTarget": "root@47.120.62.73",
     "sshPort": 22
@@ -41,7 +41,7 @@
     ]
   },
   "target": {
-    "imageTag": "questions-pocketbase:0.40.1-question-keywords-groups-20260831-amd64",
+    "imageTag": "questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64",
     "pocketbaseVersion": "0.40.1",
     "platform": "linux/amd64"
   },

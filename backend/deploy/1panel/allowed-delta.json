@@ -17,6 +17,11 @@
       "table": "game_question_settings"
     },
     {
+      "type": "index",
+      "name": "sqlite_autoindex_game_question_settings_1",
+      "table": "game_question_settings"
+    },
+    {
       "type": "table",
       "name": "game_question_settings",
       "table": "game_question_settings"

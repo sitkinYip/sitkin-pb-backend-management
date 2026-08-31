@@ -1384,6 +1384,41 @@ def _collection_summaries(connection):
     return result
 
 
+def _sqlite_stat1_summaries(connection, table_names):
+    if "sqlite_stat1" not in table_names:
+        return []
+    result = []
+    seen = set()
+    for table_name, index_name, statistic in connection.execute(
+        "SELECT tbl,idx,stat FROM sqlite_stat1 ORDER BY tbl,idx"
+    ):
+        _require(
+            isinstance(table_name, str) and table_name,
+            "sqlite_schema_error",
+            "SQLite statistics contain an invalid table name.",
+        )
+        _require(
+            index_name is None or (isinstance(index_name, str) and index_name),
+            "sqlite_schema_error",
+            "SQLite statistics contain an invalid index name.",
+        )
+        key = (table_name, index_name)
+        _require(
+            key not in seen,
+            "sqlite_schema_error",
+            "SQLite statistics contain a duplicate table/index key.",
+        )
+        seen.add(key)
+        result.append(
+            {
+                "table": table_name,
+                "index": index_name,
+                "statSha256": _sha256_bytes(_typed_value_bytes(statistic)),
+            }
+        )
+    return result
+
+
 def _sqlite_summary(database_path):
     _require(os.path.isfile(database_path) and not os.path.islink(database_path), "database_missing", "The PocketBase database file is missing or unsafe.")
     uri = "file:%s?mode=ro" % urllib.parse.quote(os.path.abspath(database_path), safe="/")
@@ -1430,6 +1465,7 @@ def _sqlite_summary(database_path):
             "migrationFiles": sorted(migration_rows),
             "migrationRows": migration_rows,
             "collections": _collection_summaries(connection),
+            "sqliteStat1": _sqlite_stat1_summaries(connection, table_names),
         }
         result["summarySha256"] = _sha256_json(result)
         return result
@@ -1734,7 +1770,15 @@ def _verify_container_runtime_contract(plan, container):
 
 
 def _container_port_matches(container, host_ip, host_port, container_port):
-    ports = (container.get("NetworkSettings") or {}).get("Ports") or {}
+    state = container.get("State") or {}
+    if state.get("Running"):
+        ports = (container.get("NetworkSettings") or {}).get("Ports") or {}
+    else:
+        # Docker clears NetworkSettings.Ports after a Compose stop even though
+        # the reviewed binding remains frozen in HostConfig.PortBindings.
+        # Backup and pre-switch gates intentionally inspect the stopped
+        # production container, so validate its durable configuration there.
+        ports = (container.get("HostConfig") or {}).get("PortBindings") or {}
     key = "%d/tcp" % container_port
     bindings = ports.get(key)
     _require(isinstance(bindings, list) and len(bindings) == 1, "port_mismatch", "Target container port binding is missing or duplicated.")
@@ -3543,6 +3587,73 @@ def _run_serve_cycle(plan, name, data_path, timeout):
     }
 
 
+def _validate_sqlite_stat1_delta(before, after):
+    def keyed(summary):
+        rows = summary.get("sqliteStat1")
+        _require(isinstance(rows, list), "delta_mismatch", "SQLite statistics evidence is missing or invalid.")
+        table_summary = summary.get("tables", {}).get("sqlite_stat1")
+        _require(
+            (table_summary is None and not rows)
+            or (isinstance(table_summary, dict) and table_summary.get("rowCount") == len(rows)),
+            "delta_mismatch",
+            "SQLite statistics evidence differs from its table row count.",
+        )
+        result = {}
+        for row in rows:
+            _require(
+                isinstance(row, dict)
+                and set(row.keys()) == {"table", "index", "statSha256"}
+                and isinstance(row.get("table"), str)
+                and row["table"]
+                and (row.get("index") is None or (isinstance(row["index"], str) and row["index"]))
+                and isinstance(row.get("statSha256"), str)
+                and bool(SHA256_RE.match(row["statSha256"])),
+                "delta_mismatch",
+                "SQLite statistics evidence contains an invalid row.",
+            )
+            key = (row["table"], row["index"])
+            _require(key not in result, "delta_mismatch", "SQLite statistics evidence contains a duplicate key.")
+            result[key] = row["statSha256"]
+        return result
+
+    before_rows = keyed(before)
+    after_rows = keyed(after)
+    _require(
+        set(before_rows).issubset(set(after_rows)),
+        "delta_mismatch",
+        "Migration removed an existing SQLite statistics row.",
+    )
+    for key, digest in before_rows.items():
+        _require(
+            after_rows[key] == digest,
+            "delta_mismatch",
+            "Migration changed an existing SQLite statistics row.",
+            {"table": key[0], "index": key[1]},
+        )
+    known_indexes = {
+        (item["table"], item["name"])
+        for item in after["schemaObjects"]
+        if item["type"] == "index"
+    }
+    added = sorted(
+        set(after_rows) - set(before_rows),
+        key=lambda item: (item[0], "" if item[1] is None else item[1]),
+    )
+    for key in added:
+        _require(
+            key[1] is not None and key in known_indexes,
+            "delta_mismatch",
+            "Migration added SQLite statistics for an unknown index.",
+            {"table": key[0], "index": key[1]},
+        )
+    return {
+        "addedCount": len(added),
+        "addedKeysSha256": _sha256_json(
+            [{"table": key[0], "index": key[1]} for key in added]
+        ),
+    }
+
+
 def _validate_additive_delta(before, after, delta, planned_new_files):
     before_objects = {
         (item["type"], item["name"], item["table"]): item
@@ -3565,8 +3676,9 @@ def _validate_additive_delta(before, after, delta, planned_new_files):
     expected_new_tables = sorted(item["name"] for item in delta["newSchemaObjects"] if item["type"] == "table")
     actual_new_tables = sorted(set(after_tables) - set(before_tables))
     _require(actual_new_tables == expected_new_tables, "delta_mismatch", "Migration table additions differ from the allowed delta.")
+    sqlite_stat1_evidence = _validate_sqlite_stat1_delta(before, after)
     for table in before_tables:
-        if table in ("_migrations", "_collections"):
+        if table in ("_migrations", "_collections", "sqlite_stat1"):
             continue
         _require(after_tables[table] == before_tables[table], "delta_mismatch", "Migration changed an existing business or system table.", {"table": table})
     for table in delta["emptyTables"]:
@@ -3609,6 +3721,8 @@ def _validate_additive_delta(before, after, delta, planned_new_files):
         "addedTableCount": len(actual_new_tables),
         "addedCollectionCount": len(actual_collections),
         "addedMigrationCount": len(planned_new_files),
+        "addedSqliteStatisticCount": sqlite_stat1_evidence["addedCount"],
+        "addedSqliteStatisticKeysSha256": sqlite_stat1_evidence["addedKeysSha256"],
     }
 
 

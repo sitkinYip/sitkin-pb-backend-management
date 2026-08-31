@@ -1,13 +1,15 @@
 # 题目关键词匹配与分组后端升级操作单
 
 <!-- release-status: pending -->
-<!-- release-id: question-keywords-groups-20260831 -->
+<!-- release-id: question-keywords-groups-r4-20260831 -->
 <!-- source-image: questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64 -->
-<!-- target-image: questions-pocketbase:0.40.1-question-keywords-groups-20260831-amd64 -->
+<!-- target-image: questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64 -->
 
 ## 发布范围
 
-本操作单只用于 `questions-game-v1` 当前生产实例的增量后端发布。它新增题目关键词匹配和题目分组所需的服务端能力，不包含前台或后台管理系统发布，也不包含旧题目的业务数据回填。
+本操作单只用于 `questions-game-v1` 当前生产实例的第四次增量后端发布尝试。第一次 `question-keywords-groups-20260831` 因停止态端口元数据读取缺陷进入 `blocked`；第二次 `question-keywords-groups-r2-20260831` 在恢复副本迁移差异校验时发现允许清单遗漏 SQLite 自动生成的主键索引而进入 `blocked`；第三次 `question-keywords-groups-r3-20260831` 发现 PocketBase 迁移会为两个既有 `game_question_clues` 索引补写缺失的 `sqlite_stat1` 统计记录而进入 `blocked`。三次都已证明正式数据库、Compose、镜像、schema 和迁移账本未变并恢复原服务；各自的 active marker 必须原样归档到对应旧发布目录。第四次尝试使用修正后的冻结执行器、补全的允许清单和全新 `releaseId`，不得修改旧发布的 state、事件、journal、备份或归档标记。
+
+本次仍只新增题目关键词匹配和题目分组所需的服务端能力，不包含前台或后台管理系统发布，也不包含旧题目的业务数据回填。
 
 本次迁移只允许新增一个私有空集合 `game_question_settings`，以及该集合对应的表和唯一索引。发布程序不得扫描、修改或回填现有题目、答案、奖励、账户或运行配置。
 
@@ -27,7 +29,7 @@
 - 当前镜像 ID：`sha256:afc6feeba6d0884d3b485dec95e059344c998f2d90f84ad8e8bdd3809b6db482`
 - 当前 Compose SHA-256：`6c14986a8669858c31ed6bf4f7addc401dc25d733665356dac6f99a22244dd71`
 - 当前 release.json SHA-256：`5a2c63662ac2e441f54a6c8f9c17358e9460703060aaeb7e95beaadd567584e2`
-- 目标镜像：`questions-pocketbase:0.40.1-question-keywords-groups-20260831-amd64`
+- 目标镜像：`questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64`
 - 新迁移：`1788176000_question_settings.js`
 
 主机身份和迁移账本哈希必须先通过只读 inventory 获取并写回 `release-plan.json`，再次 inventory 完全一致后才能构建发布包。
@@ -55,8 +57,11 @@
 - 新私有集合 `game_question_settings`
 - 新表 `game_question_settings`
 - 新索引 `idx_game_question_settings_question`
+- SQLite 自动索引 `sqlite_autoindex_game_question_settings_1`
 
 `game_question_settings` 在 `migrate`、`switch` 和 `finalize` 校验时都必须为空。生产业务数据写入与功能开关激活均不在本次发布授权范围内。
+
+迁移副本允许 `sqlite_stat1` 只增不改：新增统计记录必须绑定迁移后 schema 中真实存在的索引；任何旧统计记录删除、值变化、重复键、未知索引或表级新增统计记录都必须阻断发布。统计值只写入 SHA-256 证据，不记录原文。
 
 ## 回滚边界
 

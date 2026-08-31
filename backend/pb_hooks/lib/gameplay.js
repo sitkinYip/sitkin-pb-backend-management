@@ -1,6 +1,7 @@
 const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const cluePolicy = require(`${__hooks}/lib/clues.js`);
+const questionSettings = require(`${__hooks}/lib/question-settings.js`);
 function stats(app, playerId) {
   const record = db.maybe(app, "game_player_stats", "player={:id}", {
     id: playerId,
@@ -488,10 +489,12 @@ function answer(e, id, body) {
       const key = db.maybe(app, "game_answer_keys", "question={:id}", {
         id: q.id,
       });
+      const settings = questionSettings.read(app, q.id);
       const isCorrect = r.correct(
         q.getString("kind"),
         answer,
         db.json(key, "acceptedAnswers", []),
+        settings.answerMatchMode,
       );
       const submission = db.create(app, "game_answer_submissions", {
         assignment: row.id,
@@ -500,7 +503,11 @@ function answer(e, id, body) {
         answer,
         result: isCorrect ? "correct" : "incorrect",
         submittedAt: db.now(),
-        rulesRevision: key.getString("normalizationVersion"),
+        rulesRevision:
+          key.getString("normalizationVersion") +
+          (settings.answerMatchMode === questionSettings.CONTAINS_ALL
+            ? ":contains-all-v1"
+            : ""),
       });
       if (isCorrect)
         return {

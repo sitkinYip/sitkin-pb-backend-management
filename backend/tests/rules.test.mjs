@@ -7,6 +7,28 @@ test("answer normalization preserves legacy text behavior and choice keys", () =
   assert.equal(rules.correct("text", "POLARIS。", ["北极星", "Polaris"]), true);
   assert.equal(rules.correct("choice", "a", ["A"]), false);
 });
+test("keyword matching requires every normalized keyword in any order", () => {
+  assert.equal(
+    rules.correct(
+      "text",
+      "我在北京参观了故宫。",
+      ["故宫", " 北 京 "],
+      "contains_all",
+    ),
+    true,
+  );
+  assert.equal(
+    rules.correct("text", "北京天安门", ["北京", "故宫"], "contains_all"),
+    false,
+  );
+  assert.equal(
+    rules.correct("text", "参观故宫", ["故宫"], "contains_all"),
+    true,
+  );
+  assert.equal(rules.correct("text", "任意回答", [], "contains_all"), false);
+  assert.equal(rules.correct("text", "任意回答", ["！"], "contains_all"), false);
+  assert.equal(rules.correct("choice", "A", ["A"], "contains_all"), true);
+});
 test("idempotency hashes ignore object key ordering but retain array order", () => {
   assert.equal(
     rules.canonical({ b: 2, a: [1, 3] }),

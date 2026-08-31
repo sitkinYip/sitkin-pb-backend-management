@@ -1932,9 +1932,9 @@ def _current_facts(plan, require_running=True, full_database=True, enforce_sourc
     if database is not None and enforce_source_ledger:
         _require(database["migrationLedgerSha256"] == source["migrationLedgerSha256"], "source_drift", "Migration ledger digest differs from the plan.")
         _require(
-            database["migrationFiles"] == sorted(source["requiredMigrationFiles"]),
+            set(source["requiredMigrationFiles"]).issubset(set(database["migrationFiles"])),
             "source_drift",
-            "Production migration ledger filenames differ from the frozen source baseline.",
+            "Production migration ledger is missing a required project migration.",
         )
     runtime_version = root_release["pocketbaseVersion"]
     if running:
@@ -2131,12 +2131,11 @@ def _preflight_target_phase(plan, paths, state, recorded=False):
     _without, image = _compose_without_target_image(config, production["composeService"])
     _require(image == plan["target"]["imageTag"], "source_drift", "Resolved target Compose image differs from the frozen plan.")
     database = _sqlite_summary(os.path.join(production["dataHostPath"], production["databaseRelativePath"]))
-    expected_files = sorted(plan["source"]["requiredMigrationFiles"] + plan["migration"]["newFiles"])
-    _require(database["migrationFiles"] == expected_files, "data_verification_failed", "Target migration ledger filenames differ from the frozen plan.")
+    structural_baseline = _expected_pre_switch_database(plan, state)
+    _require(database["migrationFiles"] == structural_baseline["migrationFiles"], "data_verification_failed", "Target migration ledger filenames differ from the verified migration baseline.")
     switch = (state.get("evidence") or {}).get("switch")
     _require(isinstance(switch, dict), "state_corrupt", "Switch evidence is missing.")
     _require_switch_container_continuity(plan, container, switch)
-    structural_baseline = _expected_pre_switch_database(plan, state)
     delta, _delta_raw = _read_json_file(paths["delta"])
     delta = _validate_delta(delta, plan)
     structural_evidence = _validate_post_switch_structure(
@@ -4066,8 +4065,11 @@ def _operation_no_migration(plan, paths, state, operation_id):
     _assert_no_host_database_owner(plan)
     backup = _backup_verification_path(plan, state)
     _require(current["database"] == backup["productionBefore"], "source_drift", "Stopped production database differs from the verified backup baseline.")
-    expected_files = sorted(plan["source"]["requiredMigrationFiles"])
-    _require(current["database"]["migrationFiles"] == expected_files, "source_drift", "No-migration ledger differs from the frozen source baseline.")
+    _require(
+        set(plan["source"]["requiredMigrationFiles"]).issubset(set(current["database"]["migrationFiles"])),
+        "source_drift",
+        "No-migration ledger is missing a required project migration.",
+    )
     return {
         "operationId": operation_id,
         "verifiedSummarySha256": current["database"]["summarySha256"],

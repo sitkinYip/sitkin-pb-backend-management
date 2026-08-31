@@ -1,49 +1,65 @@
-# 升级操作单滚动槽：最近完成的题目通用线索与线上展示编辑
+# 题目关键词匹配与分组后端升级操作单
 
-<!-- release-status: completed -->
-<!-- release-id: question-clues-live-settings-20260831 -->
-<!-- source-image: questions-pocketbase:0.40.1-narrative-delete-20260828-amd64 -->
-<!-- target-image: questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64 -->
+<!-- release-status: pending -->
+<!-- release-id: question-keywords-groups-20260831 -->
+<!-- source-image: questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64 -->
+<!-- target-image: questions-pocketbase:0.40.1-question-keywords-groups-20260831-amd64 -->
 
-> 当前槽位状态：本内容已用于 2026-08-31 正式发布并完成，不是待执行任务，禁止原样复用。当前基线和组件状态见 [当前生产状态](../../../docs/current-production.md)，当次结果见 [正式发布记录](../../../docs/question-common-clues-deployment-20260831.md)。
+## 发布范围
 
-仓库中的 `UPGRADE.md` 是下一次发布前会被完整替换的滚动槽，不是不可变审计件；本次冻结副本保留在服务器发布包、Git 历史和日期 deployment 记录中。下一次运行 `package-1panel.mjs --upgrade` 前，必须用新版本专属内容完整替换并重新审查本文，使原镜像、目标镜像、迁移列表、允许差异、`release.json` 和实际发布包一致。不能只改镜像 tag 后复用命令。通用失败闭锁、备份和回退规则见 [后端发布安全规范](../../../docs/backend-release-safety.md)。
+本操作单只用于 `questions-game-v1` 当前生产实例的增量后端发布。它新增题目关键词匹配和题目分组所需的服务端能力，不包含前台或后台管理系统发布，也不包含旧题目的业务数据回填。
 
-本次已完成发布包当时只适用于已经运行 PocketBase 0.40.1、且发布前基线为
-`questions-pocketbase:0.40.1-narrative-delete-20260828-amd64` 的
-`questions-game-v1`。它不是首次安装包，也不是重新初始化数据库的工具。
+本次迁移只允许新增一个私有空集合 `game_question_settings`，以及该集合对应的表和唯一索引。发布程序不得扫描、修改或回填现有题目、答案、奖励、账户或运行配置。
 
-## 发布内容与边界
+## 兼容性约束
 
-- 目标镜像固定为 Linux AMD64 / PocketBase 0.40.1；具体标签和摘要以包内 `release.json` 为准。
-- 新增 `1788143000_question_clues.js` 增量迁移，创建私有集合 `game_question_clues` 及查询索引。迁移不扫描、不复制、不改写现有玩家、场次、答题、经验、奖品或线索解锁记录。
-- 新 hooks 提供题目通用线索、已发布场次展示白名单编辑，以及 start / answer 一次性 effect 快照；保留此前场次下线、题库引用锁、2MB 审计和信件 / 祝福软删除能力。
-- 迁移的 down 明确拒绝删除集合。应用代码回退时保留新增集合和迁移账本，不执行破坏性降级。
-- 包内不包含 Compose、`pb_data`、真实内容、账号凭据或两个前端构建；不得运行超级管理员初始化、内容导入、批量下发或业务写入验收。
-- 后端可在 `game_question_clues` 为空时先上线。随后必须先发布兼容版玩家端，再发布管理端；确认玩家端生效前不得配置通用线索。
+- 现有答题端协议不变，旧答题端可继续使用。
+- 旧管理端在新后端上未提交新字段时，服务端按“精确匹配、其他分组”处理；发布窗口内仍暂停管理端写入，直至 `finalize` 完成。
+- 新管理端依赖本次后端能力，应在本次服务端发布完成后再部署。
+- 新集合必须从迁移后到发布完成始终保持 0 行；后续旧题目归组由用户在管理端手工完成。
 
-## 正式切换前
+## 冻结基线
 
-1. 只读核实目标仍为 `questions-game-v1`，实际 Compose 为 `/opt/1panel/apps/questions-game-v1/compose.yaml`，数据目录 `/opt/1panel/apps/questions-game-v1/pb_data` 挂载到 `/pb/pb_data`，端口仅为 `127.0.0.1:8090:8090`。任何一项不符都停止操作。
-2. 核实当前镜像、PocketBase 版本、AMD64 架构、健康状态、磁盘空间及迁移账本。升级前账本应包含 `1787788800_game_schema.js`、`1787911200_expand_audit_diff.js`，但不包含 `1788143000_question_clues.js`；现有库不应已有 `game_question_clues` 集合。
-3. 在独立发布目录校验外层和包内 `SHA256SUMS` 后再导入镜像。核对镜像架构、PocketBase 版本和内嵌 hooks / migrations；不得覆盖历史发布包或根目录旧基础镜像归档。
-4. 使用独立临时数据目录完成空库迁移、完整后端回归及服务器隔离镜像验收。演练实例不得挂载生产目录，不得与生产实例同时打开同一份 `pb_data`。
+- 生产目录：`/opt/1panel/apps/questions-game-v1`
+- Compose：`/opt/1panel/apps/questions-game-v1/compose.yaml`
+- 数据目录：`/opt/1panel/apps/questions-game-v1/pb_data`
+- 当前镜像：`questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64`
+- 当前镜像 ID：`sha256:afc6feeba6d0884d3b485dec95e059344c998f2d90f84ad8e8bdd3809b6db482`
+- 当前 Compose SHA-256：`6c14986a8669858c31ed6bf4f7addc401dc25d733665356dac6f99a22244dd71`
+- 当前 release.json SHA-256：`5a2c63662ac2e441f54a6c8f9c17358e9460703060aaeb7e95beaadd567584e2`
+- 目标镜像：`questions-pocketbase:0.40.1-question-keywords-groups-20260831-amd64`
+- 新迁移：`1788176000_question_settings.js`
 
-## 经批准的维护窗口
+主机身份和迁移账本哈希必须先通过只读 inventory 获取并写回 `release-plan.json`，再次 inventory 完全一致后才能构建发布包。
 
-1. 暂停答题和管理操作，只停止 `questions-game-v1`；不停止 OpenResty、AList 或其他应用。
-2. 创建全新的权限 700 私密备份目录。停服后完整归档当前 `pb_data`、实际 Compose、根 `release.json` 和校验清单，归档权限设为 600，并记录 SHA256。不要只复制 `data.db`，不要把备份放进应用目录、网站目录或被备份目录内部。
-3. 将备份解压到新的隔离恢复目录，逐文件核对类型、权限、大小和内容摘要。使用目标镜像只挂载恢复副本，执行 `migrate up`；验证 SQLite 完整性、新集合结构、迁移账本和重启持久化。副本验证失败时不得迁移生产库。
-4. 记录迁移前业务表数量及非敏感聚合摘要。只允许新增迁移账本记录、`game_question_clues` 集合及其索引；玩家、场次、答题、进度、经验、奖品、领取和既有线索解锁的记录数量与聚合摘要必须保持不变。
-5. 保持正式容器停止，使用目标镜像对正式挂载执行一次显式 `migrate up`，继续保持 `--automigrate=false`。迁移成功后再次核对迁移账本和集合结构。
-6. 只修改实际 Compose 中 PocketBase 服务的镜像标签；保持挂载、回环端口、网络、安全选项、健康检查和重启策略不变。先运行 `docker compose config`，再重建目标服务。
-7. 启动后核对实际镜像、运行时、健康、重启计数、挂载、端口、内嵌代码、迁移账本、集合结构和业务数据摘要。HTTPS 健康接口应返回 200，未登录管理与玩家接口应返回 401。
-8. 不创建生产测试账号，不新增通用线索，不修改线上场次，不执行真实答题、经验、发奖或核销。生产写入验收需要另行明确批准。
+## 执行顺序
 
-## 验收与回退边界
+1. 使用仓库发布控制器执行只读 `inventory`，冻结主机、镜像、Compose、release.json、迁移账本与磁盘空间。
+2. 构建并验证 `linux/amd64` 目标镜像，运行目标镜像测试和镜像源码校验。
+3. 生成升级包；只使用包内冻结的 `deployment-plan.json`、`release-runner.py` 和校验和。
+4. 执行 `preflight`，确认发布包、生产基线、允许差异和升级前数据库快照一致。
+5. 执行 `stage`，只上传并加载候选镜像，不切换生产。
+6. 依次执行四个相互独立的部署阶段，每一步完成后检查 `status`：
+   - `backup`：停止生产并完成逻辑/物理备份，生产保持停止。
+   - `migrate`：只在候选镜像和工作数据库上执行迁移及允许差异校验。
+   - `switch`：切换生产镜像并完成健康检查和未授权探针。
+   - `finalize`：确认生产数据库与工作数据库一致、增量集合仍为空并写入完成记录。
 
-- 切换前失败时保持原容器和原 Compose；保留失败现场，不自动删除或重建数据库。
-- 新迁移是加法结构。若迁移成功但新应用无法启动，可将 Compose 的镜像标签恢复为原镜像，同时保留新集合与迁移账本；不得运行 down 或删除 `game_question_clues`。
-- 一旦管理端开始写入通用线索，旧玩家端可能无法识别新线索协议，因此必须先完成玩家端发布。回退应用前先停止配置写入并保存当前完整库。
-- 出现新答题、经验、奖品或核销后，不得用维护窗口前的旧备份覆盖当前生产数据。先停写保存现状，优先前向修复或仅回退应用代码。
-- 完成后更新正式发布记录，写明镜像、校验值、备份、迁移、数据核对、未执行事项和前端发布前提，并关闭本次专用 SSH 维护连接。
+任何阶段出现基线漂移、未知状态或非零退出码，立即停止，只允许执行 `status` 取证，不得自动重试或跨越阶段。
+
+## 允许差异
+
+发布前后唯一允许的数据库结构差异是：
+
+- 新迁移文件 `1788176000_question_settings.js`
+- 新私有集合 `game_question_settings`
+- 新表 `game_question_settings`
+- 新索引 `idx_game_question_settings_question`
+
+`game_question_settings` 在 `migrate`、`switch` 和 `finalize` 校验时都必须为空。生产业务数据写入与功能开关激活均不在本次发布授权范围内。
+
+## 回滚边界
+
+- 切换前失败：保持生产停止，依据状态记录恢复原 Compose 和原数据备份。
+- 切换后但尚未发生新版本业务写入：可切回旧镜像；新增结构和迁移账本必须保留，不得执行向下迁移或删除集合。
+- 一旦新版本开始写入 `game_question_settings`，禁止恢复旧数据库备份覆盖新数据。本次发布不会激活或回填该集合，因此完成时应仍为 0 行。

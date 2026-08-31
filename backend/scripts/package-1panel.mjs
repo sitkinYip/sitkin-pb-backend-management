@@ -282,6 +282,13 @@ if (info.Os !== "linux" || info.Architecture !== "amd64")
 const initialImageId = info.Id;
 if (!/^sha256:[0-9a-f]{64}$/.test(initialImageId || ""))
   throw new Error("Docker returned an invalid immutable image ID.");
+const descriptorMediaType = info.Descriptor?.mediaType;
+const dockerReportsManifestId =
+  info.Descriptor?.digest === initialImageId &&
+  [
+    "application/vnd.docker.distribution.manifest.v2+json",
+    "application/vnd.oci.image.manifest.v1+json",
+  ].includes(descriptorMediaType);
 const expectedRuntimeCommand = [
   "serve",
   "--http=0.0.0.0:8090",
@@ -427,9 +434,20 @@ try {
   if (config.architecture !== "amd64" || config.os !== "linux")
     throw new Error("Exported image architecture mismatch.");
   validateRuntimeConfig(config.config, "Exported image config");
+  if (
+    JSON.stringify(config.rootfs?.diff_ids) !==
+    JSON.stringify(info.RootFS?.Layers)
+  )
+    throw new Error(
+      "Exported image root filesystem differs from the immutable image that passed verification.",
+    );
   const createdAt = new Date().toISOString();
   const targetImageConfigDigest = `sha256:${digestBytes(configBytes)}`;
-  if (targetImageConfigDigest !== initialImageId)
+  // Classic Docker reports the config digest as Image.Id. Docker Desktop's
+  // containerd image store reports the single-platform manifest digest instead.
+  // In the latter case, bind the saved config to the inspected image through
+  // the exact RootFS diff IDs above and refuse indexes or unknown descriptors.
+  if (targetImageConfigDigest !== initialImageId && !dockerReportsManifestId)
     throw new Error(
       "Exported image differs from the immutable image that passed verification.",
     );

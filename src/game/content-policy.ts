@@ -6,6 +6,8 @@ import type {
 } from "./contracts";
 
 export type SessionFilter = AdminSession["status"] | "all";
+export type QuestionScope = "available" | "archived" | "all";
+export const QUESTION_DEFAULT_GROUP = "其他";
 export const sessionStatusLabels = {
   published: "线上",
   draft: "草稿",
@@ -65,10 +67,39 @@ export function questionOptions(
     .filter((q) => q.status !== "archived" || q.id === selectedId)
     .map((q) => ({
       value: q.id,
-      label: `${q.title} · v${q.revision}${q.status === "archived" ? "（已移出，发布前须替换）" : q.status === "draft" ? "（草稿）" : ""}`,
-      searchText: `${q.title} ${q.id}`,
+      label: `【${q.groupName || QUESTION_DEFAULT_GROUP}】${q.title} · v${q.revision}${q.status === "archived" ? "（已移出，发布前须替换）" : q.status === "draft" ? "（草稿）" : ""}`,
+      searchText: `${q.groupName || QUESTION_DEFAULT_GROUP} ${q.title} ${q.id}`,
       disabled: q.status === "archived",
     }));
+}
+
+export function questionGroups(questions: AdminQuestion[]) {
+  return [
+    ...new Set([
+      QUESTION_DEFAULT_GROUP,
+      ...questions.map((q) => q.groupName || QUESTION_DEFAULT_GROUP),
+    ]),
+  ].sort((a, b) => a.localeCompare(b, "zh-CN"));
+}
+
+export function filterQuestions(
+  questions: AdminQuestion[],
+  scope: QuestionScope,
+  search: string,
+  groupName: string,
+) {
+  const term = search.trim().toLocaleLowerCase();
+  return questions.filter((q) => {
+    const group = q.groupName || QUESTION_DEFAULT_GROUP;
+    return (
+      (scope === "all" ||
+        (scope === "archived"
+          ? q.status === "archived"
+          : q.status !== "archived")) &&
+      (groupName === "all" || group === groupName) &&
+      `${q.title} ${q.id} ${group}`.toLocaleLowerCase().includes(term)
+    );
+  });
 }
 
 export type NarrativeFilter = "available" | "archived" | "all";

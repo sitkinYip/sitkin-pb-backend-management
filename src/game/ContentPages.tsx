@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
   Alert,
+  AutoComplete,
   Button,
   Card,
   Form,
@@ -34,16 +35,20 @@ import type {
 } from "./contracts";
 import {
   filterSessions,
+  filterQuestions,
   filterNarratives,
   narrativeDeletionHint,
   narrativeOptions,
   narrativeUsage,
   unavailableNarrativeReferences,
   questionOptions,
+  questionGroups,
+  QUESTION_DEFAULT_GROUP,
   questionUsage,
   sessionCounts,
   sessionStatusLabels,
   type SessionFilter,
+  type QuestionScope,
   type NarrativeFilter,
 } from "./content-policy";
 import {
@@ -100,10 +105,13 @@ function SessionReferences({
 function QuestionEditor({ catalog, refresh }: EditorProps) {
   const [form] = Form.useForm();
   const [deleteForm] = Form.useForm();
+  const [groupForm] = Form.useForm();
   const [open, setOpen] = useState(false),
     [id, setId] = useState("");
-  const [scope, setScope] = useState("available");
+  const [scope, setScope] = useState<QuestionScope>("available");
   const [search, setSearch] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const [grouping, setGrouping] = useState<AdminQuestion | null>(null);
   const [deleting, setDeleting] = useState<AdminQuestion | null>(null);
   const [clueQuestionId, setClueQuestionId] = useState("");
   const selected = catalog.questions.find((row) => row.id === id);
@@ -114,6 +122,8 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
   const readOnly = Boolean(id && (!selected || !usage?.canEdit));
   const { run, busy } = useAdminCommand(refresh);
   const kind = Form.useWatch("kind", form);
+  const fuzzyMatch = Form.useWatch("fuzzyMatch", form);
+  const groups = questionGroups(catalog.questions);
   const edit = (row?: AdminQuestion) => {
     setId(row?.id || "");
     form.resetFields();
@@ -124,6 +134,8 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
         content: [{ text: "", hint: "", imageUrls: [] }],
         options: [],
         acceptedAnswers: [],
+        fuzzyMatch: false,
+        groupName: QUESTION_DEFAULT_GROUP,
       },
     );
     setOpen(true);
@@ -164,16 +176,27 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             { value: "all", label: "全部题目" },
           ]}
         />
+        <Select
+          aria-label="题目分组"
+          value={groupFilter}
+          style={{ width: 190 }}
+          onChange={setGroupFilter}
+          options={[
+            { value: "all", label: "全部分组" },
+            ...groups.map((groupName) => ({
+              value: groupName,
+              label: groupName,
+            })),
+          ]}
+        />
       </div>
       <AdminTable
         rowKey="id"
-        dataSource={catalog.questions.filter(
-          (q) =>
-            q.title.toLowerCase().includes(search.trim().toLowerCase()) &&
-            (scope === "all" ||
-              (scope === "archived"
-                ? q.status === "archived"
-                : q.status !== "archived")),
+        dataSource={filterQuestions(
+          catalog.questions,
+          scope,
+          search,
+          groupFilter,
         )}
         columns={[
           {
@@ -189,6 +212,20 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             title: "类型",
             dataIndex: "kind",
             render: (value) => (value === "choice" ? "单选" : "填空"),
+          },
+          {
+            title: "分组",
+            dataIndex: "groupName",
+            render: (value: string) => (
+              <Tag>{value || QUESTION_DEFAULT_GROUP}</Tag>
+            ),
+          },
+          {
+            title: "判题",
+            render: (_, row: AdminQuestion) =>
+              row.kind === "text" && row.fuzzyMatch
+                ? "包含全部关键词"
+                : "精确匹配",
           },
           { title: "版本", dataIndex: "revision" },
           {
@@ -240,6 +277,15 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                   {questionUsage(row, catalog.sessions).canEdit
                     ? "编辑"
                     : "查看"}
+                </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    groupForm.setFieldsValue({ groupName: row.groupName });
+                    setGrouping(row);
+                  }}
+                >
+                  归类
                 </Button>
                 <Button onClick={() => setClueQuestionId(row.id)}>
                   通用线索
@@ -370,6 +416,13 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           <Field name="title" label="题目标题" rules={fieldRule}>
             <Input />
           </Field>
+          <Field name="groupName" label="题目分组">
+            <AutoComplete
+              allowClear
+              options={groups.map((groupName) => ({ value: groupName }))}
+              placeholder="留空自动归为其他"
+            />
+          </Field>
           <Field name="kind" label="题型" rules={fieldRule}>
             <Select
               options={[
@@ -378,6 +431,16 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
               ]}
             />
           </Field>
+          {kind === "text" && (
+            <Field
+              name="fuzzyMatch"
+              label="模糊答案匹配"
+              valuePropName="checked"
+              preserve={false}
+            >
+              <Switch checkedChildren="关键词" unCheckedChildren="精确" />
+            </Field>
+          )}
           <Field name="placeholder" label="输入占位提示">
             <Input />
           </Field>
@@ -485,7 +548,9 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             label={
               kind === "choice"
                 ? "正确选项标识（每行一个）"
-                : "可接受答案（每行一个）"
+                : fuzzyMatch
+                  ? "必须包含的关键词（每行一个）"
+                  : "可接受答案（每行一个）"
             }
             rules={fieldRule}
             style={{ marginTop: 24 }}
@@ -494,6 +559,45 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
           </Field>
         </Form>
       </EditorDrawer>
+      <Modal
+        title={`调整题目分组 · ${grouping?.title || ""}`}
+        open={!!grouping}
+        forceRender
+        confirmLoading={busy}
+        onCancel={() => setGrouping(null)}
+        onOk={() => groupForm.submit()}
+        okText="保存分组"
+      >
+        <Alert
+          type="info"
+          showIcon
+          message="分组仅用于后台整理，不影响玩家答题；线上引用中的题目也可调整。"
+          style={{ marginBottom: 16 }}
+        />
+        <Form
+          form={groupForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            if (
+              grouping &&
+              (await run(
+                `/admin/questions/${grouping.id}/group`,
+                values,
+                "PATCH",
+              ))
+            )
+              setGrouping(null);
+          }}
+        >
+          <Field name="groupName" label="题目分组">
+            <AutoComplete
+              allowClear
+              options={groups.map((groupName) => ({ value: groupName }))}
+              placeholder="留空自动归为其他"
+            />
+          </Field>
+        </Form>
+      </Modal>
       <Modal
         title="删除题目（保留历史）"
         open={!!deleting}

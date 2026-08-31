@@ -171,6 +171,8 @@ export interface AdminQuestion extends GameQuestion {
   revision: number;
   status: "draft" | "published" | "archived";
   acceptedAnswers: string[];
+  fuzzyMatch: boolean;
+  groupName: string;
   commonClueCount: number;
   usage?: AdminQuestionUsage;
 }

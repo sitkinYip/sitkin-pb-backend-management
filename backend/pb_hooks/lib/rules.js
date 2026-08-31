@@ -82,12 +82,20 @@ function normalizeAnswer(value) {
   }
   return result.toLowerCase();
 }
-function correct(kind, answer, accepted) {
-  return kind === "choice"
-    ? accepted.includes(answer.trim())
-    : accepted.some(
-        (candidate) => normalizeAnswer(candidate) === normalizeAnswer(answer),
-      );
+function correct(kind, answer, accepted, matchMode = "exact") {
+  if (kind === "choice") return accepted.includes(answer.trim());
+  const normalizedAnswer = normalizeAnswer(answer);
+  if (matchMode === "contains_all")
+    return (
+      accepted.length > 0 &&
+      accepted.every((candidate) => {
+        const keyword = normalizeAnswer(candidate);
+        return Boolean(keyword) && normalizedAnswer.includes(keyword);
+      })
+    );
+  return accepted.some(
+    (candidate) => normalizeAnswer(candidate) === normalizedAnswer,
+  );
 }
 function penaltyPolicy(value) {
   return list(value || [], "惩罚", 20).map((item) => {

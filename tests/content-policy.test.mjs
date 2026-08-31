@@ -68,8 +68,36 @@ test("server usage is preferred and deleted references are visible only as disab
   assert.equal(options.length, 2);
   assert.equal(options[1].disabled, true);
   assert.match(options[1].label, /发布前须替换/);
-  assert.equal(options[0].searchText, "题目 q");
-  assert.equal(options[1].searchText, "题目 deleted");
+  assert.equal(options[0].searchText, "其他 题目 q");
+  assert.equal(options[1].searchText, "其他 题目 deleted");
+});
+
+test("question groups default to 其他 and drive list and selector search", () => {
+  const rows = [
+    { ...q, id: "other", groupName: "" },
+    { ...q, id: "place", title: "城市地标", groupName: "地理" },
+    {
+      ...q,
+      id: "archived",
+      title: "旧人物题",
+      groupName: "人物",
+      status: "archived",
+    },
+  ];
+  assert.deepEqual(policy.questionGroups(rows), ["地理", "其他", "人物"]);
+  assert.deepEqual(
+    policy
+      .filterQuestions(rows, "available", "", "地理")
+      .map((row) => row.id),
+    ["place"],
+  );
+  assert.deepEqual(
+    policy.filterQuestions(rows, "all", "人物", "all").map((row) => row.id),
+    ["archived"],
+  );
+  const option = policy.questionOptions(rows).find((item) => item.value === "place");
+  assert.match(option.label, /^【地理】城市地标/);
+  assert.match(option.searchText, /地理 城市地标 place/);
 });
 
 test("status tabs filter by status and title without treating a future time window as offline", () => {

@@ -143,7 +143,7 @@ test(
     };
 
     await t.test(
-      "upgrade only expands the existing field and preserves all seeded records",
+      "upgrade expands audit capacity, adds private empty collections and preserves seeded records",
       async () => {
         const beforeSchema = await schema();
         const oldAudit = beforeSchema.find((row) => row.name === auditTable);
@@ -184,16 +184,29 @@ test(
         const newQuestionClues = afterSchema.find(
           (row) => row.name === "game_question_clues",
         );
+        const newQuestionSettings = afterSchema.find(
+          (row) => row.name === "game_question_settings",
+        );
         assert(newQuestionClues);
+        assert(newQuestionSettings);
         assert.equal(newQuestionClues.listRule, null);
         assert.equal(newQuestionClues.createRule, null);
+        assert.equal(newQuestionSettings.listRule, null);
+        assert.equal(newQuestionSettings.createRule, null);
         assert.deepEqual(
-          afterSchema.filter((row) => row.name !== "game_question_clues"),
+          afterSchema.filter(
+            (row) =>
+              !["game_question_clues", "game_question_settings"].includes(
+                row.name,
+              ),
+          ),
           expected,
         );
         const after = await snapshot();
         assert.deepEqual(after.game_question_clues, []);
+        assert.deepEqual(after.game_question_settings, []);
         delete after.game_question_clues;
+        delete after.game_question_settings;
         assert.deepEqual(after, before);
       },
     );
@@ -227,6 +240,7 @@ test(
             ![
               "game_questions",
               "game_answer_keys",
+              "game_question_settings",
               auditTable,
               "game_command_receipts",
             ].includes(table)
@@ -234,6 +248,11 @@ test(
             assert.deepEqual(after[table], rows, table);
           }
         }
+        assert.deepEqual(before.game_question_settings, []);
+        assert.equal(after.game_question_settings.length, 1);
+        assert.equal(after.game_question_settings[0].question, q);
+        assert.equal(after.game_question_settings[0].answerMatchMode, "exact");
+        assert.equal(after.game_question_settings[0].groupName, "其他");
         const audit = after[auditTable].find(
           (row) => row.requestId === updateBody.requestId,
         );

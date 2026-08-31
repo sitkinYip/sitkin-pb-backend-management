@@ -3,6 +3,7 @@ const r = require(`${__hooks}/lib/rules.js`);
 const game = require(`${__hooks}/lib/gameplay.js`);
 const policy = require(`${__hooks}/lib/content-policy.js`);
 const cluePolicy = require(`${__hooks}/lib/clues.js`);
+const questionSettings = require(`${__hooks}/lib/question-settings.js`);
 function playerDto(app, row) {
   return { ...game.me(app, row), status: row.getString("status") };
 }
@@ -10,6 +11,7 @@ function questionDto(app, row, commonClueCount) {
   const secret = db.maybe(app, "game_answer_keys", "question={:id}", {
     id: row.id,
   });
+  const settings = questionSettings.read(app, row.id);
   return {
     ...db.pick(
       row,
@@ -17,6 +19,9 @@ function questionDto(app, row, commonClueCount) {
       ["content", "options"],
     ),
     acceptedAnswers: secret ? db.json(secret, "acceptedAnswers", []) : [],
+    fuzzyMatch:
+      settings.answerMatchMode === questionSettings.CONTAINS_ALL,
+    groupName: settings.groupName,
     commonClueCount:
       commonClueCount === undefined
         ? cluePolicy.questionClues(app, row.id).length
@@ -269,6 +274,15 @@ function options(value) {
     r.fail("INVALID_INPUT", "选项标识重复");
   return entries;
 }
+function questionGroup(value) {
+  const groupName = r.text(
+    value === undefined || value === null ? "" : value,
+    "题目分组",
+    60,
+    false,
+  );
+  return groupName || questionSettings.DEFAULT_GROUP;
+}
 function saveQuestion(e, id, body) {
   return db.command(
     e,
@@ -305,6 +319,21 @@ function saveQuestion(e, id, body) {
         .map((answer) => r.text(answer, "答案", 4000));
       if (!answers.length) r.fail("INVALID_INPUT", "至少配置一个答案");
       if (
+        source.fuzzyMatch !== undefined &&
+        typeof source.fuzzyMatch !== "boolean"
+      )
+        r.fail("INVALID_INPUT", "模糊答案开关格式不正确");
+      const fuzzyMatch = source.fuzzyMatch === true;
+      if (source.kind === "choice" && fuzzyMatch)
+        r.fail("INVALID_INPUT", "选择题不支持关键词匹配");
+      if (fuzzyMatch) {
+        const normalized = answers.map(r.normalizeAnswer);
+        if (normalized.some((answer) => !answer))
+          r.fail("INVALID_INPUT", "关键词不能只包含空白或标点");
+        if (new Set(normalized).size !== normalized.length)
+          r.fail("INVALID_INPUT", "归一化后的关键词不能重复");
+      }
+      if (
         source.kind === "choice" &&
         (fields.options.length < 2 ||
           answers.some(
@@ -331,6 +360,12 @@ function saveQuestion(e, id, body) {
           acceptedAnswers: answers,
           normalizationVersion: "nfkc-v1",
         });
+      questionSettings.upsert(app, row.id, {
+        answerMatchMode: fuzzyMatch
+          ? questionSettings.CONTAINS_ALL
+          : questionSettings.EXACT,
+        groupName: questionGroup(source.groupName),
+      });
       if (body.clone === true && prior)
         for (const clue of cluePolicy.questionClues(app, prior.id))
           db.create(app, "game_question_clues", {
@@ -353,6 +388,27 @@ function saveQuestion(e, id, body) {
       return { id: row.id };
     },
   );
+}
+function setQuestionGroup(e, id, body) {
+  return db.command(e, `set-question-group:${id}`, body, true, (app, actor) => {
+    const question = db.get(app, "game_questions", id);
+    const current = questionSettings.read(app, id);
+    const groupName = questionGroup(body.groupName);
+    questionSettings.upsert(app, id, {
+      answerMatchMode: current.answerMatchMode,
+      groupName,
+    });
+    db.audit(
+      app,
+      actor,
+      "set_question_group",
+      question,
+      r.text(body.reason || "", "修改原因", 1000, false),
+      body.requestId,
+      { from: current.groupName, to: groupName },
+    );
+    return { id, groupName };
+  });
 }
 function questionClueSet(e, questionId) {
   db.actor(e.app, e, true);
@@ -1152,6 +1208,7 @@ module.exports = {
   createPlayer,
   playerAction,
   saveQuestion,
+  setQuestionGroup,
   questionClueSet,
   saveQuestionClues,
   saveSession,

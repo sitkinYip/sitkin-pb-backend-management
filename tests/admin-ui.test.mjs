@@ -357,3 +357,16 @@ test("question selectors and catalog titles expose question IDs", async () => {
   assert.match(source, /题目 ID：\{String\(option\.value\)\}/);
   assert.match(css, /\.admin-question-option-id\s*\{[^}]*font-size:\s*12px/s);
 });
+
+test("question editor wires group backfill and keyword matching controls", async () => {
+  const source = await readFile(
+    new URL("../src/game/ContentPages.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /name="fuzzyMatch"/);
+  assert.match(source, /必须包含的关键词（每行一个）/);
+  assert.match(source, /filterQuestions\(/);
+  assert.match(source, /调整题目分组/);
+  assert.match(source, /\/admin\/questions\/\$\{grouping\.id\}\/group/);
+  assert.match(source, /线上引用中的题目也可调整/);
+});

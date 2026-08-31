@@ -1,6 +1,10 @@
-# 现有实例升级操作单：题目通用线索与线上展示编辑
+# 升级操作单滚动槽：最近完成的题目通用线索与线上展示编辑
 
-本包只适用于已经运行 PocketBase 0.40.1、且当前生产基线为
+> 当前槽位状态：本内容已用于 2026-08-31 正式发布并完成，不是待执行任务，禁止原样复用。当前基线和组件状态见 [当前生产状态](../../../docs/current-production.md)，当次结果见 [正式发布记录](../../../docs/question-common-clues-deployment-20260831.md)。
+
+仓库中的 `UPGRADE.md` 是下一次发布前会被完整替换的滚动槽，不是不可变审计件；本次冻结副本保留在服务器发布包、Git 历史和日期 deployment 记录中。下一次运行 `package-1panel.mjs --upgrade` 前，必须用新版本专属内容完整替换并重新审查本文，使原镜像、目标镜像、迁移列表、允许差异、`release.json` 和实际发布包一致。不能只改镜像 tag 后复用命令。通用失败闭锁、备份和回退规则见 [后端发布安全规范](../../../docs/backend-release-safety.md)。
+
+本次已完成发布包当时只适用于已经运行 PocketBase 0.40.1、且发布前基线为
 `questions-pocketbase:0.40.1-narrative-delete-20260828-amd64` 的
 `questions-game-v1`。它不是首次安装包，也不是重新初始化数据库的工具。
 

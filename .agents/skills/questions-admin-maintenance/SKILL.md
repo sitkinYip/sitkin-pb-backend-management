@@ -1,69 +1,63 @@
 ---
 name: questions-admin-maintenance
-description: 维护 Sitkin 答题后台管理仓库时使用，包括 React/Refine/Ant Design 管理端、PocketBase hooks、迁移、共享协议、测试，以及 1Panel 生产后端和数据库发布、备份、验收与回退。涉及本仓库的开发、修复、发布判断或生产数据库操作时触发。
+description: 维护 Sitkin 答题后台仓库的代码与文档时使用，包括 React/Refine/Ant Design 管理端、PocketBase hooks、增量迁移源码、共享协议、测试和管理端静态发布判断。仅检查或操作生产 PocketBase/SQLite 时改用 questions-pocketbase-production；同一任务还修改本仓库时两者并用。纯玩家端 UI 工作不触发。
 ---
 
-# Sitkin 答题后台维护
+# Sitkin 答题后台仓库维护
 
-本 Skill 服务于 `sitkin-pb-backend-management`。这个仓库不只是管理前端，也包含 PocketBase 后端源码、数据库迁移和生产发布材料。
+本 Skill 负责 `sitkin-pb-backend-management` 的开发、评审、验证和发布规划。相对本 Skill 的仓库根为 `../../..`，下列命令都在该根目录执行。它不授权生产连接、数据库写入、commit、push 或部署。
 
-## 先判断改动属于哪一层
+## 先按改动路由
 
-| 改动 | 主要位置 | 发布方式 |
-| --- | --- | --- |
-| 管理页面、样式、表单、提示 | `src/`、`tests/` | push `main` 后由管理端 Action 构建并上传 `dist/` |
-| API、权限、判题、经验、奖品、内容约束 | `backend/pb_hooks/` | 构建并验证 PocketBase 镜像，再经批准维护生产容器 |
-| 集合、字段、索引、迁移账本 | `backend/pb_migrations/` | 新增增量迁移，隔离验证后在维护窗口发布后端和数据库 |
-| 前后端共享协议 | `backend/contracts/game.ts` | 同步管理端与相邻 `questions-web`，按受影响项目分别发布 |
-| 玩家展示或交互 | 相邻 `../questions-web` | 玩家端单独验证、单独发布 |
+开始时读取 `../../../README.MD`，在仓库根检查 `git status --short`，保留用户已有修改。随后只加载当前任务需要的资料：
 
-不要把管理端 GitHub Action 当作后端或数据库发布。它只验证并部署静态管理页面，不更新生产 PocketBase 容器，不运行迁移，也不导入数据。
+| 模式 | 主要位置 | 必读资料 | 最低验证 |
+| --- | --- | --- | --- |
+| 管理 UI、表单、样式 | `../../../src/`、`../../../tests/` | `../../../docs/admin-ui-engineering-standards.md` | `pnpm test:admin`、类型检查、构建、响应式视觉检查 |
+| hooks、权限、业务规则 | `../../../backend/pb_hooks/` | `../../../backend/README.md` | `pnpm test:backend`、目标镜像隔离验证 |
+| 集合、字段、索引 | `../../../backend/pb_migrations/` | `../../../backend/README.md`、`../../../docs/backend-release-safety.md` | 空库迁移、旧库恢复副本、重启持久化 |
+| 共享协议、跨端行为 | `../../../backend/contracts/game.ts`、`../../../../questions-web` | `../../../docs/project-maintenance-and-release.md` | 同步协议并验证所有受影响消费者 |
+| 管理端静态发布 | `../../../.github/workflows/deploy.yml`、`../../../src/` | `../../../docs/project-maintenance-and-release.md` | 管理端完整检查；用户明确要求后才 push |
+| 生产 PocketBase / SQLite | 1Panel、生产容器或 `pb_data` | 使用 `questions-pocketbase-production` | 仅在同一任务还修改仓库时保留本 Skill |
 
-## 开始工作
+不要为了普通代码任务主动连接生产。只有发布规划需要了解当前组件状态时，才读取 `../../../docs/current-production.md`。
 
-1. 读取根目录 `README.MD` 和 `docs/project-maintenance-and-release.md`。
-2. 涉及后端时再读取 `backend/README.md`；涉及生产发布时必须读取 `backend/deploy/1panel/UPGRADE.md`、`backend/deploy/1panel/README.md` 和最新的 `docs/*deployment*.md`。
-3. 检查 `git status --short`，保留用户已有修改，不清理、不覆盖无关文件。
-4. 核对当前代码、实际运行版本和最新发布记录。带日期的生产信息只是上次验证快照，发布前必须只读复核线上状态。
-5. 未经用户明确要求，不 commit、不 push、不部署、不连接生产环境、不修改真实数据。
+## 共享强制规则
 
-## 开发与验证
+- 管理端本地默认连接线上 API。本地页面写操作会修改真实数据；写入验收必须显式指向隔离 PocketBase，或由用户单独批准专用生产对象。
+- 权限、结算、经验、奖励、核销、内容引用和幂等由服务端保证。隐藏按钮、只读表单和前端校验只改善体验，不是安全边界。
+- `../../../backend/contracts/game.ts` 是共享协议源。修改后在仓库根运行 `node backend/scripts/sync-contracts.mjs`；无法检查相邻玩家端时，明确记录未验证项，不假装已同步。
+- 已执行迁移不可修改。新结构使用新的增量迁移；测试只使用临时数据目录，不挂载生产 `pb_data`。
+- 代码修改、commit、push、静态站部署、生产连接、迁移、业务数据写入和真实账号验收分别授权；一种授权不自动包含另一种。
+- `push main` 只部署管理端静态文件，不发布 hooks、PocketBase 镜像或数据库迁移。
 
-- 管理端本地默认连接线上 API，本地页面写操作会修改真实数据。不要把生产库作为集成测试库；写入验收使用隔离 PocketBase 或专用测试对象，并先确认影响。
-- 管理端常用验证：`pnpm test:admin`、`pnpm check:contracts --admin-only`、`pnpm build`。
-- 修改共享协议时，以 `backend/contracts/game.ts` 为源，运行 `node backend/scripts/sync-contracts.mjs`；两个仓库不在同级时只做管理端检查并明确说明未验证玩家端副本。
-- 修改 hooks、迁移、数据库规则或后端镜像时，按 `backend/README.md` 构建对应架构的隔离镜像，执行 `pnpm test:backend` 和镜像恢复演练。测试必须使用临时库，不挂载生产 `pb_data`。
-- 业务结算、权限、经验、奖品、核销和内容引用约束由服务端负责；不要仅靠隐藏按钮或前端校验实现安全规则。
-- 新数据库变更使用新的增量迁移文件。不要修改已经在生产执行过的迁移，不启用自动迁移来掩盖迁移账本差异。
+## 跨层兼容与发布规划
 
-## 发布管理前端
+涉及 API、新字段、新集合或行为语义时，先写兼容矩阵，至少回答：旧玩家端配新后端、新玩家端配旧后端、旧管理端配新后端、新管理端配旧后端，以及新管理端是否会提前制造旧玩家端不能安全消费的数据。
 
-1. 完成与风险相称的单元测试、协议检查和构建。
-2. 说明本次是否依赖尚未发布的后端接口或规则；若依赖，先发布并验收后端。
-3. 仅在用户要求时 commit / push。push `main` 会触发 `.github/workflows/deploy.yml`。
-4. Action 的只读 API 探测只能说明基本兼容，不能证明后端业务改动或数据库迁移已上线。
+- 发布顺序由兼容矩阵决定，不使用固定的“后端、管理端、玩家端”顺序。
+- 把“代码完成”“后端部署”“玩家端部署”“管理端部署”“功能激活或产生首条新数据”“生产业务写入验收”分开报告。
+- 后端只有在新能力可保持休眠且休眠条件可验证时才能先行；产生新数据的管理端必须晚于能够安全消费它的客户端。
+- 可选字段必须定义缺失、显式空值和非空值的不同语义。一次性效果由服务端事务快照和幂等回执决定，前端不能在权威空结果时退回差量猜测。
 
-## 发布 PocketBase 后端或数据库
+具体矩阵和发布状态模型见 `../../../docs/project-maintenance-and-release.md`。
 
-生产发布属于高风险维护。只有用户明确批准当前发布和维护窗口后才执行；已经批准开发，不等于批准生产切换或数据写入。
+## 管理端 UI 工程规则
 
-1. 只读确认容器、镜像、Compose、挂载、端口、CPU 架构、迁移账本和磁盘空间。已知的最近快照见项目发布文档，不把快照当成实时事实。
-2. 先在隔离环境验证目标 AMD64 镜像、完整后端回归、空库迁移、旧库恢复副本和重启持久化。
-3. 制作带版本、架构、校验值和发布说明的独立发布包；不把凭据、真实数据或私密内容放进镜像或仓库。
-4. 停止目标业务写入后，完整备份 `pb_data`、实际 Compose、发布元信息及匹配的 hooks / migrations，并把备份恢复到隔离位置验证。不要只复制运行中的单个 SQLite 文件。
-5. 确保同一份 `pb_data` 同时只由一个 PocketBase 实例打开；保持 `--automigrate=false`，只运行本次已审查的迁移。
-6. 仅修改已确认的目标容器和配置，不停止 1Panel 中其他应用、AList 或 OpenResty，不开放 8090 到公网。
-7. 切换后核对镜像、健康、端口、挂载、迁移账本、集合结构和关键业务记录。生产写入验收需单独获批。
-8. 失败时优先保持或恢复原应用版本。生产出现新答题、经验、奖品或核销后，不得用旧数据库快照覆盖当前数据；先停写保存现状，优先前向修复。
-9. 更新 `docs/` 正式发布记录，写清版本、授权、备份、验证、未执行事项和回退边界。
+实现 UI 前完整读取 `../../../docs/admin-ui-engineering-standards.md`。核心约束如下：
 
-最近确认的生产布局为 1Panel 容器 `questions-game-v1`、Compose `/opt/1panel/apps/questions-game-v1/compose.yaml`、宿主目录 `/opt/1panel/apps/questions-game-v1/pb_data` 挂载到 `/pb/pb_data`、回环端口 `127.0.0.1:8090`。这些值必须在每次生产操作前重新核对。
+- 沿用 Ant Design、Refine、现有主题 token 和 `../../../src/game/ui.tsx` 共享组件，不并入第二套设计系统，不用零散硬编码重做同类模式。
+- 后台定位为可信、克制、高信息密度的运营工作台。优先任务清晰、可扫描和防误操作，不添加营销页式装饰、玻璃效果或无意义动画。
+- 重复编辑采用摘要列表和渐进展开；不要同时展开十几条完整表单。原因、并发冲突、只读原因、危险操作和未保存状态必须明确。
+- 桌面与手机都要设计，不把响应式理解为缩小字号。页面不能横向溢出；表格在自身区域滚动，抽屉不超过视口，手机表单改单列，底部操作考虑安全区。
+- 覆盖加载、空、错误、只读、无权限、并发冲突、提交中、成功和长中文内容；保持键盘焦点、可见标签和减少动画支持。
+- 优先复用 `PageCard`、`Field`、`AdminTable`、`EditorDrawer` 以及已有领域字段组件。`Form.Item` 的实际输入控件保持为直接子节点，避免破坏 Ant Design 绑定。
 
-## 安全边界
+## 完成定义
 
-- 密码、超级管理员令牌、SSH 私钥、柜码、玩家答卷和领取信息不得发到聊天、写入前端变量、提交仓库或进入构建日志。
-- 远程维护优先使用用户在本机建立的专用 SSH control socket；密码只在用户自己的终端输入，任务结束关闭连接。
-- AList/CDN 媒体不在 `pb_data` 备份范围内，需独立确认保留和恢复策略。
-- 删除、导入、批量下发、内容发布、迁移、账号初始化、密码重置和生产业务写入都需要与用户请求严格一致；不因“发布后端”顺便执行。
-- 发布顺序通常为后端 / 数据库 → 管理端 → 玩家端，但只发布实际受影响的部分。
+1. 运行与风险相称的测试、协议检查、类型检查和构建；UI 改动按规范完成视觉矩阵，后端改动完成隔离 PocketBase 验证。
+2. 更新受到影响的长期文档、功能说明和当前状态指针。带日期的 deployment 文档是当时审计记录，不改写为后来状态。
+3. 清楚交代每个仓库和每个组件的已完成、未完成与不在范围；健康检查不等于业务写入验收。
+4. 执行 `git diff --check`，不得清理或覆盖无关工作区内容。
 
+若任务进入生产只读检查、备份、迁移、镜像切换、回退或恢复，使用 `questions-pocketbase-production`，不要把本文当成生产操作单；只有同一任务仍包含代码或文档改动时才两者并用。

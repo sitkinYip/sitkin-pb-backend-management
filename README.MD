@@ -50,9 +50,9 @@ pnpm build                        # 生成 dist/，无需 Docker
 | 集合、字段、索引或数据维护 | 新增增量迁移或专用维护脚本，单独审批和发布 | 会影响数据库，必须停写、备份、隔离验证和记录回退边界 |
 | 玩家端展示 | 相邻 `questions-web` 仓库单独发布 | 取决于是否同时包含后端改动 |
 
-完整维护原则和后端数据库发布流程见 [项目维护与发布边界](docs/project-maintenance-and-release.md)。最近一次生产后端记录见 [题目通用线索与线上展示编辑发布记录](docs/question-common-clues-deployment-20260831.md)；此前的 [信件 / 祝福软删除发布记录](docs/narrative-soft-delete-deployment-20260828.md) 作为历史快照保留。生产操作前仍须重新核对线上状态。
+完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
 
-2026-08-31 后端 migration、hooks 与 API 已上线，但本次没有提交、push 或部署玩家端和管理端，`game_question_clues` 在发布验收时保持为空。必须先发布兼容版玩家端，再发布管理端，最后才能配置第一条题目通用线索。
+截至 2026-08-31 12:30 +08:00，后端 migration、hooks 与 API 以及两个前端兼容构建均已上线；公开玩家端构建已包含新 effect 协议，公开管理端构建已包含通用线索和已发布场次编辑入口。`game_question_clues` 在后端发布验收时为空，本次文档任务没有登录后台复核当前数量或执行生产写入；功能激活状态见 [当前生产状态](docs/current-production.md)。
 
 ## 后端源码与可选验收
 
@@ -62,10 +62,15 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 后端代码变更仍需单独验收、备份并发布后端镜像；前端 push 不会更新线上容器。操作说明见 [后端 README](backend/README.md) 和 [1Panel 发布说明](backend/deploy/1panel/README.md)。
 
-## 项目 Skill
+## 项目 Skill 与 UI 规范
 
-项目内提供 [questions-admin-maintenance Skill](.agents/skills/questions-admin-maintenance/SKILL.md)，用于维护本仓库时识别前端、PocketBase 后端和数据库的边界，并按风险选择验证与发布流程。该 Skill 明确包含生产后端镜像和数据库发布，但不会把管理端 Action 误当成后端发布，也不会在缺少明确授权时操作生产环境。
+项目内按职责提供两套 Skill：
+
+- [questions-admin-maintenance](.agents/skills/questions-admin-maintenance/SKILL.md) 负责管理端、后端源码、迁移源码、共享协议、测试和静态发布规划，并按 [管理后台 UI 工程与样式规范](docs/admin-ui-engineering-standards.md) 约束 PC / 移动端设计。
+- [questions-pocketbase-production](.agents/skills/questions-pocketbase-production/SKILL.md) 只负责真实生产 PocketBase / SQLite 的预检、备份、迁移、切换、失败闭锁和回退。
+
+两者都不会把管理端 Action 误当成后端发布。开发、push、生产连接、迁移和真实业务写入分别授权；固定发布顺序已改为按生产者、消费者和功能激活闸门推导。
 
 ## 主要管理内容
 
-玩家与账号、等级、题目、题目通用线索、叙事内容、场次编排、指定/全部用户下发、进度干预、奖品核销与审计。已发布场次只允许通过独立接口修改展示白名单，结构、结算和引用仍通过新版本处理；所有结算和权限校验由服务端负责。题目通用线索和线上展示编辑的管理界面当前仍只在源码中，等待用户 push 发布。
+玩家与账号、等级、题目、题目通用线索、叙事内容、场次编排、指定/全部用户下发、进度干预、奖品核销与审计。已发布场次只允许通过独立接口修改展示白名单，结构、结算和引用仍通过新版本处理；所有结算和权限校验由服务端负责。题目通用线索和线上展示编辑的管理构建已公开部署；生产数据是否已经激活仍与代码部署分开记录。

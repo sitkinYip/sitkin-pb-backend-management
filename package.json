@@ -50,6 +50,7 @@
     "build": "tsc && vite build",
     "test:admin": "node --test tests/*.test.mjs",
     "test:backend": "node --test backend/tests/*.test.mjs",
+    "release:pocketbase": "node backend/scripts/release-pocketbase.mjs",
     "check:contracts": "node backend/scripts/sync-contracts.mjs --check",
     "start": "refine start",
     "refine": "refine"

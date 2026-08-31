@@ -87,7 +87,7 @@ pnpm build
 
 ## 生产后端与数据库维护
 
-真实生产只读检查、备份、迁移、镜像切换和恢复统一遵循 [PocketBase 后端迁移与生产发布安全规范](backend-release-safety.md)，并启用项目 Skill `questions-pocketbase-production`。
+真实生产只读检查、备份、迁移、镜像切换和恢复统一遵循 [PocketBase 后端迁移与生产发布安全规范](backend-release-safety.md)，普通受支持增量升级使用 [PocketBase 人工闸门发布程序](pocketbase-release-program.md)，并启用项目 Skill `questions-pocketbase-production`。
 
 长期不变量：
 
@@ -99,7 +99,7 @@ pnpm build
 - 产生新答题、经验、奖品、领取、核销或新功能数据后，不得用旧快照覆盖当前库；优先前向修复或只回退应用代码。
 - 8090 保持回环，不停止或修改 1Panel 中无关的 OpenResty、AList 和其他应用。
 
-`backend/deploy/1panel/README.md` 是 0.22.12 首次替换部署历史，不是普通增量升级必读文档。生产升级必须使用与当前 source、目标镜像、迁移列表和发布包完全匹配且标为待执行的版本专属操作单；已完成操作单不可复用。
+`backend/deploy/1panel/README.md` 是 0.22.12 首次替换部署历史，不是普通增量升级必读文档。生产升级必须使用与当前 source、目标镜像、迁移列表和发布包完全匹配且标为待执行的版本专属操作单；已完成操作单不可复用。办公电脑受 Docker 白名单限制时，可由只读的手动 GitHub workflow 在审查过的 revision 出包，但 artifact 下载、摘要核对、隧道和每个生产闸门仍由人负责。
 
 ## 文档治理
 

@@ -41,6 +41,8 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 发布前执行管理端单元测试、协议检查、只读 API 探测和构建，然后上传 `dist/`。不会创建 Docker 容器、导入数据或更新 PocketBase。源码需要提交并 push，Actions 才会部署这些修改；此前的本地打包上线不会替你提交 Git。
 
+另有只允许手动触发的 `Build reviewed PocketBase release package`，供办公电脑无法运行 Docker 时，在选定 Git revision 构建、测试并下载冻结后端制品。它只有仓库只读权限，不含生产凭据，也不会连接或部署服务器；出包后的人工闸门流程见 [PocketBase 人工闸门发布程序](docs/pocketbase-release-program.md)。两个 Action 的职责不能互换。
+
 ## 发布边界
 
 | 内容 | 发布方式 | 数据库影响 |
@@ -50,7 +52,7 @@ pnpm build                        # 生成 dist/，无需 Docker
 | 集合、字段、索引或数据维护 | 新增增量迁移或专用维护脚本，单独审批和发布 | 会影响数据库，必须停写、备份、隔离验证和记录回退边界 |
 | 玩家端展示 | 相邻 `questions-web` 仓库单独发布 | 取决于是否同时包含后端改动 |
 
-完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
+完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，普通增量升级优先使用 [PocketBase 人工闸门发布程序](docs/pocketbase-release-program.md)，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
 
 截至 2026-08-31 12:30 +08:00，后端 migration、hooks 与 API 以及两个前端兼容构建均已上线；公开玩家端构建已包含新 effect 协议，公开管理端构建已包含通用线索和已发布场次编辑入口。`game_question_clues` 在后端发布验收时为空，本次文档任务没有登录后台复核当前数量或执行生产写入；功能激活状态见 [当前生产状态](docs/current-production.md)。
 

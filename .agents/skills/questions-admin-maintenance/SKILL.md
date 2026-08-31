@@ -18,6 +18,7 @@ description: 维护 Sitkin 答题后台仓库的代码与文档时使用，包�
 | 集合、字段、索引 | `../../../backend/pb_migrations/` | `../../../backend/README.md`、`../../../docs/backend-release-safety.md` | 空库迁移、旧库恢复副本、重启持久化 |
 | 共享协议、跨端行为 | `../../../backend/contracts/game.ts`、`../../../../questions-web` | `../../../docs/project-maintenance-and-release.md` | 同步协议并验证所有受影响消费者 |
 | 管理端静态发布 | `../../../.github/workflows/deploy.yml`、`../../../src/` | `../../../docs/project-maintenance-and-release.md` | 管理端完整检查；用户明确要求后才 push |
+| 后端发布程序、计划和制品 | `../../../backend/scripts/release-*.mjs`、`../../../backend/deploy/1panel/` | `../../../docs/pocketbase-release-program.md`、`../../../docs/backend-release-safety.md` | 无网络失败闭锁测试、Python 3.6 语法、目标架构 CI/隔离出包 |
 | 生产 PocketBase / SQLite | 1Panel、生产容器或 `pb_data` | 使用 `questions-pocketbase-production` | 仅在同一任务还修改仓库时保留本 Skill |
 
 不要为了普通代码任务主动连接生产。只有发布规划需要了解当前组件状态时，才读取 `../../../docs/current-production.md`。
@@ -30,6 +31,8 @@ description: 维护 Sitkin 答题后台仓库的代码与文档时使用，包�
 - 已执行迁移不可修改。新结构使用新的增量迁移；测试只使用临时数据目录，不挂载生产 `pb_data`。
 - 代码修改、commit、push、静态站部署、生产连接、迁移、业务数据写入和真实账号验收分别授权；一种授权不自动包含另一种。
 - `push main` 只部署管理端静态文件，不发布 hooks、PocketBase 镜像或数据库迁移。
+- 发布辅助程序必须保持控制面与服务器 worker 分层：本地控制器不持有生产密码、不创建连接、不需要部署时本机 Docker；冻结 worker 只执行显式状态转换。禁止增加 `--yes`、`--force`、自动跨闸门、失败后自动重试 migration 或自动恢复旧库。
+- 发布计划、允许差异、操作单、runner、bundle 和两层校验属于同一信任链。输入 plan 保持 pending，只有出包器能生成 ready plan；办公电脑受 Docker 白名单限制时使用只读手动 CI 出包，不在生产服务器临时构建。
 
 ## 跨层兼容与发布规划
 

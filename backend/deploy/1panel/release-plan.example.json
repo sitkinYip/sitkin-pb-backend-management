@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "status": "pending",
+  "releaseId": "example-do-not-release",
+  "transport": {
+    "sshTarget": "root@replace-with-reviewed-host",
+    "sshPort": 22
+  },
+  "server": {
+    "expectedHostname": "replace-with-reviewed-host",
+    "expectedMachineIdSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "releaseRoot": "/opt/1panel/apps/questions-game-v1/releases",
+    "backupRoot": "/opt/1panel/backups/questions-game-v1",
+    "uploadRoot": "/opt/1panel/uploads/questions-game-v1",
+    "minimumFreeBytes": 1073741824
+  },
+  "production": {
+    "projectDirectory": "/opt/1panel/apps/questions-game-v1",
+    "composePath": "/opt/1panel/apps/questions-game-v1/compose.yaml",
+    "composeService": "pocketbase",
+    "containerName": "questions-game-v1",
+    "dataHostPath": "/opt/1panel/apps/questions-game-v1/pb_data",
+    "dataContainerPath": "/pb/pb_data",
+    "databaseRelativePath": "data.db",
+    "hostIp": "127.0.0.1",
+    "hostPort": 8090,
+    "containerPort": 8090,
+    "rootReleasePath": "/opt/1panel/apps/questions-game-v1/release.json",
+    "rootChecksumsPath": "/opt/1panel/apps/questions-game-v1/SHA256SUMS"
+  },
+  "source": {
+    "imageTag": "questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64",
+    "imageId": "sha256:afc6feeba6d0884d3b485dec95e059344c998f2d90f84ad8e8bdd3809b6db482",
+    "composeSha256": "6c14986a8669858c31ed6bf4f7addc401dc25d733665356dac6f99a22244dd71",
+    "releaseJsonSha256": "5a2c63662ac2e441f54a6c8f9c17358e9460703060aaeb7e95beaadd567584e2",
+    "migrationLedgerSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "requiredMigrationFiles": [
+      "1787788800_game_schema.js",
+      "1787911200_expand_audit_diff.js",
+      "1788143000_question_clues.js"
+    ]
+  },
+  "target": {
+    "imageTag": "questions-pocketbase:0.40.1-example-do-not-release-amd64",
+    "pocketbaseVersion": "0.40.1",
+    "platform": "linux/amd64"
+  },
+  "migration": {
+    "mode": "none",
+    "newFiles": [],
+    "verifier": "additive-empty-collections-v1"
+  },
+  "verification": {
+    "healthUrl": "https://api.sitkin.top/api/health",
+    "probes": [
+      {
+        "path": "/api/questions/v1/admin/me",
+        "expectedStatus": 401
+      },
+      {
+        "path": "/api/questions/v1/assignment",
+        "expectedStatus": 401
+      }
+    ],
+    "healthTimeoutSeconds": 90
+  },
+  "activation": {
+    "executorMayActivate": false
+  }
+}

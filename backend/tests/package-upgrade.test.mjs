@@ -10,6 +10,12 @@ import { fileURLToPath } from "node:url";
 const script = fileURLToPath(
   new URL("../scripts/package-1panel.mjs", import.meta.url),
 );
+const examplePlan = fileURLToPath(
+  new URL("../deploy/1panel/release-plan.example.json", import.meta.url),
+);
+const exampleDelta = fileURLToPath(
+  new URL("../deploy/1panel/allowed-delta.example.json", import.meta.url),
+);
 function invalid(args, image, pattern) {
   const output = path.join(
     os.tmpdir(),
@@ -49,4 +55,18 @@ test("upgrade packaging rejects reusing the original release and unknown flags",
     /new upgrade image tag/,
   );
   invalid(["--unknown"], undefined, /Usage:/);
+});
+
+test("upgrade packaging refuses an example plan before invoking Docker", () => {
+  invalid(
+    [
+      "--upgrade",
+      "--plan",
+      examplePlan,
+      "--allowed-delta",
+      exampleDelta,
+    ],
+    "questions-pocketbase:0.40.1-example-do-not-release-amd64",
+    /example placeholders/i,
+  );
 });

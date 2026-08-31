@@ -8,7 +8,7 @@
 
 **日常开发两个前端不需要启动本目录的服务。** 在各自仓库根目录执行 `pnpm install --frozen-lockfile`、`pnpm dev` 即可，默认直接连接线上 API。以下隔离测试、Docker 和镜像发布仅供修改后端时使用，不是前端开发环境要求；页面上的写操作会影响线上真实数据。
 
-本目录也承担生产后台数据库的版本化维护：`pb_hooks/` 随后端镜像发布，`pb_migrations/` 通过新的增量文件演进集合和索引。管理端静态 Action 不会发布这里的代码或数据库。统一边界见 [项目维护与发布边界](../docs/project-maintenance-and-release.md)，生产预检、备份、迁移失败闭锁与回退必须遵循 [后端发布安全规范](../docs/backend-release-safety.md)。
+本目录也承担生产后台数据库的版本化维护：`pb_hooks/` 随后端镜像发布，`pb_migrations/` 通过新的增量文件演进集合和索引。管理端静态 Action 不会发布这里的代码或数据库。统一边界见 [项目维护与发布边界](../docs/project-maintenance-and-release.md)，普通增量升级使用 [PocketBase 人工闸门发布程序](../docs/pocketbase-release-program.md)，生产预检、备份、迁移失败闭锁与回退必须遵循 [后端发布安全规范](../docs/backend-release-safety.md)。
 
 ## 工程边界
 
@@ -75,6 +75,12 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 只用于新实例隔离演练。正式环境已完成旧备份恢复、内容导入、登录限速及 X-Real-IP 配置，并关闭空的默认 users 集合注册。截至 2026-08-31，生产镜像为 `questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64`，新增迁移只执行一次，新集合在后端发布验收时为空，HTTPS 为 200 / 401 / 401；玩家端和管理端兼容静态构建随后已公开部署。2026-08-28 的历史内容快照为 27 题 / 4 叙事 / 31 场次，该数字不是实时统计，后续维护前必须重新只读核对。服务器已不监听 18090。
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
+
+### 后续增量发布入口
+
+`scripts/release-pocketbase.mjs` 是本地控制器，`deploy/1panel/release-runner.py` 是冻结进发布包并由服务器执行的失败闭锁 worker。控制器只复用用户已打开的 SSH ControlMaster；它不需要本机 Docker，也不会保存密码或自动跨越人工闸门。`inventory` 使用 pending 计划只读盘点；出包后依次使用 `preflight`、`stage`、多次单阶段 `deploy` 和 `status`。完整参数、CI 出包和中断恢复规则见 [人工闸门发布程序](../docs/pocketbase-release-program.md)。
+
+当前 v1 verifier 只接受无迁移或“新增且保持为空、保持私有的集合”这种加法迁移。修改既有结构/数据、破坏性迁移和历史 0.22.12 恢复不允许套用该程序；必须先增加经过审查的 verifier 或另写专属操作单。
 
 ## 独立持久实例与 1Panel 发布
 

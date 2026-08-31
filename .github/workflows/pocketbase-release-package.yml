@@ -1,0 +1,84 @@
+name: Build reviewed PocketBase release package
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_image:
+        description: Exact reviewed target image tag from release-plan.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocketbase-release-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PB_DOCKER_IMAGE: ${{ inputs.target_image }}
+      RELEASE_PLAN: backend/deploy/1panel/release-plan.json
+      ALLOWED_DELTA: backend/deploy/1panel/allowed-delta.json
+
+    steps:
+      - name: Checkout the reviewed revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - name: Require committed release inputs
+        run: |
+          test -f "$RELEASE_PLAN"
+          test ! -L "$RELEASE_PLAN"
+          test -f "$ALLOWED_DELTA"
+          test ! -L "$ALLOWED_DELTA"
+          git ls-files --error-unmatch -- "$RELEASE_PLAN" "$ALLOWED_DELTA"
+          git diff --exit-code -- "$RELEASE_PLAN" "$ALLOWED_DELTA"
+          git diff --cached --exit-code -- "$RELEASE_PLAN" "$ALLOWED_DELTA"
+
+      - name: Download the pinned Linux AMD64 runtime
+        working-directory: backend
+        run: node scripts/prepare-runtime.mjs amd64
+
+      - name: Build the reviewed target image
+        working-directory: backend
+        run: docker build --platform linux/amd64 -f deploy/Dockerfile -t "$PB_DOCKER_IMAGE" .
+
+      - name: Run backend and release-program tests
+        run: node --test backend/tests/*.test.mjs
+
+      - name: Verify image contents and restore rehearsal
+        working-directory: backend
+        run: node scripts/verify-image.mjs
+
+      - name: Re-verify the reviewed checkout after build and tests
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          git ls-files --others --exclude-standard > "$RUNNER_TEMP/untracked-release-files"
+          test ! -s "$RUNNER_TEMP/untracked-release-files"
+
+      - name: Produce the frozen release package
+        run: >-
+          node backend/scripts/package-1panel.mjs
+          "$RUNNER_TEMP/questions-pocketbase-release"
+          --upgrade
+          --plan "$RELEASE_PLAN"
+          --allowed-delta "$ALLOWED_DELTA"
+
+      - name: Upload the immutable handoff artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pocketbase-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/questions-pocketbase-release/*
+          if-no-files-found: error
+          retention-days: 7

@@ -66,6 +66,7 @@ export function questionOptions(
     .map((q) => ({
       value: q.id,
       label: `${q.title} · v${q.revision}${q.status === "archived" ? "（已移出，发布前须替换）" : q.status === "draft" ? "（草稿）" : ""}`,
+      searchText: `${q.title} ${q.id}`,
       disabled: q.status === "archived",
     }));
 }

@@ -15,6 +15,7 @@ import {
   Switch,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import { AlistMediaInput } from "../components/Alist/AlistMediaInput";
@@ -175,7 +176,15 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
                 : q.status !== "archived")),
         )}
         columns={[
-          { title: "题目", dataIndex: "title" },
+          {
+            title: "题目",
+            dataIndex: "title",
+            render: (value: string, row: AdminQuestion) => (
+              <Tooltip title={`题目 ID：${row.id}`}>
+                <span className="admin-question-title-with-id">{value}</span>
+              </Tooltip>
+            ),
+          },
           {
             title: "类型",
             dataIndex: "kind",
@@ -928,7 +937,17 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             >
                               <Select
                                 showSearch
-                                optionFilterProp="label"
+                                optionFilterProp="searchText"
+                                optionRender={(option) => (
+                                  <div className="admin-question-option">
+                                    <div className="admin-question-option-label">
+                                      {option.label}
+                                    </div>
+                                    <div className="admin-question-option-id">
+                                      题目 ID：{String(option.value)}
+                                    </div>
+                                  </div>
+                                )}
                                 options={questionOptions(
                                   catalog.questions,
                                   steps[name]?.question,

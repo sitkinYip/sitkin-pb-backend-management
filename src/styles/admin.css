@@ -247,6 +247,28 @@ select {
 .admin-table .ant-table-cell a {
   overflow-wrap: anywhere;
 }
+.admin-question-title-with-id {
+  cursor: help;
+  text-decoration: underline dotted var(--admin-line);
+  text-underline-offset: 3px;
+}
+.admin-question-option {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding-block: 2px;
+}
+.admin-question-option-label {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.admin-question-option-id {
+  color: var(--admin-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 .admin-table .ant-pagination {
   flex-wrap: wrap;
   row-gap: 8px;

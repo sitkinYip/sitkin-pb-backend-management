@@ -345,3 +345,15 @@ test("responsive rules fix viewport sizing and replace fixed form rows with grid
     assert.match(source, /admin-field-grid/);
   }
 });
+
+test("question selectors and catalog titles expose question IDs", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("../src/game/ContentPages.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles/admin.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(source, /<Tooltip title=\{`题目 ID：\$\{row\.id\}`\}>/);
+  assert.match(source, /optionFilterProp="searchText"/);
+  assert.match(source, /className="admin-question-option-id"/);
+  assert.match(source, /题目 ID：\{String\(option\.value\)\}/);
+  assert.match(css, /\.admin-question-option-id\s*\{[^}]*font-size:\s*12px/s);
+});

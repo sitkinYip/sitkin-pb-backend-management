@@ -68,6 +68,8 @@ test("server usage is preferred and deleted references are visible only as disab
   assert.equal(options.length, 2);
   assert.equal(options[1].disabled, true);
   assert.match(options[1].label, /发布前须替换/);
+  assert.equal(options[0].searchText, "题目 q");
+  assert.equal(options[1].searchText, "题目 deleted");
 });
 
 test("status tabs filter by status and title without treating a future time window as offline", () => {

@@ -1,6 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Input, Button, message, ConfigProvider } from "antd";
-import { UploadOutlined, LoadingOutlined } from "@ant-design/icons";
+import {
+  EyeOutlined,
+  LoadingOutlined,
+  UpOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import { alistService } from "@/services/alist";
 import { LoginModal } from "./LoginModal";
 import { CSSProperties } from "react";
@@ -28,9 +33,18 @@ export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewId = useId();
   const { componentDisabled } = ConfigProvider.useConfig();
   const isDisabled = disabled ?? componentDisabled;
+  const previewUrl = value?.trim() || "";
+
+  useEffect(() => {
+    setPreviewOpen(false);
+    setPreviewError(false);
+  }, [previewUrl, type]);
 
   const handleUploadClick = () => {
     if (isDisabled) return;
@@ -110,23 +124,95 @@ export const AlistMediaInput: React.FC<AlistMediaInputProps> = ({
     }
   };
 
+  const previewLabel =
+    type === "video" ? "视频" : type === "audio" ? "音频" : "图片";
+
+  const mediaPreview = () => {
+    if (previewError)
+      return (
+        <div className="admin-media-preview-error" role="alert">
+          {previewLabel}加载失败，请确认链接可访问且 CDN 允许当前后台域名引用。
+        </div>
+      );
+    if (type === "video")
+      return (
+        <video
+          key={previewUrl}
+          controls
+          preload="metadata"
+          src={previewUrl}
+          onError={() => setPreviewError(true)}
+        >
+          当前浏览器不支持视频预览。
+        </video>
+      );
+    if (type === "audio")
+      return (
+        <audio
+          key={previewUrl}
+          controls
+          preload="metadata"
+          src={previewUrl}
+          onError={() => setPreviewError(true)}
+        >
+          当前浏览器不支持音频预览。
+        </audio>
+      );
+    return (
+      <img
+        key={previewUrl}
+        src={previewUrl}
+        alt="当前媒体配置预览"
+        onError={() => setPreviewError(true)}
+      />
+    );
+  };
+
   return (
     <div style={style} className={`admin-media-input ${className ?? ""}`}>
-      <Input
-        id={id}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        placeholder={getPlaceholder()}
-        disabled={isDisabled}
-        allowClear
-      />
-      <Button
-        icon={uploading ? <LoadingOutlined /> : <UploadOutlined />}
-        onClick={handleUploadClick}
-        disabled={isDisabled || uploading}
-      >
-        {uploading ? "上传中" : "上传"}
-      </Button>
+      <div className="admin-media-input-row">
+        <Input
+          id={id}
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          placeholder={getPlaceholder()}
+          disabled={isDisabled}
+          allowClear
+        />
+        {previewUrl && (
+          <Button
+            icon={previewOpen ? <UpOutlined /> : <EyeOutlined />}
+            htmlType="button"
+            disabled={false}
+            aria-expanded={previewOpen}
+            aria-controls={previewId}
+            onClick={() => {
+              setPreviewError(false);
+              setPreviewOpen((open) => !open);
+            }}
+          >
+            {previewOpen ? "收起预览" : "展开预览"}
+          </Button>
+        )}
+        <Button
+          icon={uploading ? <LoadingOutlined /> : <UploadOutlined />}
+          htmlType="button"
+          onClick={handleUploadClick}
+          disabled={isDisabled || uploading}
+        >
+          {uploading ? "上传中" : "上传"}
+        </Button>
+      </div>
+
+      {previewOpen && previewUrl && (
+        <div
+          id={previewId}
+          className={`admin-media-preview admin-media-preview-${type}`}
+          aria-label={`${previewLabel}预览`}
+        >
+          {mediaPreview()}
+        </div>
+      )}
 
       {/* 隐藏的文件输入框 */}
       <input

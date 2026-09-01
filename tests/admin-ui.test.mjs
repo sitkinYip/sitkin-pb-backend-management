@@ -311,6 +311,23 @@ test("clue editors expose batch actions, validation, previews and narrow APIs", 
   assert.match(live, /requirePrimary/);
 });
 
+test("uploaded media fields preview in place without opening a new tab", async () => {
+  const [mediaInput, css] = await Promise.all([
+    readFile(
+      new URL("../src/components/Alist/AlistMediaInput.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../src/styles/admin.css", import.meta.url), "utf8"),
+  ]);
+  for (const element of ["img", "video", "audio"])
+    assert.match(mediaInput, new RegExp(`<${element}`));
+  assert.match(mediaInput, /展开预览/);
+  assert.match(mediaInput, /aria-expanded=\{previewOpen\}/);
+  assert.match(mediaInput, /preload="metadata"/);
+  assert.doesNotMatch(mediaInput, /target="_blank"|window\.open/);
+  assert.match(css, /\.admin-media-preview\s*\{/);
+});
+
 test("every active area has guidance and critical rules stay explicit", () => {
   assert.equal(Object.keys(guides.pageGuides).length, 12);
   for (const guide of Object.values(guides.pageGuides)) {

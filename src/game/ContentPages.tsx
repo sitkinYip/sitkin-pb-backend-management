@@ -1017,8 +1017,9 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             title={`第 ${name + 1} 关`}
                             size="small"
                             extra={
-                              <Space>
+                              <Space size={4} wrap>
                                 <Button
+                                  size="small"
                                   disabled={readOnly || name === 0}
                                   onClick={() => move(name, name - 1)}
                                 >
@@ -1173,7 +1174,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                 label: "解锁线索",
                 children: (
                   <Form.List name="clues">
-                    {(fields, { add, remove }) => (
+                    {(fields, { add, remove, move }) => (
                       <>
                         {fields.map(({ key, name }) => (
                           <Card
@@ -1182,9 +1183,32 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
                             style={{ marginBottom: 16 }}
                             title={`线索 ${name + 1}`}
                             extra={
-                              <Button danger onClick={() => remove(name)}>
-                                移除
-                              </Button>
+                              <Space>
+                                <Button
+                                  disabled={readOnly || name === 0}
+                                  aria-label={`上移第 ${name + 1} 条场次线索`}
+                                  onClick={() => move(name, name - 1)}
+                                >
+                                  上移
+                                </Button>
+                                <Button
+                                  size="small"
+                                  disabled={
+                                    readOnly || name === fields.length - 1
+                                  }
+                                  aria-label={`下移第 ${name + 1} 条场次线索`}
+                                  onClick={() => move(name, name + 1)}
+                                >
+                                  下移
+                                </Button>
+                                <Button
+                                  danger
+                                  size="small"
+                                  onClick={() => remove(name)}
+                                >
+                                  移除
+                                </Button>
+                              </Space>
                             }
                           >
                             <Field

@@ -287,6 +287,8 @@ test("clue editors expose batch actions, validation, previews and narrow APIs", 
   ]);
   assert.match(content, /import \{ PresentationFields \}/);
   assert.doesNotMatch(content, /function PresentationFields/);
+  assert.match(content, /上移第 \$\{name \+ 1\} 条场次线索/);
+  assert.match(content, /下移第 \$\{name \+ 1\} 条场次线索/);
   assert.match(commonClues, /\/admin\/questions\/\$\{/);
   assert.match(commonClues, /历史已答/);
   for (const action of ["上移", "下移", "复制", "删除"]) {

@@ -1,3 +1,4 @@
+import { LivePreview } from "./preview/LivePreview";
 import { AdminTable, EditorDrawer, Field, PageCard } from "./ui";
 import { createRequestId } from "./request-id";
 import { useEffect, useState } from "react";
@@ -323,7 +324,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
       />
       <EditorDrawer
         title={readOnly ? "查看题目" : id ? "编辑题目" : "新建题目"}
-        width={760}
+        width={1280}
         open={open}
         forceRender
         onClose={() => setOpen(false)}
@@ -380,6 +381,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             }
           />
         )}
+        <LivePreview form={form} kind="question" active={open}>
         <Form
           name="question-editor"
           disabled={readOnly}
@@ -558,6 +560,7 @@ function QuestionEditor({ catalog, refresh }: EditorProps) {
             <LinesInput rows={4} />
           </Field>
         </Form>
+        </LivePreview>
       </EditorDrawer>
       <Modal
         title={`调整题目分组 · ${grouping?.title || ""}`}

@@ -904,3 +904,23 @@ select {
 .admin-extra-form + .ant-alert {
   margin-top: 16px;
 }
+
+/* Editor width, rather than the browser width, determines preview layout. */
+.admin-live-editor { container-type: inline-size; min-width: 0; }
+.admin-live-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 430px); gap: 24px; align-items: start; }
+.admin-live-fields, .admin-live-preview { min-width: 0; }
+.admin-live-preview { position: sticky; top: 0; }
+.admin-live-tabs { display: none; margin-bottom: 16px; }
+.admin-preview-tools { margin-bottom: 12px; }
+.admin-preview-viewport { overflow: auto; max-width: 100%; border: 1px solid var(--admin-line); margin-bottom: 12px; }
+.admin-preview-viewport iframe { display: block; border: 0; width: 390px; min-width: 320px; max-width: 100%; height: 660px; margin-inline: auto; }
+.admin-live-editor[data-device="桌面"] .admin-live-columns { grid-template-columns: minmax(0, 1fr); }
+.admin-live-editor[data-device="桌面"] .admin-live-preview { position: static; }
+.admin-live-editor[data-device="桌面"] iframe { width: 1200px; max-width: none; }
+@container (max-width: 760px) {
+  .admin-live-tabs { display: block; }
+  .admin-live-columns { display: block; }
+  .admin-live-preview { position: static; }
+  .admin-live-columns[data-tab="编辑"] .admin-live-preview,
+  .admin-live-columns[data-tab="预览"] .admin-live-fields { display: none; }
+}

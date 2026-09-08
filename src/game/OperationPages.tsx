@@ -1,3 +1,4 @@
+import { LivePreview } from "./preview/LivePreview";
 import { AdminTable, EditorDrawer, Field, PageCard } from "./ui";
 import { PlayerTitleEditor } from "./PlayerTitleEditor";
 import { auditActionLabels, entityLabels } from "./display-labels";
@@ -928,6 +929,7 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
   return (
     <PageCard title="通知管理">
       <ErrorNotice error={query.error} retry={() => void query.refresh()} />
+      <LivePreview form={form} kind="notification">
       <Form
         name="notification-create"
         form={form}
@@ -998,6 +1000,7 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
           发送通知
         </Button>
       </Form>
+      </LivePreview>
       <AdminTable
         style={{ marginTop: 32 }}
         rowKey="id"

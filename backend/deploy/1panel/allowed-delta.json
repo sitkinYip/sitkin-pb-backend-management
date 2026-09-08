@@ -2,32 +2,82 @@
   "schemaVersion": 1,
   "verifier": "additive-empty-collections-v1",
   "newMigrationFiles": [
-    "1788176000_question_settings.js"
+    "1788825600_player_titles_extra.js"
   ],
   "newCollections": [
     {
-      "name": "game_question_settings",
+      "name": "game_extra_configs",
+      "requirePrivate": true
+    },
+    {
+      "name": "game_extra_definitions",
+      "requirePrivate": true
+    },
+    {
+      "name": "game_player_level_titles",
       "requirePrivate": true
     }
   ],
   "newSchemaObjects": [
     {
       "type": "index",
-      "name": "idx_game_question_settings_question",
-      "table": "game_question_settings"
+      "name": "idx_game_extra_configs_binding",
+      "table": "game_extra_configs"
     },
     {
       "type": "index",
-      "name": "sqlite_autoindex_game_question_settings_1",
-      "table": "game_question_settings"
+      "name": "idx_game_extra_configs_lookup",
+      "table": "game_extra_configs"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_extra_configs_request",
+      "table": "game_extra_configs"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_extra_definitions_key",
+      "table": "game_extra_definitions"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_player_level_titles_owner",
+      "table": "game_player_level_titles"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_extra_configs_1",
+      "table": "game_extra_configs"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_extra_definitions_1",
+      "table": "game_extra_definitions"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_player_level_titles_1",
+      "table": "game_player_level_titles"
     },
     {
       "type": "table",
-      "name": "game_question_settings",
-      "table": "game_question_settings"
+      "name": "game_extra_configs",
+      "table": "game_extra_configs"
+    },
+    {
+      "type": "table",
+      "name": "game_extra_definitions",
+      "table": "game_extra_definitions"
+    },
+    {
+      "type": "table",
+      "name": "game_player_level_titles",
+      "table": "game_player_level_titles"
     }
   ],
   "emptyTables": [
-    "game_question_settings"
+    "game_extra_configs",
+    "game_extra_definitions",
+    "game_player_level_titles"
   ]
 }

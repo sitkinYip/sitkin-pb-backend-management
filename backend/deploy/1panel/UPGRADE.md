@@ -1,74 +1,64 @@
-# 题目关键词匹配与分组后端升级操作单
+# 专属等级头衔与扩展配置后端升级操作单
 
 <!-- release-status: completed -->
-<!-- release-id: question-keywords-groups-r4-20260831 -->
-<!-- source-image: questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64 -->
-<!-- target-image: questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64 -->
+<!-- release-id: extra-config-player-titles-20260908 -->
+<!-- source-image: questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64 -->
+<!-- target-image: questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64 -->
 
-## 发布范围
+## 目标与范围
 
-本操作单只用于 `questions-game-v1` 当前生产实例的第四次增量后端发布尝试。第一次 `question-keywords-groups-20260831` 因停止态端口元数据读取缺陷进入 `blocked`；第二次 `question-keywords-groups-r2-20260831` 在恢复副本迁移差异校验时发现允许清单遗漏 SQLite 自动生成的主键索引而进入 `blocked`；第三次 `question-keywords-groups-r3-20260831` 发现 PocketBase 迁移会为两个既有 `game_question_clues` 索引补写缺失的 `sqlite_stat1` 统计记录而进入 `blocked`。三次都已证明正式数据库、Compose、镜像、schema 和迁移账本未变并恢复原服务；各自的 active marker 必须原样归档到对应旧发布目录。第四次尝试使用修正后的冻结执行器、补全的允许清单和全新 `releaseId`，不得修改旧发布的 state、事件、journal、备份或归档标记。
+用户要求通过维护隧道发布本次 PocketBase 数据库和 hooks；两个前端由用户自行 push 和自动部署。本次不提交或推送前端、不创建生产字段定义、不下发专属头衔或扩展值、不执行真实答题。
 
-本次仍只新增题目关键词匹配和题目分组所需的服务端能力，不包含前台或后台管理系统发布，也不包含旧题目的业务数据回填。
+唯一目标为 `questions-game-v1`，项目 `/opt/1panel/apps/questions-game-v1`，Compose 为其中 `compose.yaml`，唯一数据目录为其中 `pb_data`，端口保持 `127.0.0.1:8090`，PocketBase 保持 0.40.1 / Linux AMD64 / `--automigrate=false`。
 
-本次迁移只允许新增一个私有空集合 `game_question_settings`，以及该集合对应的表和唯一索引。发布程序不得扫描、修改或回填现有题目、答案、奖励、账户或运行配置。
+source 为 `questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64`，目标为 `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`。完整 image ID、Compose、根发布信息、迁移账本和主机身份基线以同批 `release-plan.json` 为准，必须经本次只读 inventory 核实后才能冻结制品。历史来源为 `docs/question-keywords-groups-deployment-20260831.md`，历史值不能替代现场核验。
 
-## 兼容性约束
+## 兼容与休眠
 
-- 现有答题端协议不变，旧答题端可继续使用。
-- 旧管理端在新后端上未提交新字段时，服务端按“精确匹配、其他分组”处理；发布窗口内仍暂停管理端写入，直至 `finalize` 完成。
-- 新管理端依赖本次后端能力，应在本次服务端发布完成后再部署。
-- 新集合必须从迁移后到发布完成始终保持 0 行；后续旧题目归组由用户在管理端手工完成。
+| 组合                       | 行为                                                                        |
+| -------------------------- | --------------------------------------------------------------------------- |
+| 旧玩家端＋新后端，无配置   | 默认名称和原有答题行为不变                                                  |
+| 旧玩家端＋新后端，有配置   | name 可显示专属名称；忽略 extra，被动文案可能不显示；不改变经验、权限或奖励 |
+| 新玩家端＋旧后端           | 可选扩展缺失时安全回退                                                      |
+| 旧管理端＋新后端           | 独立配置集合不被旧接口覆盖                                                  |
+| 新管理端＋旧后端           | 根据 capabilities 禁用不支持的入口                                          |
+| 新管理端＋新后端＋旧玩家端 | 本次保持三个新表为空；新配置待用户完成前端发布后另行激活                    |
 
-## 冻结基线
+发布阶段暂停管理端配置写入，直到 finalize 完成。停服窗口从 backup 开始，到 switch 验证健康结束；期间答题 API 暂不可用。每步先核对上一阶段结果，程序不会自动跨阶段。
 
-- 生产目录：`/opt/1panel/apps/questions-game-v1`
-- Compose：`/opt/1panel/apps/questions-game-v1/compose.yaml`
-- 数据目录：`/opt/1panel/apps/questions-game-v1/pb_data`
-- 当前镜像：`questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64`
-- 当前镜像 ID：`sha256:afc6feeba6d0884d3b485dec95e059344c998f2d90f84ad8e8bdd3809b6db482`
-- 当前 Compose SHA-256：`6c14986a8669858c31ed6bf4f7addc401dc25d733665356dac6f99a22244dd71`
-- 当前 release.json SHA-256：`5a2c63662ac2e441f54a6c8f9c17358e9460703060aaeb7e95beaadd567584e2`
-- 目标镜像：`questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64`
-- 新迁移：`1788176000_question_settings.js`
+## 精确允许差异
 
-主机身份和迁移账本哈希必须先通过只读 inventory 获取并写回 `release-plan.json`，再次 inventory 完全一致后才能构建发布包。
+只追加迁移 `1788825600_player_titles_extra.js`，只创建三个空私有集合及表：
 
-## 执行顺序
+- `game_player_level_titles`：`idx_game_player_level_titles_owner`、`sqlite_autoindex_game_player_level_titles_1`。
+- `game_extra_definitions`：`idx_game_extra_definitions_key`、`sqlite_autoindex_game_extra_definitions_1`。
+- `game_extra_configs`：`idx_game_extra_configs_binding`、`idx_game_extra_configs_lookup`、`idx_game_extra_configs_request`、`sqlite_autoindex_game_extra_configs_1`。
 
-1. 使用仓库发布控制器执行只读 `inventory`，冻结主机、镜像、Compose、release.json、迁移账本与磁盘空间。
-2. 构建并验证 `linux/amd64` 目标镜像，运行目标镜像测试和镜像源码校验。
-3. 生成升级包；只使用包内冻结的 `deployment-plan.json`、`release-runner.py` 和校验和。
-4. 执行 `preflight`，确认发布包、生产基线、允许差异和升级前数据库快照一致。
-5. 执行 `stage`，只上传并加载候选镜像，不切换生产。
-6. 依次执行四个相互独立的部署阶段，每一步完成后检查 `status`：
-   - `backup`：停止生产并完成逻辑/物理备份，生产保持停止。
-   - `migrate`：只在候选镜像和工作数据库上执行迁移及允许差异校验。
-   - `switch`：切换生产镜像并完成健康检查和未授权探针。
-   - `finalize`：确认生产数据库与工作数据库一致、增量集合仍为空并写入完成记录。
+上述集合在迁移、切换和 finalize 时均须为 0 行且所有直接访问规则保持私有。原有表、字段、索引、集合定义及历史迁移账本不可改写；不回填现有用户、题目、场次、等级、经验或奖励。精确物理允许清单见同批 `allowed-delta.json`，采用现有 `additive-empty-collections-v1` verifier。
 
-任何阶段出现基线漂移、未知状态或非零退出码，立即停止，只允许执行 `status` 取证，不得自动重试或跨越阶段。
+`sqlite_stat1` 仅允许现有 verifier 认可的、绑定真实索引的新增统计；不得删除或修改旧统计，不允许未知索引、重复键和新增表级统计。
 
-## 允许差异
+## 制品与执行
 
-发布前后唯一允许的数据库结构差异是：
+1. 使用用户建立的 ControlMaster，只复用 socket，执行仓库 HEAD 未修改 runner 的 `inventory`。基线不符时停止。
+2. Docker AMD64 构建并核对镜像内代码；此次源码可能未提交，冻结包保存完整源文件摘要与不可变归档，不宣称 HEAD 独立复现。
+3. 用 `package-1panel.mjs --upgrade` 从匹配 plan、allowed-delta、操作单生成 ready 计划和完整 sidecar。执行两层 SHA256 校验。
+4. 对冻结包执行 `preflight`；按当场显示的准确短语确认 `stage`，上传、校验、加载并隔离运行候选镜像，生产仍运行旧服务。
+5. 第一次 `deploy`：停服，证明没有其他进程打开 SQLite，备份完整 pb_data 和版本材料；独立恢复、校验文件与 SQLite，在副本迁移并两次重启。通过后生产仍保持停止。
+6. 核验状态后第二次 `deploy`：重验备份、source 与允许差异，仅对正式库执行一次已审迁移。
+7. 核验状态后第三次 `deploy`：仅更换 Compose 镜像；先创建停止态容器并核对，再启动，要求同一容器、零重启和三条不同的连续成功健康探测。
+8. 核验状态后第四次 `deploy`：再次验证未激活空表、结构及迁移账本，记录并核验根发布材料。恢复流量后的正常既有业务行变化不误判为回退依据。
 
-- 新迁移文件 `1788176000_question_settings.js`
-- 新私有集合 `game_question_settings`
-- 新表 `game_question_settings`
-- 新索引 `idx_game_question_settings_question`
-- SQLite 自动索引 `sqlite_autoindex_game_question_settings_1`
+所有执行使用 `release-pocketbase.mjs` 与同批冻结 runner；每次 deploy 只推进一个阶段。只读验收包含 HTTPS health 200、管理身份和玩家任务未认证 401；不等同业务写入验收。
 
-`game_question_settings` 在 `migrate`、`switch` 和 `finalize` 校验时都必须为空。生产业务数据写入与功能开关激活均不在本次发布授权范围内。
+## 中断与回退
 
-迁移副本允许 `sqlite_stat1` 只增不改：新增统计记录必须绑定迁移后 schema 中真实存在的索引；任何旧统计记录删除、值变化、重复键、未知索引或表级新增统计记录都必须阻断发布。统计值只写入 SHA-256 证据，不记录原文。
+非零结果、断线或未知状态先运行 status，不重试 stage/migrate，不运行临时命令绕过 blocked。保留状态、备份和证据，不删除半成品表或迁移账本。迁移成功而应用失败时优先前向修复或经批准只回退应用镜像，保留加性结构。
 
-## 回滚边界
+只在证明正式库、Compose 和迁移账本完全未变并作出明确恢复决定后，才能恢复原服务。发生新答题、经验、奖品或配置写入后，禁止旧数据库快照覆盖当前库；本次不执行 down 或自动恢复旧快照。
 
-- 切换前失败：保持生产停止，依据状态记录恢复原 Compose 和原数据备份。
-- 切换后但尚未发生新版本业务写入：可切回旧镜像；新增结构和迁移账本必须保留，不得执行向下迁移或删除集合。
-- 一旦新版本开始写入 `game_question_settings`，禁止恢复旧数据库备份覆盖新数据。本次发布不会激活或回填该集合，因此完成时应仍为 0 行。
+完成后更新当前生产状态和新增日期发布记录，分别记录数据库、后端、两个前端及功能激活状态，关闭专用维护连接。保留备份和旧镜像，不顺手清理其他服务。
 
 ## 执行结果
 
-R4 于 2026-08-31 20:57 +08:00 完成并记录。实际目标镜像 ID 为 `sha256:b80955c122e8e6e6b9932d98dfeab80dc123f22baeff88a2b5b47f155f0f164a`，Compose SHA-256 为 `a0144f9794b3c4a84f7f0e8165b0620c5d3e585fa2b432eb75f00dc60a9b3bb5`，迁移账本 SHA-256 为 `296348491ac81cba553be08650417cf89a84d9c89d61472eb0109566dc32032b`。容器 healthy、重启计数 0，HTTPS 验收为 200 / 401 / 401，`game_question_settings` 保持 0 行。完整事实见 `docs/question-keywords-groups-deployment-20260831.md`。
+2026-09-08 15:29 +08:00 已完成，phase=recorded、revision 15，服务 healthy、重启 0，三个新表为空。完整记录见 `docs/extra-config-player-titles-deployment-20260908.md`。本工作区操作单改为完成版，服务器冻结制品中的原始 pending 副本不修改。

@@ -4,8 +4,10 @@ const game = require(`${__hooks}/lib/gameplay.js`);
 const policy = require(`${__hooks}/lib/content-policy.js`);
 const cluePolicy = require(`${__hooks}/lib/clues.js`);
 const questionSettings = require(`${__hooks}/lib/question-settings.js`);
-function playerDto(app, row) {
-  return { ...game.me(app, row), status: row.getString("status") };
+const extras = require(`${__hooks}/lib/extra-config.js`);
+const titles = require(`${__hooks}/lib/player-titles.js`);
+function playerDto(app, row, titleRows) {
+  return { ...game.me(app, row, titleRows), status: row.getString("status") };
 }
 function questionDto(app, row, commonClueCount) {
   const secret = db.maybe(app, "game_answer_keys", "question={:id}", {
@@ -19,8 +21,7 @@ function questionDto(app, row, commonClueCount) {
       ["content", "options"],
     ),
     acceptedAnswers: secret ? db.json(secret, "acceptedAnswers", []) : [],
-    fuzzyMatch:
-      settings.answerMatchMode === questionSettings.CONTAINS_ALL,
+    fuzzyMatch: settings.answerMatchMode === questionSettings.CONTAINS_ALL,
     groupName: settings.groupName,
     commonClueCount:
       commonClueCount === undefined
@@ -118,8 +119,15 @@ function catalog(e) {
   const references = policy.references(e.app);
   const counts = policy.assignmentCounts(e.app);
   const commonClueCounts = cluePolicy.questionClueCounts(e.app);
+  const titleRows = titles.rows(e.app);
   return {
-    players: db.all(e.app, "game_players").map((p) => playerDto(e.app, p)),
+    capabilities: {
+      playerTitles: titles.available(e.app),
+      extraConfig: extras.available(e.app),
+    },
+    players: db
+      .all(e.app, "game_players")
+      .map((p) => playerDto(e.app, p, titleRows)),
     ranks: game.ranks(e.app),
     questions: db.all(e.app, "game_questions").map((q) => ({
       ...questionDto(e.app, q, commonClueCounts[q.id] || 0),
@@ -431,11 +439,7 @@ function saveQuestionClues(e, questionId, body) {
       if (question.getString("status") === "archived")
         r.fail("QUESTION_DELETED", "题目已移出题库，不能配置通用线索", 409);
       const reason = r.text(body.reason, "修改原因", 1000);
-      const expectedVersion = r.text(
-        body.expectedVersion,
-        "线索版本",
-        100,
-      );
+      const expectedVersion = r.text(body.expectedVersion, "线索版本", 100);
       const before = cluePolicy.questionClueSet(app, questionId);
       if (before.version !== expectedVersion)
         r.fail(
@@ -730,11 +734,7 @@ function updateSessionLiveSettings(e, id, body) {
       if (row.getString("status") !== "published")
         r.fail("INVALID_STATE", "仅线上场次可修改展示设置", 409);
       const reason = r.text(body.reason, "修改原因", 1000);
-      const expectedVersion = r.text(
-        body.expectedVersion,
-        "场次设置版本",
-        100,
-      );
+      const expectedVersion = r.text(body.expectedVersion, "场次设置版本", 100);
       const beforeDto = sessionDto(app, row);
       if (beforeDto.liveSettingsVersion !== expectedVersion)
         r.fail(
@@ -819,12 +819,9 @@ function updateSessionLiveSettings(e, id, body) {
         app.save(clue);
       }
       const finalCluePositions = new Set();
-      for (const clue of db.all(
-        app,
-        "game_clues",
-        "session={:id}",
-        { id: row.id },
-      )) {
+      for (const clue of db.all(app, "game_clues", "session={:id}", {
+        id: row.id,
+      })) {
         const position = clue.getInt("position");
         if (finalCluePositions.has(position))
           r.fail("INVALID_INPUT", "场次线索顺序不能重复");
@@ -845,7 +842,8 @@ function updateSessionLiveSettings(e, id, body) {
             (key) => body[key] !== undefined,
           ),
           levelIds: (body.levels || []).map((level) => level.id),
-          levelFields: body.levels === undefined ? [] : ["presentationOverride"],
+          levelFields:
+            body.levels === undefined ? [] : ["presentationOverride"],
           clueIds: (body.clues || []).map((clue) => clue.id),
           clueFields:
             body.clues === undefined ? [] : ["position", "content", "autoPlay"],

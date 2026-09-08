@@ -196,9 +196,13 @@ test(
         assert.deepEqual(
           afterSchema.filter(
             (row) =>
-              !["game_question_clues", "game_question_settings"].includes(
-                row.name,
-              ),
+              ![
+                "game_question_clues",
+                "game_question_settings",
+                "game_player_level_titles",
+                "game_extra_definitions",
+                "game_extra_configs",
+              ].includes(row.name),
           ),
           expected,
         );
@@ -207,6 +211,24 @@ test(
         assert.deepEqual(after.game_question_settings, []);
         delete after.game_question_clues;
         delete after.game_question_settings;
+        for (const name of [
+          "game_player_level_titles",
+          "game_extra_definitions",
+          "game_extra_configs",
+        ]) {
+          const collection = afterSchema.find((row) => row.name === name);
+          assert(collection);
+          for (const rule of [
+            "listRule",
+            "viewRule",
+            "createRule",
+            "updateRule",
+            "deleteRule",
+          ])
+            assert.equal(collection[rule], null);
+          assert.deepEqual(after[name], []);
+          delete after[name];
+        }
         assert.deepEqual(after, before);
       },
     );

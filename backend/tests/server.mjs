@@ -24,7 +24,7 @@ export async function createTestServer({ migrationNames } = {}) {
       throw new Error(`Expected PocketBase ${version}`);
   } else assertVersion();
   const directory = await mkdtemp(path.join(os.tmpdir(), "questions-pb-test-"));
-  const dataDir = path.join(directory, "pb_data");
+  let dataDir = path.join(directory, "pb_data");
   const migrationsDir = path.join(directory, "pb_migrations");
   const copyMigrations = () =>
     cp(path.join(backendRoot, "pb_migrations"), migrationsDir, {
@@ -169,8 +169,21 @@ export async function createTestServer({ migrationNames } = {}) {
     }
     if (!ready) throw new Error(`PocketBase did not become ready: ${logs}`);
   };
-  const upgradeMigrations = async () => {
+  const upgradeMigrations = async ({ restoreCopy = false } = {}) => {
     await stopProcess();
+    if (restoreCopy) {
+      const restored = path.join(directory, "restored_pb_data");
+      await cp(dataDir, restored, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+      });
+      dataDir = restored;
+      const index = runtimeArgs.findIndex((arg) => arg.startsWith("--dir="));
+      runtimeArgs[index] = containerImage
+        ? "--dir=/test-data/restored_pb_data"
+        : `--dir=${restored}`;
+    }
     migrationNames = undefined;
     await copyMigrations();
     invoke(["migrate", "up", ...runtimeArgs]);
@@ -231,6 +244,12 @@ export async function createTestServer({ migrationNames } = {}) {
       request,
       stop,
       upgradeMigrations,
+      restart: async () => {
+        await stopProcess();
+        startProcess();
+        await waitReady();
+      },
+      dataDirectory: () => dataDir,
       superToken: auth.data.token,
       adminToken: admin.data.token,
       logs: () => logs,

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pending",
-  "releaseId": "question-keywords-groups-r4-20260831",
+  "releaseId": "extra-config-player-titles-20260908",
   "transport": {
     "sshTarget": "root@47.120.62.73",
     "sshPort": 22
@@ -29,26 +29,27 @@
     "rootChecksumsPath": "/opt/1panel/apps/questions-game-v1/SHA256SUMS"
   },
   "source": {
-    "imageTag": "questions-pocketbase:0.40.1-question-clues-live-settings-20260831-amd64",
-    "imageId": "sha256:afc6feeba6d0884d3b485dec95e059344c998f2d90f84ad8e8bdd3809b6db482",
-    "composeSha256": "6c14986a8669858c31ed6bf4f7addc401dc25d733665356dac6f99a22244dd71",
-    "releaseJsonSha256": "5a2c63662ac2e441f54a6c8f9c17358e9460703060aaeb7e95beaadd567584e2",
-    "migrationLedgerSha256": "567389a6c76efffa63fe1b0d88666b796316132cfad6d13fd45e62af3db14dc7",
+    "imageTag": "questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64",
+    "imageId": "sha256:b80955c122e8e6e6b9932d98dfeab80dc123f22baeff88a2b5b47f155f0f164a",
+    "composeSha256": "a0144f9794b3c4a84f7f0e8165b0620c5d3e585fa2b432eb75f00dc60a9b3bb5",
+    "releaseJsonSha256": "d2af039db461837b832399a78e8100ae53e8ed446d049f8f835deb0de4239a86",
+    "migrationLedgerSha256": "296348491ac81cba553be08650417cf89a84d9c89d61472eb0109566dc32032b",
     "requiredMigrationFiles": [
       "1787788800_game_schema.js",
       "1787911200_expand_audit_diff.js",
-      "1788143000_question_clues.js"
+      "1788143000_question_clues.js",
+      "1788176000_question_settings.js"
     ]
   },
   "target": {
-    "imageTag": "questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64",
+    "imageTag": "questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64",
     "pocketbaseVersion": "0.40.1",
     "platform": "linux/amd64"
   },
   "migration": {
     "mode": "required",
     "newFiles": [
-      "1788176000_question_settings.js"
+      "1788825600_player_titles_extra.js"
     ],
     "verifier": "additive-empty-collections-v1"
   },

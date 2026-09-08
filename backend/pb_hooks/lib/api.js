@@ -2,6 +2,8 @@ const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const game = require(`${__hooks}/lib/gameplay.js`);
 const admin = require(`${__hooks}/lib/admin.js`);
+const extras = require(`${__hooks}/lib/extra-config.js`);
+const titles = require(`${__hooks}/lib/player-titles.js`);
 function readBody(e) {
   return JSON.parse(JSON.stringify(e.requestInfo().body || {}));
 }
@@ -349,6 +351,25 @@ function handle(e) {
   }
   if (parts[0] === "admin") {
     db.actor(e.app, e, true);
+    if (path === "admin/extra-definitions" && method === "GET")
+      return extras.definitions(e.app);
+    if (path === "admin/extra-definitions" && method === "POST")
+      return extras.saveDefinition(e, body);
+    if (method === "POST") {
+      if (path === "admin/extra-configs/query") return extras.query(e, body);
+      if (path === "admin/extra-configs/preview")
+        return extras.preview(e, body);
+      if (path === "admin/extra-configs/dispatch")
+        return extras.dispatch(e, body);
+      if (path === "admin/extra-configs/revoke-batch")
+        return extras.revokeBatch(e, body);
+      if (path === "admin/extra-configs/inspect")
+        return extras.inspect(e, body);
+    }
+    if (parts[1] === "players" && parts[3] === "titles" && parts.length === 4) {
+      if (method === "GET") return titles.list(e.app, parts[2]);
+      if (method === "POST") return titles.save(e, parts[2], body);
+    }
     if (
       ["questions", "sessions", "narratives"].includes(parts[1]) &&
       parts.length === 4 &&

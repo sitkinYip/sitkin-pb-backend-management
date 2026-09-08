@@ -12,6 +12,7 @@ export const adminResources = [
   ["narratives", "剧情内容"],
   ["notifications", "通知"],
   ["ranks", "等级设置"],
+  ["extras", "扩展配置"],
   ["audit", "操作记录"],
   ["resource_manager", "资源管理"],
 ].map(([name, label]) => ({ name, list: `/${name}`, meta: { label } }));

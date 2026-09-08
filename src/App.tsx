@@ -23,6 +23,7 @@ import { navigationResources } from "./components/navigation";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { ContentPage } from "./game/ContentPages";
 import { OperationPage } from "./game/OperationPages";
+import { ExtraConfigPage } from "./game/ExtraConfigPage";
 import { ResourceManager } from "./pages/resourceManager";
 import { LoginRoute } from "./pages/login";
 import { authProvider } from "./providers/auth";
@@ -112,6 +113,7 @@ function App() {
                     path="/resource_manager"
                     element={<ResourceManager />}
                   />
+                  <Route path="/extras" element={<ExtraConfigPage />} />
                   <Route
                     path="*"
                     element={<Navigate to={ADMIN_HOME} replace />}

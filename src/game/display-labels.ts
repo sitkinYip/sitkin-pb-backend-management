@@ -1,4 +1,9 @@
 export const auditActionLabels: Record<string, string> = {
+  save_player_title: "保存专属头衔",
+  revoke_player_title: "撤销专属头衔",
+  save_extra_definition: "保存扩展字段定义",
+  dispatch_extra_config: "下发扩展配置",
+  revoke_extra_config: "撤销扩展配置",
   create_player: "创建玩家",
   reset_password: "重置密码",
   adjust_xp: "调整经验",
@@ -31,6 +36,9 @@ export const auditActionLabels: Record<string, string> = {
   withdraw_notification: "撤回通知",
 };
 export const entityLabels: Record<string, string> = {
+  game_player_level_titles: "用户专属头衔",
+  game_extra_definitions: "扩展字段定义",
+  game_extra_configs: "扩展配置",
   game_players: "玩家",
   game_questions: "题目",
   game_question_clues: "题目通用线索",

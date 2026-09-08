@@ -1,29 +1,29 @@
 # Questions 游戏后端
 
-截至 2026-08-31 的最近正式记录，生产镜像为 `questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64`，已包含题目关键词匹配、题库分组、题目通用线索、一次性 effect 快照和已发布场次展示白名单编辑，并保留信件 / 祝福软删除、场次永久下线、题目引用锁及 2MB 审计容量能力。当前组件状态统一见 [当前生产状态](../docs/current-production.md)，本次备份、迁移和验收见 [题目关键词匹配与分组发布记录](../docs/question-keywords-groups-deployment-20260831.md)；此前记录继续作为历史快照保留。生产操作前必须重新核对实际容器、镜像和迁移账本。下方 v1/v1.1 初始化步骤为历史参考，不应再次初始化现有库。
+2026-09-08 已完成专属等级头衔与通用扩展配置的数据库和后端发布。当前生产镜像为 `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`，本次新增三个空私有集合；已有题目线索、关键词／分组等能力保留。当前状态见 [生产状态](../docs/current-production.md)，实际镜像、备份及校验记录见 [本次发布记录](../docs/extra-config-player-titles-deployment-20260908.md)。两个前端由用户自行 push 和自动部署，本次未下发配置或执行真实业务写入。
 
-固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 只用于开发、测试和部署辅助脚本。2026-08-31 已完成最近一次正式后端升级；api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，管理后台为 vae.sitkin.top。旧容器保留但停止，不得对旧实例执行新迁移。
-
-本次后端发布验收时 `game_question_settings` 为 0 条，未回填旧题；缺少设置的旧题按 `exact + 其他` 运行。玩家端协议不受影响；包含题目分组与模糊答案配置入口的新管理端尚由用户另行发布。当前功能激活状态从 [当前生产状态](../docs/current-production.md) 继续核对。
+固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
 **日常开发两个前端不需要启动本目录的服务。** 在各自仓库根目录执行 `pnpm install --frozen-lockfile`、`pnpm dev` 即可，默认直接连接线上 API。以下隔离测试、Docker 和镜像发布仅供修改后端时使用，不是前端开发环境要求；页面上的写操作会影响线上真实数据。
 
 本目录也承担生产后台数据库的版本化维护：`pb_hooks/` 随后端镜像发布，`pb_migrations/` 通过新的增量文件演进集合和索引。管理端静态 Action 不会发布这里的代码或数据库。统一边界见 [项目维护与发布边界](../docs/project-maintenance-and-release.md)，普通增量升级使用 [PocketBase 人工闸门发布程序](../docs/pocketbase-release-program.md)，生产预检、备份、迁移失败闭锁与回退必须遵循 [后端发布安全规范](../docs/backend-release-safety.md)。
 
+2026-09-08 专属等级头衔与通用扩展配置后端已发布，三个新表保持为空。使用、协议和后续免加列的操作说明见 [扩展配置指南](../docs/extra-config.md)，验证记录见 [本次验收](../docs/extra-config-validation-20260908.md)。办公电脑上的 PocketBase 仅通过 Docker 运行，不直接启动本机二进制。
+
 ## 工程边界
 
-| 目录                       | 用途                                          |
-| -------------------------- | --------------------------------------------- |
-| `pb_migrations/`           | 24 个 `game_*` 集合、索引、认证规则、默认等级；题目设置迁移已正式发布 |
-| `pb_hooks/lib/api.js`      | `/api/questions/v1` 路由及输入边界            |
-| `pb_hooks/lib/gameplay.js` | 入场、判题、顺序、经验、奖励、线索            |
-| `pb_hooks/lib/admin.js`    | 内容版本、下发、现场干预与核销                |
-| `pb_hooks/lib/db.js`       | 事务、幂等命令、权限与审计                    |
-| `pb_hooks/lib/rules.js`    | 纯规则；Unicode 标准化与 JSVM 兼容            |
-| `contracts/game.ts`        | 两个前端共用的协议源文件                      |
-| `tests/`                   | 真实 PocketBase 集成测试与纯规则测试          |
-| `fixtures/demo.mjs`        | 仅含虚构人物和奖品的演示内容                  |
-| `deploy/`                  | 镜像和持久卷配置；不含业务数据或凭据          |
+| 目录                       | 用途                                                          |
+| -------------------------- | ------------------------------------------------------------- |
+| `pb_migrations/`           | 源码含 27 个 `game_*` 集合；本次新增 3 个扩展集合已部署且为空 |
+| `pb_hooks/lib/api.js`      | `/api/questions/v1` 路由及输入边界                            |
+| `pb_hooks/lib/gameplay.js` | 入场、判题、顺序、经验、奖励、线索                            |
+| `pb_hooks/lib/admin.js`    | 内容版本、下发、现场干预与核销                                |
+| `pb_hooks/lib/db.js`       | 事务、幂等命令、权限与审计                                    |
+| `pb_hooks/lib/rules.js`    | 纯规则；Unicode 标准化与 JSVM 兼容                            |
+| `contracts/game.ts`        | 两个前端共用的协议源文件                                      |
+| `tests/`                   | 真实 PocketBase 集成测试与纯规则测试                          |
+| `fixtures/demo.mjs`        | 仅含虚构人物和奖品的演示内容                                  |
+| `deploy/`                  | 镜像和持久卷配置；不含业务数据或凭据                          |
 
 玩家与工作人员使用独立认证集合。注册与直接写业务集合关闭；所有结算由服务器在事务内完成。请求 ID、唯一索引和经验流水防止双击、网络重试及并发重复发奖。填空题可按配置执行精确匹配或“包含全部关键词”，题目分组仅进入管理端目录；没有设置的旧题保持 `exact + 其他`。题面、答案和匹配模式继续受线上场次引用锁保护，分组可通过独立归类接口维护。功能激活和生产写入验收仍单独记录。
 
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 只用于新实例隔离演练。正式环境已完成旧备份恢复、内容导入、登录限速及 X-Real-IP 配置，并关闭空的默认 users 集合注册。截至 2026-08-31 20:57 +08:00，生产镜像为 `questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64`，`1788176000_question_settings.js` 已执行一次，`game_question_settings` 为 0 条，HTTPS 为 200 / 401 / 401。玩家端无需本次发布；新管理端尚由用户另行发布。2026-08-28 的历史内容快照不是实时统计，后续维护前必须重新只读核对。服务器已不监听 18090。
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。2026-09-08 15:29 +08:00，本次发布已 recorded，镜像为 `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`，新迁移 `1788825600_player_titles_extra.js` 只执行一次，三个新集合为空，HTTPS 为 200 / 401 / 401。两个前端由用户另行发布；本次未配置生产业务数据。服务器不监听 18090。完整基线与后续闸门以 [当前生产状态](../docs/current-production.md) 为准。
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 

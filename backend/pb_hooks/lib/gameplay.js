@@ -2,6 +2,8 @@ const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const cluePolicy = require(`${__hooks}/lib/clues.js`);
 const questionSettings = require(`${__hooks}/lib/question-settings.js`);
+const extras = require(`${__hooks}/lib/extra-config.js`);
+const titles = require(`${__hooks}/lib/player-titles.js`);
 function stats(app, playerId) {
   const record = db.maybe(app, "game_player_stats", "player={:id}", {
     id: playerId,
@@ -16,10 +18,19 @@ function ranks(app) {
       db.pick(row, ["order", "name", "minTotalXp"], ["visualConfig"]),
     );
 }
-function me(app, player) {
+function me(app, player, titleRows) {
   const totalXp = stats(app, player.id).getInt("totalXp");
   const levels = ranks(app);
   const eligible = levels.filter((level) => level.minTotalXp <= totalXp);
+  const current = eligible[eligible.length - 1];
+  const personalTitles = titleRows || titles.rows(app, player.id);
+  const extension = titleRows
+    ? {}
+    : extras.publicResult(
+        extras.reader(app, player.id, [`rank:${current.id}`])("profile", [
+          `rank:${current.id}`,
+        ]),
+      );
   return {
     id: player.id,
     account: player.getString("account"),
@@ -27,8 +38,13 @@ function me(app, player) {
     avatar: player.getString("avatar"),
     mustChangePassword: player.getBool("mustChangePassword"),
     totalXp,
-    level: eligible[eligible.length - 1],
-    nextLevel: levels.find((level) => level.minTotalXp > totalXp) || null,
+    level: titles.rank(current, personalTitles, player.id),
+    nextLevel: titles.rank(
+      levels.find((level) => level.minTotalXp > totalXp),
+      personalTitles,
+      player.id,
+    ),
+    ...extension,
   };
 }
 function assignment(app, id, playerId) {
@@ -205,8 +221,21 @@ function detail(app, row, privileged = false) {
     privileged ||
     (row.getString("startedAt") && row.getString("status") !== "cancelled");
   const clues = visibleClues(app, row, steps, byId, unlocked);
+  const chain = [`session:${session.id}`, `assignment:${row.id}`];
+  const visibleSteps = steps.filter(
+    (_, index) => privileged || (unlocked && index <= currentIndex),
+  );
+  const extensionReader = extras.reader(app, row.getString("player"), [
+    ...chain,
+    ...visibleSteps.flatMap((step) => [
+      `question:${step.getString("question")}`,
+      `session_level:${step.id}`,
+      `assignment_level:${row.id}:${step.id}`,
+    ]),
+  ]);
   return {
     ...summary(app, row, privileged),
+    ...extras.publicResult(extensionReader("assignment", chain)),
     presentation: db.json(session, "presentation", {}),
     completionTarget:
       row.getString("status") === "completed"
@@ -240,6 +269,14 @@ function detail(app, row, privileged = false) {
           : null;
       return {
         ...base,
+        ...extras.publicResult(
+          extensionReader("level", [
+            `question:${q.id}`,
+            ...chain,
+            `session_level:${step.id}`,
+            `assignment_level:${row.id}:${step.id}`,
+          ]),
+        ),
         question: db.pick(
           q,
           ["kind", "title", "placeholder"],
@@ -424,13 +461,11 @@ function complete(app, row, step, p, submission, actor) {
   });
   const activatedCommonClues = questionWasCompleted
     ? []
-    : cluePolicy
-        .questionClues(app, step.getString("question"))
-        .map((clue) => ({
-          type: "clue",
-          clueId: questionClueInstanceId(step.id, clue.id),
-          autoPlay: clue.getBool("autoPlay"),
-        }));
+    : cluePolicy.questionClues(app, step.getString("question")).map((clue) => ({
+        type: "clue",
+        clueId: questionClueInstanceId(step.id, clue.id),
+        autoPlay: clue.getBool("autoPlay"),
+      }));
   return {
     xpDelta: xp,
     rewardIds,

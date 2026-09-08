@@ -1,39 +1,36 @@
 # 当前生产状态
 
-本文件是生产状态的稳定入口，随组件发布和功能激活更新。带日期的 deployment 文档保留当时事实，不因为后续发布而改写；真正执行生产操作前仍必须只读复核线上状态。
-
-最后同步：2026-08-31 20:57 +08:00。后端基线依据 [题目关键词匹配与分组后端发布记录](question-keywords-groups-deployment-20260831.md)，两个前端继续依据上一轮公开静态资产只读检查。
+最后同步：2026-09-08 15:29 +08:00。本次数据库和后端已部署，依据 [专属头衔与扩展配置发布记录](extra-config-player-titles-deployment-20260908.md)。带日期记录保留历史事实；后续操作仍须只读复核现场。
 
 ## 当前组件状态
 
-| 组件或闸门 | 状态 | 说明 |
-| --- | --- | --- |
-| PocketBase 数据库迁移 | 已部署 | `1788176000_question_settings.js` 已执行一次；私有集合 `game_question_settings` 发布验收时为 0 条 |
-| PocketBase hooks / API | 已部署 | 生产镜像为 `questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64` |
-| 玩家端兼容版本 | 已部署，未因本次后端发布改动 | `main` / `56043fc`；本次题目分组不进入玩家 DTO，现有答题协议保持兼容 |
-| 管理端题目关键词/分组版本 | 尚未部署 | 后端接口已就绪；新管理端由用户另行 push、构建和发布，当前不可通过线上管理端配置新能力 |
-| 题目通用线索功能激活 | 可进入人工激活，当前数据状态未复核 | 后端发布时集合为空；本次文档任务未登录后台读取当前数量，也未创建线索 |
-| 题目关键词匹配与分组激活 | 未激活 | `game_question_settings` 为 0 条；旧题继续按 `exact + 其他` 处理，未回填旧题 |
-| 生产业务写入验收 | 未执行 | 未创建线索、未编辑场次、未使用真实账号答题或发奖 |
+| 组件或闸门                     | 状态                           | 说明                                                                                 |
+| ------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------ |
+| PocketBase 数据库迁移          | 已部署                         | `1788825600_player_titles_extra.js` 执行一次；新增三个私有集合发布时为空             |
+| PocketBase hooks / API         | 已部署                         | `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`              |
+| 玩家端扩展配置版本             | 待用户自行发布，本次未验证部署 | 用户负责 push 与自动构建部署                                                         |
+| 管理端专属头衔／扩展配置版本   | 待用户自行发布，本次未验证部署 | 用户负责 push 与自动构建部署                                                         |
+| 专属头衔及扩展配置激活         | 未激活                         | `game_player_level_titles`、`game_extra_definitions`、`game_extra_configs` 均为 0 行 |
+| 既有题目线索／关键词／分组功能 | 服务端能力保留                 | 本次不操作其配置，不据历史空表记录推断当前激活状态                                   |
+| 生产业务写入验收               | 未执行                         | 未创建字段、下发头衔、答题或发奖                                                     |
 
-本次关键词匹配与分组的服务端发布已经完成，玩家端无需随本能力发布。下一步由用户发布新管理端；确认管理端生效后，再由运营逐题编辑或使用“归类”入口手工回填。回填、开启关键词模式和真实答题验收仍是独立生产写入授权。
+后端可在空表状态兼容现有前端。完成两个前端发布后，再通过管理端配置新能力；业务下发不属于本次后端发布。使用说明见 [扩展配置指南](extra-config.md)。
 
 ## 最近核对的运行基线
 
-- 容器：`questions-game-v1`，最近验收为 healthy，重启计数 0。
-- PocketBase：0.40.1，Linux AMD64。
-- 实际镜像 ID：`sha256:b80955c122e8e6e6b9932d98dfeab80dc123f22baeff88a2b5b47f155f0f164a`。
-- Compose：`/opt/1panel/apps/questions-game-v1/compose.yaml`；仓库镜像模板为 `backend/deploy/1panel/compose.production.yaml`。
-- Compose SHA-256：`a0144f9794b3c4a84f7f0e8165b0620c5d3e585fa2b432eb75f00dc60a9b3bb5`。
-- 数据挂载：`/opt/1panel/apps/questions-game-v1/pb_data` 到 `/pb/pb_data`。
-- 端口：仅 `127.0.0.1:8090:8090`。
-- 迁移账本 SHA-256：`296348491ac81cba553be08650417cf89a84d9c89d61472eb0109566dc32032b`。
-- 当前最近正式记录：[2026-08-31 题目关键词匹配与分组后端发布记录](question-keywords-groups-deployment-20260831.md)。
+- 容器：`questions-game-v1`，healthy，重启计数 0，连续三次真实健康探测通过。
+- PocketBase：0.40.1，Linux AMD64，`--automigrate=false`。
+- 实际镜像 ID：`sha256:108261dbc3f2d877b85706cded3023fb49cf62e72feabb8b3231214691b9c80e`。
+- Compose：`/opt/1panel/apps/questions-game-v1/compose.yaml`；仓库模板 `backend/deploy/1panel/compose.production.yaml`。
+- Compose SHA256：`6fdb0247f00f0aff045bce4f919419afdf08fee9943fcbfdb492148789072a1f`。
+- 数据挂载：`/opt/1panel/apps/questions-game-v1/pb_data` → `/pb/pb_data`。
+- 端口：仅 `127.0.0.1:8090:8090`；HTTPS 健康及认证边界为 200 / 401 / 401。
+- 迁移账本 SHA256：`306cba996e23f57925aab42e3020b4a58d11291fb26af002d632bd68d5f44d8b`。
+- 根 release.json SHA256：`72c7374cad24dc463de72524a3dc2511f712f0ce3658f258325160ced1929207`。
+- releaseId：`extra-config-player-titles-20260908`，phase=`recorded`，revision 15，无未决阶段。
 
-这些值是最近审计快照，不是生产操作的替代检查。服务器状态与本文件不一致时立即停止，不自行选择一个版本继续。
+以上是验收快照，不能代替下次现场检查。实际状态不符时停止，不自行选择旧基线继续。
 
-## 当前操作单状态
+## 当前操作单
 
-当前没有待执行的生产升级操作单。`backend/deploy/1panel/UPGRADE.md` 是滚动槽，目前保留本次 R4 发布的完成版内容，下一次发布前必须完整替换和重审；不可变副本保留在服务器发布包、Git 历史和日期记录中。`backend/deploy/1panel/README.md` 是 0.22.12 首次替换部署历史。
-
-下一次升级必须先建立新的 source / target 兼容矩阵，更新版本专属操作单并使其与 `release.json`、迁移列表和发布包完全一致，再按 [后端迁移与生产发布安全规范](backend-release-safety.md) 执行。
+`backend/deploy/1panel/UPGRADE.md` 为本次已完成操作单，没有待执行的生产升级。不可变副本保留在服务器冻结发布包；下一次必须生成新的 source、target、迁移允许差异和 pending 操作单，不能复用这次 ready 计划。

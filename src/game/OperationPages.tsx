@@ -1,4 +1,5 @@
 import { AdminTable, EditorDrawer, Field, PageCard } from "./ui";
+import { PlayerTitleEditor } from "./PlayerTitleEditor";
 import { auditActionLabels, entityLabels } from "./display-labels";
 import { useEffect, useState } from "react";
 import {
@@ -78,6 +79,7 @@ export function OperationPage({
   );
 }
 function Players({ catalog, refresh }: Props) {
+  const [titlePlayer, setTitlePlayer] = useState<GamePlayer | null>(null);
   const [search, setSearch] = useState("");
   const [form] = Form.useForm(),
     [actionForm] = Form.useForm();
@@ -141,6 +143,17 @@ function Players({ catalog, refresh }: Props) {
             title: "操作",
             render: (_, row: GamePlayer & { status: string }) => (
               <Space wrap>
+                <Button
+                  disabled={!catalog.capabilities?.playerTitles}
+                  title={
+                    !catalog.capabilities?.playerTitles
+                      ? "后端尚未支持专属头衔"
+                      : undefined
+                  }
+                  onClick={() => setTitlePlayer(row)}
+                >
+                  专属头衔
+                </Button>
                 <Button onClick={() => prepare(row, "reset_password")}>
                   重置密码
                 </Button>
@@ -209,6 +222,15 @@ function Players({ catalog, refresh }: Props) {
           />
         </Form>
       </Modal>
+      {titlePlayer && (
+        <PlayerTitleEditor
+          key={titlePlayer.id}
+          player={titlePlayer}
+          ranks={catalog.ranks}
+          refresh={refresh}
+          onClose={() => setTitlePlayer(null)}
+        />
+      )}
       <Modal
         title={
           action

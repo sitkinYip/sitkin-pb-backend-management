@@ -44,6 +44,39 @@ test("preview drafts tolerate incomplete fields and omit private configuration",
       buttonText: "",
     });
     assert.equal(previewDraft("question", undefined).value.kind, "text");
+    const letter = previewDraft("narrative", {
+      id: "private-id",
+      title: "来信",
+      kind: "letter",
+      status: "published",
+      payload: {
+        variant: "magic",
+        typingSpeedMs: null,
+        paragraphs: [null, { content: "内容", align: "right", delayMs: 0 }],
+        phrases: [{ text: "hidden" }],
+        secret: "private",
+      },
+    });
+    assert.equal(letter.value.kind, "letter");
+    assert.equal(letter.value.payload.typingSpeedMs, 60);
+    assert.equal(letter.value.payload.paragraphs[0].content, "");
+    assert.equal(letter.value.payload.paragraphs[1].align, "right");
+    assert.equal(letter.value.payload.hintText, "点击开启信件");
+    assert.equal("secret" in letter.value.payload, false);
+    assert.equal("phrases" in letter.value.payload, false);
+    assert.equal("status" in letter.value, false);
+    const bless = previewDraft("narrative", {
+      kind: "bless",
+      payload: {
+        phrases: [{ text: "祝福", durationMs: 0 }, null],
+        closingLines: [{ text: "结束" }],
+        paragraphs: [{ content: "private" }],
+      },
+    });
+    assert.equal(bless.value.payload.phrases[0].durationMs, 0);
+    assert.equal(bless.value.payload.phrases[1].durationMs, 3000);
+    assert.equal(bless.value.payload.closingLines[0].text, "结束");
+    assert.equal("paragraphs" in bless.value.payload, false);
   } finally {
     await vite.close();
   }

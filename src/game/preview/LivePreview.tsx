@@ -74,7 +74,13 @@ export function LivePreview({
       )
         return;
       if (event.data.type === "sitkin:preview:ready") {
-        if (event.data.version !== EDITOR_PREVIEW_VERSION) setStatus("error");
+        if (
+          event.data.version !== EDITOR_PREVIEW_VERSION ||
+          (kind === "narrative" &&
+            (!Array.isArray(event.data.kinds) ||
+              !event.data.kinds.includes("narrative")))
+        )
+          setStatus("error");
         else {
           window.clearTimeout(timeout);
           setStatus("ready");
@@ -87,7 +93,7 @@ export function LivePreview({
       window.clearTimeout(timeout);
       window.removeEventListener("message", receive);
     };
-  }, [url, channel, active]);
+  }, [url, channel, active, kind]);
   useEffect(() => {
     if (!active || status !== "ready" || !url) return;
     const timer = window.setTimeout(() => {
@@ -133,6 +139,7 @@ export function LivePreview({
               value={device}
               onChange={(value) => {
                 setDevice(value);
+                if (kind === "narrative") setReset((n) => n + 1);
                 requestAnimationFrame(() =>
                   preview.current?.scrollIntoView({ block: "start" }),
                 );
@@ -147,26 +154,33 @@ export function LivePreview({
                 { value: "dark", label: "深色" },
               ]}
             />
-            <Select
-              aria-label="模拟展示状态"
-              value={state}
-              onChange={setState}
-              options={
-                kind === "question"
-                  ? [
-                      { value: "unanswered", label: "未作答" },
-                      { value: "incorrect", label: "答错" },
-                      { value: "completed", label: "答对" },
-                    ]
-                  : [
-                      { value: "unread", label: "未读详情" },
-                      { value: "read", label: "已读详情" },
-                      { value: "popup", label: "通知弹窗" },
-                    ]
-              }
-            />
+            {kind !== "narrative" && (
+              <Select
+                aria-label="模拟展示状态"
+                value={state}
+                onChange={setState}
+                options={
+                  kind === "question"
+                    ? [
+                        { value: "unanswered", label: "未作答" },
+                        { value: "incorrect", label: "答错" },
+                        { value: "completed", label: "答对" },
+                      ]
+                    : [
+                        { value: "unread", label: "未读详情" },
+                        { value: "read", label: "已读详情" },
+                        { value: "popup", label: "通知弹窗" },
+                      ]
+                }
+              />
+            )}
             <Button onClick={() => setReset((n) => n + 1)}>重置预览</Button>
           </Space>
+          {kind === "narrative" && (
+            <Typography.Paragraph type="secondary">
+              修改配置后，信件会收起、祝福会回到开始画面；正在播放的音频与打字效果会停止。点击预览中的开启按钮重新播放。
+            </Typography.Paragraph>
+          )}
           {status === "loading" && url && (
             <p role="status">正在连接玩家端预览…</p>
           )}
@@ -190,7 +204,7 @@ export function LivePreview({
               <iframe
                 key={channel}
                 ref={frame}
-                title={`${kind === "question" ? "题目" : "通知"}玩家端预览`}
+                title={`${kind === "question" ? "题目" : kind === "narrative" ? "剧情内容" : "通知"}玩家端预览`}
                 src={url.href}
                 sandbox="allow-scripts allow-same-origin"
                 referrerPolicy="strict-origin-when-cross-origin"

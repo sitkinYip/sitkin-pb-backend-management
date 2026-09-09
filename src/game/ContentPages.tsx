@@ -1779,7 +1779,7 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
       />
       <EditorDrawer
         title={readOnly ? "查看剧情内容" : id ? "编辑剧情草稿" : "新建剧情内容"}
-        width={760}
+        width={1280}
         open={open}
         forceRender
         onClose={() => setOpen(false)}
@@ -1812,6 +1812,7 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
             description={`${narrativeDeletionHint(selected, catalog.sessions)}复制的新版本不会自动替换旧场次引用。`}
           />
         )}
+        <LivePreview form={form} kind="narrative" active={open}>
         <Form
           name="narrative-editor"
           disabled={readOnly}
@@ -1963,6 +1964,7 @@ function NarrativeEditor({ catalog, refresh }: EditorProps) {
             </Form.List>
           ))}
         </Form>
+        </LivePreview>
       </EditorDrawer>
       <Modal
         title="删除剧情内容（保留历史）"

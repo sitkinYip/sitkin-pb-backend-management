@@ -28,7 +28,32 @@ const catalog = {
   sessions: [],
   players: [],
   rewards: [],
-  narratives: [],
+  narratives: [
+    {
+      id: "fixture-narrative",
+      seriesKey: "fixture",
+      revision: 1,
+      status: "draft",
+      kind: "letter",
+      title: "预览来信",
+      payload: {
+        variant: "modern",
+        description: "剧情预览说明",
+        hintText: "点击开启信件",
+        typingSpeedMs: 60,
+        paragraphs: [
+          {
+            content: "这是一段用于预览的剧情文字。",
+            align: "left",
+            delayMs: 0,
+          },
+        ],
+        phrases: [{ text: "愿你前程似锦", durationMs: 1000 }],
+        closingLines: [{ text: "故事仍在继续", durationMs: 1000 }],
+        backgroundImages: [],
+      },
+    },
+  ],
   ranks: [],
 };
 const originalFetch = window.fetch;
@@ -59,7 +84,13 @@ createRoot(document.getElementById("root")!).render(
           {location.search.includes("notification") ? (
             <OperationPage section="notifications" />
           ) : (
-            <ContentPage section="questions" />
+            <ContentPage
+              section={
+                location.search.includes("narrative")
+                  ? "narratives"
+                  : "questions"
+              }
+            />
           )}
         </div>
       </App>

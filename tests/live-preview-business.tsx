@@ -1,3 +1,5 @@
+import { LiveSessionSettingsDrawer } from "../src/game/LiveSessionSettingsDrawer";
+import type { AdminCatalog, AdminSession } from "../src/game/contracts";
 // Real business components with an in-memory catalog. All business writes reject.
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -25,7 +27,64 @@ const question = {
 };
 const catalog = {
   questions: [question],
-  sessions: [],
+  sessions: [
+    {
+      id: "fixture-session",
+      seriesKey: "fixture",
+      revision: 1,
+      status: "draft",
+      title: "场次预览测试",
+      description: "一段入场说明",
+      minLevel: "",
+      maxLevel: "",
+      presentation: {},
+      completionTarget: { kind: "narrative", id: "fixture-narrative" },
+      liveSettingsVersion: "fixture",
+      levels: [
+        {
+          id: "level-1",
+          question: question.id,
+          xp: 10,
+          autoNext: true,
+          presentationOverride: {},
+        },
+        {
+          id: "level-2",
+          question: question.id,
+          xp: 10,
+          presentationOverride: { hideTitle: true },
+        },
+      ],
+      clues: [
+        {
+          id: "clue-start",
+          trigger: "start",
+          kind: "text",
+          autoPlay: true,
+          content: {
+            title: "开场线索",
+            text: "这是开场提示",
+            url: "",
+            imageUrls: [],
+            buttonText: "查看线索",
+          },
+        },
+        {
+          id: "clue-manual",
+          trigger: "manual",
+          kind: "text",
+          content: {
+            title: "手动线索",
+            text: "手动解锁正文",
+            url: "",
+            imageUrls: [],
+            buttonText: "查看",
+          },
+        },
+      ],
+      rewardRules: [],
+    },
+  ],
   players: [],
   rewards: [],
   narratives: [
@@ -77,18 +136,35 @@ window.fetch = async (input, init) => {
   return originalFetch(input, init);
 };
 createRoot(document.getElementById("root")!).render(
-  <MemoryRouter>
+  <MemoryRouter
+    initialEntries={[
+      location.search.includes("session") ? "/?sessionId=fixture-session" : "/",
+    ]}
+  >
     <ColorModeContextProvider>
       <App>
         <div className="admin-shell" style={{ padding: 16 }}>
-          {location.search.includes("notification") ? (
+          {location.search.includes("session-live") ? (
+            <LiveSessionSettingsDrawer
+              session={
+                { ...catalog.sessions[0], status: "published" } as AdminSession
+              }
+              catalog={catalog as unknown as AdminCatalog}
+              questions={(catalog as unknown as AdminCatalog).questions}
+              open
+              onClose={() => {}}
+              refresh={async () => {}}
+            />
+          ) : location.search.includes("notification") ? (
             <OperationPage section="notifications" />
           ) : (
             <ContentPage
               section={
-                location.search.includes("narrative")
-                  ? "narratives"
-                  : "questions"
+                location.search.includes("session")
+                  ? "sessions"
+                  : location.search.includes("narrative")
+                    ? "narratives"
+                    : "questions"
               }
             />
           )}

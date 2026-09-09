@@ -16,19 +16,33 @@ import {
 } from "../contracts";
 import { previewDraft } from "./draft";
 
+type LivePreviewProps = {
+  form: FormInstance;
+  children: ReactNode;
+  active?: boolean;
+} & (
+  | {
+      kind: Exclude<EditorPreviewDraft["kind"], "session">;
+      draftOverride?: never;
+    }
+  | {
+      kind: "session";
+      draftOverride: Extract<EditorPreviewDraft, { kind: "session" }>;
+    }
+);
+
 export function LivePreview({
   form,
   kind,
   children,
   active = true,
-}: {
-  form: FormInstance;
-  kind: EditorPreviewDraft["kind"];
-  children: ReactNode;
-  active?: boolean;
-}) {
+  draftOverride,
+}: LivePreviewProps) {
   const values = Form.useWatch([], { form, preserve: true });
-  const draft = useMemo(() => previewDraft(kind, values), [kind, values]);
+  const draft = useMemo(
+    () => (kind === "session" ? draftOverride : previewDraft(kind, values)),
+    [kind, values, draftOverride],
+  );
   const frame = useRef<HTMLIFrameElement>(null);
   const preview = useRef<HTMLElement>(null);
   const revision = useRef(0);
@@ -76,9 +90,9 @@ export function LivePreview({
       if (event.data.type === "sitkin:preview:ready") {
         if (
           event.data.version !== EDITOR_PREVIEW_VERSION ||
-          (kind === "narrative" &&
+          ((kind === "narrative" || kind === "session") &&
             (!Array.isArray(event.data.kinds) ||
-              !event.data.kinds.includes("narrative")))
+              !event.data.kinds.includes(kind)))
         )
           setStatus("error");
         else {
@@ -139,7 +153,8 @@ export function LivePreview({
               value={device}
               onChange={(value) => {
                 setDevice(value);
-                if (kind === "narrative") setReset((n) => n + 1);
+                if (kind === "narrative" || kind === "session")
+                  setReset((n) => n + 1);
                 requestAnimationFrame(() =>
                   preview.current?.scrollIntoView({ block: "start" }),
                 );
@@ -154,7 +169,7 @@ export function LivePreview({
                 { value: "dark", label: "深色" },
               ]}
             />
-            {kind !== "narrative" && (
+            {kind !== "narrative" && kind !== "session" && (
               <Select
                 aria-label="模拟展示状态"
                 value={state}
@@ -204,7 +219,7 @@ export function LivePreview({
               <iframe
                 key={channel}
                 ref={frame}
-                title={`${kind === "question" ? "题目" : kind === "narrative" ? "剧情内容" : "通知"}玩家端预览`}
+                title={`${kind === "question" ? "题目" : kind === "narrative" ? "剧情内容" : kind === "session" ? "场次" : "通知"}玩家端预览`}
                 src={url.href}
                 sandbox="allow-scripts allow-same-origin"
                 referrerPolicy="strict-origin-when-cross-origin"

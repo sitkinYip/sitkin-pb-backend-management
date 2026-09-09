@@ -10,7 +10,7 @@ const items = (value: unknown): unknown[] =>
   Array.isArray(value) ? value : [];
 /** Explicit allowlist: never send answer keys, reasons, recipients or credentials. */
 export function previewDraft(
-  kind: EditorPreviewDraft["kind"],
+  kind: Exclude<EditorPreviewDraft["kind"], "session">,
   values: unknown,
 ): EditorPreviewDraft {
   const v = record(values);

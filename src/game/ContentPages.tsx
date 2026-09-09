@@ -1,3 +1,4 @@
+import { SessionPreview } from "./preview/SessionPreview";
 import { LivePreview } from "./preview/LivePreview";
 import { AdminTable, EditorDrawer, Field, PageCard } from "./ui";
 import { createRequestId } from "./request-id";
@@ -836,7 +837,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
       />
       <EditorDrawer
         title={readOnly ? "查看场次版本" : id ? "编辑场次草稿" : "新建场次"}
-        width={900}
+        width={1280}
         open={open}
         forceRender
         onClose={() => setOpen(false)}
@@ -902,6 +903,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
             }
           />
         )}
+        <SessionPreview form={form} catalog={catalog} active={open}>
         <Form
           name="session-editor"
           disabled={readOnly}
@@ -1420,6 +1422,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
             ]}
           />
         </Form>
+        </SessionPreview>
       </EditorDrawer>
       <Modal
         title={closing?.status === "draft" ? "作废场次草稿" : "永久下线场次"}
@@ -1474,6 +1477,7 @@ function SessionEditor({ catalog, refresh }: EditorProps) {
       <LiveSessionSettingsDrawer
         session={liveEditing || null}
         questions={catalog.questions}
+        catalog={catalog}
         open={Boolean(liveEditing)}
         onClose={() => setLiveEditingId("")}
         refresh={refresh}

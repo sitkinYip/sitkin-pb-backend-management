@@ -12,6 +12,27 @@ test("preview drafts tolerate incomplete fields and omit private configuration",
     const { previewDraft } = await vite.ssrLoadModule(
       "/src/game/preview/draft.ts",
     );
+    const reward = previewDraft("reward", {
+      name: "奖品",
+      claimMethod: "locker",
+      image: "/gift.png",
+      publicInstructions: "领取说明",
+      claimDetails: "private-code",
+      quantity: 10,
+      active: false,
+      player: "private-player",
+    });
+    assert.deepEqual(reward, {
+      kind: "reward",
+      value: {
+        name: "奖品",
+        claimMethod: "locker",
+        image: "/gift.png",
+        publicInstructions: "领取说明",
+        description: "",
+      },
+    });
+    assert.equal(previewDraft("reward", undefined).value.claimMethod, "staff");
     const question = previewDraft("question", {
       title: "题目",
       kind: "choice",

@@ -14,6 +14,20 @@ export function previewDraft(
   values: unknown,
 ): EditorPreviewDraft {
   const v = record(values);
+  if (kind === "reward")
+    return {
+      kind,
+      value: {
+        name: text(v.name),
+        image: text(v.image),
+        description: text(v.description),
+        publicInstructions: text(v.publicInstructions),
+        claimMethod:
+          v.claimMethod === "location" || v.claimMethod === "locker"
+            ? v.claimMethod
+            : "staff",
+      },
+    };
   if (kind === "narrative") {
     const p = record(v.payload);
     const narrativeKind = v.kind === "bless" ? "bless" : "letter";

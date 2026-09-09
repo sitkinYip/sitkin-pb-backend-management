@@ -164,7 +164,9 @@ createRoot(document.getElementById("root")!).render(
                   ? "sessions"
                   : location.search.includes("narrative")
                     ? "narratives"
-                    : "questions"
+                    : location.search.includes("reward")
+                      ? "rewards"
+                      : "questions"
               }
             />
           )}

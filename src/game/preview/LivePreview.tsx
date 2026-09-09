@@ -55,7 +55,11 @@ export function LivePreview({
   const [device, setDevice] = useState("手机");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [state, setState] = useState<EditorPreviewMessage["state"]>(
-    kind === "question" ? "unanswered" : "unread",
+    kind === "question"
+      ? "unanswered"
+      : kind === "reward"
+        ? "available"
+        : "unread",
   );
   const [reset, setReset] = useState(0);
   const url = useMemo(() => {
@@ -90,7 +94,7 @@ export function LivePreview({
       if (event.data.type === "sitkin:preview:ready") {
         if (
           event.data.version !== EDITOR_PREVIEW_VERSION ||
-          ((kind === "narrative" || kind === "session") &&
+          ((kind === "narrative" || kind === "session" || kind === "reward") &&
             (!Array.isArray(event.data.kinds) ||
               !event.data.kinds.includes(kind)))
         )
@@ -181,16 +185,28 @@ export function LivePreview({
                         { value: "incorrect", label: "答错" },
                         { value: "completed", label: "答对" },
                       ]
-                    : [
-                        { value: "unread", label: "未读详情" },
-                        { value: "read", label: "已读详情" },
-                        { value: "popup", label: "通知弹窗" },
-                      ]
+                    : kind === "reward"
+                      ? [
+                          { value: "available", label: "可领取" },
+                          { value: "redeemed", label: "已领取" },
+                          { value: "voided", label: "已作废" },
+                        ]
+                      : [
+                          { value: "unread", label: "未读详情" },
+                          { value: "read", label: "已读详情" },
+                          { value: "popup", label: "通知弹窗" },
+                        ]
                 }
               />
             )}
             <Button onClick={() => setReset((n) => n + 1)}>重置预览</Button>
           </Space>
+          {kind === "reward" && (
+            <Typography.Paragraph type="secondary">
+              按已发放 1
+              份模拟奖品卡片，不包含单次发放的私密领取信息；预览不发奖或核销。
+            </Typography.Paragraph>
+          )}
           {kind === "narrative" && (
             <Typography.Paragraph type="secondary">
               修改配置后，信件会收起、祝福会回到开始画面；正在播放的音频与打字效果会停止。点击预览中的开启按钮重新播放。
@@ -219,7 +235,7 @@ export function LivePreview({
               <iframe
                 key={channel}
                 ref={frame}
-                title={`${kind === "question" ? "题目" : kind === "narrative" ? "剧情内容" : kind === "session" ? "场次" : "通知"}玩家端预览`}
+                title={`${kind === "question" ? "题目" : kind === "narrative" ? "剧情内容" : kind === "session" ? "场次" : kind === "reward" ? "奖品" : "通知"}玩家端预览`}
                 src={url.href}
                 sandbox="allow-scripts allow-same-origin"
                 referrerPolicy="strict-origin-when-cross-origin"

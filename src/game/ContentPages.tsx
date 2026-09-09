@@ -1535,7 +1535,7 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
         ]}
       />
       <EditorDrawer
-        width={640}
+        width={1280}
         open={open}
         forceRender
         title="奖品配置"
@@ -1544,50 +1544,52 @@ function RewardEditor({ catalog, refresh }: EditorProps) {
           <FormFooter busy={busy} form={form} cancel={() => setOpen(false)} />
         }
       >
-        <Form
-          name="reward-editor"
-          form={form}
-          layout="vertical"
-          onFinish={async (values) => {
-            if (
-              await run(
-                id ? `/admin/rewards/${id}` : "/admin/rewards",
-                values,
-                id ? "PATCH" : "POST",
+        <LivePreview form={form} kind="reward" active={open}>
+          <Form
+            name="reward-editor"
+            form={form}
+            layout="vertical"
+            onFinish={async (values) => {
+              if (
+                await run(
+                  id ? `/admin/rewards/${id}` : "/admin/rewards",
+                  values,
+                  id ? "PATCH" : "POST",
+                )
               )
-            )
-              setOpen(false);
-          }}
-        >
-          <Field name="name" label="名称" rules={fieldRule}>
-            <Input />
-          </Field>
-          <Field name="image" label="图片">
-            <AlistMediaInput type="img" />
-          </Field>
-          <Field name="description" label="奖品说明">
-            <Input.TextArea />
-          </Field>
-          <Field name="claimMethod" label="领取方式" rules={fieldRule}>
-            <Select
-              options={[
-                { value: "staff", label: "找工作人员领取" },
-                { value: "location", label: "去指定地点领取" },
-                { value: "locker", label: "柜子领取" },
-              ]}
-            />
-          </Field>
-          <Field
-            name="publicInstructions"
-            label="可复用的领取说明"
-            extra={<TextSyntaxHelp />}
+                setOpen(false);
+            }}
           >
-            <Input.TextArea rows={4} />
-          </Field>
-          <Field name="active" label="启用" valuePropName="checked">
-            <Switch />
-          </Field>
-        </Form>
+            <Field name="name" label="名称" rules={fieldRule}>
+              <Input />
+            </Field>
+            <Field name="image" label="图片">
+              <AlistMediaInput type="img" />
+            </Field>
+            <Field name="description" label="奖品说明">
+              <Input.TextArea />
+            </Field>
+            <Field name="claimMethod" label="领取方式" rules={fieldRule}>
+              <Select
+                options={[
+                  { value: "staff", label: "找工作人员领取" },
+                  { value: "location", label: "去指定地点领取" },
+                  { value: "locker", label: "柜子领取" },
+                ]}
+              />
+            </Field>
+            <Field
+              name="publicInstructions"
+              label="可复用的领取说明"
+              extra={<TextSyntaxHelp />}
+            >
+              <Input.TextArea rows={4} />
+            </Field>
+            <Field name="active" label="启用" valuePropName="checked">
+              <Switch />
+            </Field>
+          </Form>
+        </LivePreview>
       </EditorDrawer>
     </PageCard>
   );

@@ -1,4 +1,15 @@
 import { pb } from "../pocketbase";
+
+export class GameRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+  }
+}
+
 export async function gameRequest<T>(
   path: string,
   body?: unknown,
@@ -19,7 +30,11 @@ export async function gameRequest<T>(
   if (!response.ok) {
     if (response.status === 401 && token === pb.authStore.token)
       pb.authStore.clear();
-    throw new Error(data.error?.message || `请求失败（${response.status}）`);
+    throw new GameRequestError(
+      data.error?.message || `请求失败（${response.status}）`,
+      response.status,
+      data.error?.code,
+    );
   }
   if (token !== pb.authStore.token)
     throw new Error("登录状态已变化，请重新进入页面");

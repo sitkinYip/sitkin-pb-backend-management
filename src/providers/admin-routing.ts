@@ -11,6 +11,7 @@ export const adminResources = [
   ["grants", "奖品核销"],
   ["narratives", "剧情内容"],
   ["notifications", "通知"],
+  ["push-settings", "鸿蒙推送"],
   ["ranks", "等级设置"],
   ["extras", "扩展配置"],
   ["audit", "操作记录"],

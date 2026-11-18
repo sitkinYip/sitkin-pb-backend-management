@@ -329,7 +329,7 @@ test("uploaded media fields preview in place without opening a new tab", async (
 });
 
 test("every active area has guidance and critical rules stay explicit", () => {
-  assert.equal(Object.keys(guides.pageGuides).length, 12);
+  assert.equal(Object.keys(guides.pageGuides).length, 13);
   for (const guide of Object.values(guides.pageGuides)) {
     assert(guide.description);
     assert.equal(guide.steps.length, 3);
@@ -338,6 +338,7 @@ test("every active area has guidance and critical rules stay explicit", () => {
   assert.match(guides.fieldGuides["可复用的领取说明"].hint, /个人取件码/);
   assert.match(guides.fieldGuides["下发范围"].hint, /不包含以后新建/);
   assert.match(guides.fieldGuides["累计经验下限"].hint, /不是/);
+  assert.match(guides.pageGuides["鸿蒙推送"].steps[1], /已授权并绑定设备/);
 });
 
 test("responsive rules fix viewport sizing and replace fixed form rows with grids", async () => {

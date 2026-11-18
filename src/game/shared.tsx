@@ -36,7 +36,7 @@ export function useAdminData<T>(path: string) {
       generation.current++;
     };
   }, [refresh]);
-  return { data, error, loading, refresh };
+  return { data, error, loading, refresh, setData };
 }
 export function useAdminCommand(refresh: () => Promise<void>) {
   const [busy, setBusy] = useState(false);

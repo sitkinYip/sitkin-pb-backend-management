@@ -34,6 +34,7 @@ export const auditActionLabels: Record<string, string> = {
   manual_grant: "人工发奖",
   send_notification: "发送通知",
   withdraw_notification: "撤回通知",
+  update_push_settings: "更新鸿蒙推送范围",
 };
 export const entityLabels: Record<string, string> = {
   game_player_level_titles: "用户专属头衔",
@@ -50,4 +51,5 @@ export const entityLabels: Record<string, string> = {
   game_narratives: "剧情内容",
   game_level_definitions: "等级",
   game_notifications: "通知",
+  game_push_settings: "鸿蒙推送设置",
 };

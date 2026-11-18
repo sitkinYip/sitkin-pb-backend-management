@@ -180,6 +180,24 @@ select {
   border-color: var(--admin-line);
   box-shadow: 0 2px 4px rgb(20 40 65 / 2%);
 }
+
+.admin-push-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  max-width: 760px;
+  min-width: 0;
+}
+.admin-push-settings-status {
+  border-bottom: 1px solid var(--admin-line);
+  padding-block-end: 12px;
+}
+.admin-push-settings-scope-note {
+  margin-block-end: 24px;
+}
+.admin-push-settings-resolve {
+  margin-block-start: 8px;
+}
 .admin-page-body > .ant-card-body {
   padding: 24px;
   min-width: 0;

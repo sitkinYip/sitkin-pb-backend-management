@@ -11,6 +11,8 @@ import {
   TrophyOutlined,
   AuditOutlined,
   FolderOpenOutlined,
+  BellOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { adminResources } from "../providers/admin-routing";
 
@@ -24,7 +26,9 @@ const icons = [
   <SafetyCertificateOutlined />,
   <MailOutlined />,
   <NotificationOutlined />,
+  <BellOutlined />,
   <TrophyOutlined />,
+  <SettingOutlined />,
   <AuditOutlined />,
   <FolderOpenOutlined />,
 ];

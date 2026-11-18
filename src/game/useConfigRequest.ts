@@ -12,12 +12,13 @@ export function useConfigRequest() {
     path: string,
     input?: Record<string, unknown>,
     command = false,
+    options?: { method?: string; onError?: (error: Error) => void },
   ): Promise<T | null> {
     if (running.current) return null;
     running.current = true;
     setBusy(true);
     setError(null);
-    const signature = JSON.stringify([path, input]);
+    const signature = JSON.stringify([path, options?.method, input]);
     let body = input;
     if (command) {
       const requestId = pending.current.get(signature) || createRequestId();
@@ -25,11 +26,13 @@ export function useConfigRequest() {
       body = { ...input, requestId };
     }
     try {
-      const result = await gameRequest<T>(path, body);
+      const result = await gameRequest<T>(path, body, options?.method);
       pending.current.delete(signature);
       return result;
     } catch (cause) {
-      setError(cause instanceof Error ? cause : new Error("操作失败"));
+      const error = cause instanceof Error ? cause : new Error("操作失败");
+      setError(error);
+      options?.onError?.(error);
       return null;
     } finally {
       running.current = false;

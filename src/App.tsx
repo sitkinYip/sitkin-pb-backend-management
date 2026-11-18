@@ -24,6 +24,7 @@ import { ColorModeContextProvider } from "./contexts/color-mode";
 import { ContentPage } from "./game/ContentPages";
 import { OperationPage } from "./game/OperationPages";
 import { ExtraConfigPage } from "./game/ExtraConfigPage";
+import { PushSettingsPage } from "./game/PushSettingsPage";
 import { ResourceManager } from "./pages/resourceManager";
 import { LoginRoute } from "./pages/login";
 import { authProvider } from "./providers/auth";
@@ -114,6 +115,7 @@ function App() {
                     element={<ResourceManager />}
                   />
                   <Route path="/extras" element={<ExtraConfigPage />} />
+                  <Route path="/push-settings" element={<PushSettingsPage />} />
                   <Route
                     path="*"
                     element={<Navigate to={ADMIN_HOME} replace />}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pending",
-  "releaseId": "extra-config-player-titles-20260908",
+  "releaseId": "harmony-push-20261118",
   "transport": {
     "sshTarget": "root@47.120.62.73",
     "sshPort": 22
@@ -29,27 +29,29 @@
     "rootChecksumsPath": "/opt/1panel/apps/questions-game-v1/SHA256SUMS"
   },
   "source": {
-    "imageTag": "questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64",
-    "imageId": "sha256:b80955c122e8e6e6b9932d98dfeab80dc123f22baeff88a2b5b47f155f0f164a",
-    "composeSha256": "a0144f9794b3c4a84f7f0e8165b0620c5d3e585fa2b432eb75f00dc60a9b3bb5",
-    "releaseJsonSha256": "d2af039db461837b832399a78e8100ae53e8ed446d049f8f835deb0de4239a86",
-    "migrationLedgerSha256": "296348491ac81cba553be08650417cf89a84d9c89d61472eb0109566dc32032b",
+    "imageTag": "questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64",
+    "imageId": "sha256:108261dbc3f2d877b85706cded3023fb49cf62e72feabb8b3231214691b9c80e",
+    "composeSha256": "6fdb0247f00f0aff045bce4f919419afdf08fee9943fcbfdb492148789072a1f",
+    "releaseJsonSha256": "72c7374cad24dc463de72524a3dc2511f712f0ce3658f258325160ced1929207",
+    "migrationLedgerSha256": "306cba996e23f57925aab42e3020b4a58d11291fb26af002d632bd68d5f44d8b",
     "requiredMigrationFiles": [
       "1787788800_game_schema.js",
       "1787911200_expand_audit_diff.js",
       "1788143000_question_clues.js",
-      "1788176000_question_settings.js"
+      "1788176000_question_settings.js",
+      "1788825600_player_titles_extra.js"
     ]
   },
   "target": {
-    "imageTag": "questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64",
+    "imageTag": "questions-pocketbase:0.40.1-harmony-push-20261118-amd64",
     "pocketbaseVersion": "0.40.1",
     "platform": "linux/amd64"
   },
   "migration": {
     "mode": "required",
     "newFiles": [
-      "1788825600_player_titles_extra.js"
+      "1794988800_harmony_push.js",
+      "1794988860_push_audience.js"
     ],
     "verifier": "additive-empty-collections-v1"
   },
@@ -63,6 +65,10 @@
       },
       {
         "path": "/api/questions/v1/assignment",
+        "expectedStatus": 401
+      },
+      {
+        "path": "/api/questions/v1/admin/push-settings",
         "expectedStatus": 401
       }
     ]

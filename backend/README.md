@@ -1,6 +1,6 @@
 # Questions 游戏后端
 
-2026-09-08 已完成专属等级头衔与通用扩展配置的数据库和后端发布。当前生产镜像为 `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`，本次新增三个空私有集合；已有题目线索、关键词／分组等能力保留。当前状态见 [生产状态](../docs/current-production.md)，实际镜像、备份及校验记录见 [本次发布记录](../docs/extra-config-player-titles-deployment-20260908.md)。两个前端由用户自行 push 和自动部署，本次未下发配置或执行真实业务写入。
+2026-11-18 已完成鸿蒙 Push 的数据库和后端发布。生产镜像为 `questions-pocketbase:0.40.1-harmony-push-20261118-amd64`；两条迁移新增三个空私有集合。推送总开关保持关闭。本次镜像、备份和检查结果见 [发布记录](../docs/harmony-push-deployment-20261118.md)，运营后台、发送凭据与邀请包的进度见 [当前生产状态](../docs/current-production.md)。
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
@@ -14,7 +14,7 @@
 
 | 目录                       | 用途                                                          |
 | -------------------------- | ------------------------------------------------------------- |
-| `pb_migrations/`           | 源码含 27 个 `game_*` 集合；本次新增 3 个扩展集合已部署且为空 |
+| `pb_migrations/`           | 版本化业务集合和索引；鸿蒙 Push 的三个私有集合已随迁移部署   |
 | `pb_hooks/lib/api.js`      | `/api/questions/v1` 路由及输入边界                            |
 | `pb_hooks/lib/gameplay.js` | 入场、判题、顺序、经验、奖励、线索                            |
 | `pb_hooks/lib/admin.js`    | 内容版本、下发、现场干预与核销                                |
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。2026-09-08 15:29 +08:00，本次发布已 recorded，镜像为 `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`，新迁移 `1788825600_player_titles_extra.js` 只执行一次，三个新集合为空，HTTPS 为 200 / 401 / 401。两个前端由用户另行发布；本次未配置生产业务数据。服务器不监听 18090。完整基线与后续闸门以 [当前生产状态](../docs/current-production.md) 为准。
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。鸿蒙 Push 后端于 2026-11-18 16:52 +08:00 进入 `recorded`：两条新迁移各入账一次，三个新集合仍为空，HTTPS 健康返回 200，三个未认证接口返回 401。没有配置凭据、开启推送或执行生产业务验收写入。实际运行基线与后续验证见 [当前生产状态](../docs/current-production.md)。
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 

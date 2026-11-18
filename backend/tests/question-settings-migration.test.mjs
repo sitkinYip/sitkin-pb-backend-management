@@ -12,7 +12,7 @@ const source = readFileSync(
 );
 const allowedDelta = JSON.parse(
   readFileSync(
-    new URL("../deploy/1panel/allowed-delta.json", import.meta.url),
+    new URL("./fixtures/allowed-delta-question-settings.json", import.meta.url),
     "utf8",
   ),
 );
@@ -66,7 +66,7 @@ test("question settings migration refuses a destructive downgrade", () => {
   assert.throws(() => down(), /downgrade is intentionally disabled/i);
 });
 
-test("production delta enumerates the explicit and SQLite-generated indexes", () => {
+test("question settings release delta enumerates its explicit and SQLite-generated indexes", () => {
   assert.deepEqual(allowedDelta.newSchemaObjects, [
     {
       type: "index",

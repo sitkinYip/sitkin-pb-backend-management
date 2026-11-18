@@ -4,6 +4,8 @@ const game = require(`${__hooks}/lib/gameplay.js`);
 const admin = require(`${__hooks}/lib/admin.js`);
 const extras = require(`${__hooks}/lib/extra-config.js`);
 const titles = require(`${__hooks}/lib/player-titles.js`);
+const push = require(`${__hooks}/lib/push.js`);
+const pushSettings = require(`${__hooks}/lib/push-settings.js`);
 function readBody(e) {
   return JSON.parse(JSON.stringify(e.requestInfo().body || {}));
 }
@@ -134,11 +136,13 @@ function sendNotification(e, body) {
     const recipients = players.filter(
       (p) => p.getString("status") === "active",
     );
-    for (const player of recipients)
-      db.create(app, "game_notification_receipts", {
+    for (const player of recipients) {
+      const receipt = db.create(app, "game_notification_receipts", {
         notification: note.id,
         player: player.id,
       });
+      push.enqueue(app, player, "inbox", receipt, note.getString("expiresAt"));
+    }
     db.audit(app, actor, "send_notification", note, "", body.requestId, {
       count: recipients.length,
     });
@@ -260,8 +264,8 @@ function manualGrant(e, body) {
     return { id: row.id };
   });
 }
-function handle(e) {
-  const path = e.request.pathValue("path").replace(/\/$/, "");
+function handle(e, explicitPath) {
+  const path = explicitPath || e.request.pathValue("path").replace(/\/$/, "");
   const parts = path.split("/"),
     method = e.request.method;
   const body = method === "GET" ? {} : readBody(e);
@@ -270,6 +274,11 @@ function handle(e) {
   if (path === "me/profile" && method === "PATCH") return profile(e, body);
   if (path === "me/change-password" && method === "POST")
     return changePassword(e, body);
+  if (path === "me/push/register" && method === "POST")
+    return push.register(e, body);
+  if (path === "me/push/unregister" && method === "POST")
+    return push.unregister(e, body);
+  if (path === "push/revoke" && method === "POST") return push.revoke(e, body);
   if (path === "assignments" && method === "GET") {
     const player = db.actor(e.app, e);
     return {
@@ -351,6 +360,8 @@ function handle(e) {
   }
   if (parts[0] === "admin") {
     db.actor(e.app, e, true);
+    if (path === "admin/push-settings" && method === "GET") return pushSettings.read(e.app);
+    if (path === "admin/push-settings" && method === "PATCH") return pushSettings.save(e, body);
     if (path === "admin/extra-definitions" && method === "GET")
       return extras.definitions(e.app);
     if (path === "admin/extra-definitions" && method === "POST")

@@ -965,6 +965,7 @@ function assign(e, body) {
         status: "assigned",
         assignmentId: row.id,
       });
+      require(`${__hooks}/lib/push.js`).enqueue(app, player, "assignment", row, end);
     }
     return {
       target: body.target,

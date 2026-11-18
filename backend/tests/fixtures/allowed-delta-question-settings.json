@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "verifier": "additive-empty-collections-v1",
+  "newMigrationFiles": ["1788176000_question_settings.js"],
+  "newCollections": [
+    { "name": "game_question_settings", "requirePrivate": true }
+  ],
+  "newSchemaObjects": [
+    {
+      "type": "index",
+      "name": "idx_game_question_settings_question",
+      "table": "game_question_settings"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_question_settings_1",
+      "table": "game_question_settings"
+    },
+    {
+      "type": "table",
+      "name": "game_question_settings",
+      "table": "game_question_settings"
+    }
+  ],
+  "emptyTables": ["game_question_settings"]
+}

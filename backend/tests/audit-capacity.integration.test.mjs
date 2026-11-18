@@ -202,6 +202,9 @@ test(
                 "game_player_level_titles",
                 "game_extra_definitions",
                 "game_extra_configs",
+                "game_push_bindings",
+                "game_push_deliveries",
+                "game_push_settings",
               ].includes(row.name),
           ),
           expected,
@@ -215,6 +218,9 @@ test(
           "game_player_level_titles",
           "game_extra_definitions",
           "game_extra_configs",
+          "game_push_bindings",
+          "game_push_deliveries",
+          "game_push_settings",
         ]) {
           const collection = afterSchema.find((row) => row.name === name);
           assert(collection);

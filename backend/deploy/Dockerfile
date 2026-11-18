@@ -1,5 +1,5 @@
 FROM alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata openssl
 WORKDIR /pb
 # runtime/pocketbase must be the checksum-verified Linux binary for the target CPU.
 COPY deploy/runtime/pocketbase /pb/pocketbase

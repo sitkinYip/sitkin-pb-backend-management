@@ -12,8 +12,18 @@ import {
   version,
 } from "../scripts/runtime.mjs";
 
-export async function createTestServer({ migrationNames } = {}) {
+export async function createTestServer({
+  migrationNames,
+  env = {},
+  testHooks = "",
+  pushSmokeSecretFile,
+} = {}) {
   const containerImage = process.env.PB_DOCKER_IMAGE;
+  if (pushSmokeSecretFile && (!containerImage || !path.isAbsolute(pushSmokeSecretFile) ||
+      /[\r\n,]/.test(pushSmokeSecretFile) || env.STARWARD_PUSH_ENABLED !== "1" ||
+      env.STARWARD_PUSH_TEST_MODE !== "1" ||
+      !/^[a-z0-9]{15}$/.test(env.STARWARD_PUSH_TEST_PLAYER_ID || "")))
+    throw new Error("Push smoke credential mount is limited to one isolated test player");
   if (containerImage) {
     const actual = execFileSync(
       "docker",
@@ -42,7 +52,8 @@ export async function createTestServer({ migrationNames } = {}) {
   );
   await writeFile(
     path.join(directory, "pb_hooks", "test-only.pb.js"),
-    'routerAdd("POST", "/__test/normalize", e => e.json(200, { value: require(`${__hooks}/lib/rules.js`).normalizeAnswer(e.requestInfo().body.value) }), $apis.requireAuth("_superusers"));',
+    'routerAdd("POST", "/__test/normalize", e => e.json(200, { value: require(`${__hooks}/lib/rules.js`).normalizeAnswer(e.requestInfo().body.value) }), $apis.requireAuth("_superusers"));\n' +
+      testHooks,
   );
   const password = `T-${randomUUID()}`;
   const mountArgs = [
@@ -104,6 +115,17 @@ export async function createTestServer({ migrationNames } = {}) {
     });
   });
   const containerName = `questions-pb-test-${randomUUID()}`;
+  const isolatedEnv = {
+    STARWARD_PUSH_ENABLED: "0",
+    STARWARD_PUSH_TEST_MODE: "1",
+    STARWARD_PUSH_TEST_PLAYER_ID: "",
+    STARWARD_PUSH_PROJECT_ID: "",
+    STARWARD_PUSH_SERVICE_ACCOUNT_FILE: "",
+    ...env,
+    ...(pushSmokeSecretFile ? {
+      STARWARD_PUSH_SERVICE_ACCOUNT_FILE: "/run/secrets/starward-push-service-account.json",
+    } : {}),
+  };
   const spawnServer = () =>
     containerImage
       ? spawn(
@@ -115,7 +137,12 @@ export async function createTestServer({ migrationNames } = {}) {
             containerName,
             "-p",
             `127.0.0.1:${port}:8090`,
+            ...Object.entries(isolatedEnv).flatMap(([name, value]) => ["-e", `${name}=${value}`]),
             ...mountArgs,
+            ...(pushSmokeSecretFile ? [
+              "--mount",
+              `type=bind,source=${pushSmokeSecretFile},target=/run/secrets/starward-push-service-account.json,readonly`,
+            ] : []),
             containerImage,
             "serve",
             "--http=0.0.0.0:8090",
@@ -125,6 +152,7 @@ export async function createTestServer({ migrationNames } = {}) {
         )
       : spawn(binary, ["serve", `--http=127.0.0.1:${port}`, ...runtimeArgs], {
           stdio: ["ignore", "pipe", "pipe"],
+          env: { ...process.env, ...isolatedEnv },
         });
   let logs = "";
   let child;
@@ -169,7 +197,10 @@ export async function createTestServer({ migrationNames } = {}) {
     }
     if (!ready) throw new Error(`PocketBase did not become ready: ${logs}`);
   };
-  const upgradeMigrations = async ({ restoreCopy = false } = {}) => {
+  const upgradeMigrations = async ({
+    restoreCopy = false,
+    targetMigrationNames,
+  } = {}) => {
     await stopProcess();
     if (restoreCopy) {
       const restored = path.join(directory, "restored_pb_data");
@@ -184,7 +215,7 @@ export async function createTestServer({ migrationNames } = {}) {
         ? "--dir=/test-data/restored_pb_data"
         : `--dir=${restored}`;
     }
-    migrationNames = undefined;
+    migrationNames = targetMigrationNames;
     await copyMigrations();
     invoke(["migrate", "up", ...runtimeArgs]);
     startProcess();

@@ -1,64 +1,47 @@
-# 专属等级头衔与扩展配置后端升级操作单
+# 鸿蒙 Push 后端升级操作单
 
 <!-- release-status: completed -->
-<!-- release-id: extra-config-player-titles-20260908 -->
-<!-- source-image: questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64 -->
-<!-- target-image: questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64 -->
+<!-- release-id: harmony-push-20261118 -->
+<!-- source-image: questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64 -->
+<!-- target-image: questions-pocketbase:0.40.1-harmony-push-20261118-amd64 -->
+
+**已完成，不可复用。** 2026-11-18 16:52:45 +08:00 只读状态核对为 `recorded`、revision 15，无未决操作或阻塞。下方是本次历史操作与范围；下一次发布须重新盘点并审查独立的待执行操作单。证据见 [鸿蒙 Push 后端发布记录](../../../docs/harmony-push-deployment-20261118.md)。
 
 ## 目标与范围
 
-用户要求通过维护隧道发布本次 PocketBase 数据库和 hooks；两个前端由用户自行 push 和自动部署。本次不提交或推送前端、不创建生产字段定义、不下发专属头衔或扩展值、不执行真实答题。
+发布鸿蒙 Push 的 PocketBase hooks 和两个加性迁移。唯一目标是 `questions-game-v1`；项目在 `/opt/1panel/apps/questions-game-v1`，沿用其 Compose 和 `pb_data`。PocketBase 继续使用 0.40.1、Linux AMD64、`--automigrate=false`、`127.0.0.1:8090`。目标镜像增加 OpenSSL 命令行用于签名。
 
-唯一目标为 `questions-game-v1`，项目 `/opt/1panel/apps/questions-game-v1`，Compose 为其中 `compose.yaml`，唯一数据目录为其中 `pb_data`，端口保持 `127.0.0.1:8090`，PocketBase 保持 0.40.1 / Linux AMD64 / `--automigrate=false`。
+同批 `release-plan.json` 固定主机、source 镜像 ID、Compose、根发布材料和迁移账本摘要；来源为仓库内 2026-09-08 已部署记录，冻结或执行前必须用本次只读 inventory 核实。基线不同先排查，不复用以前的发布包或操作单。
 
-source 为 `questions-pocketbase:0.40.1-question-keywords-groups-r4-20260831-amd64`，目标为 `questions-pocketbase:0.40.1-extra-config-player-titles-20260908-amd64`。完整 image ID、Compose、根发布信息、迁移账本和主机身份基线以同批 `release-plan.json` 为准，必须经本次只读 inventory 核实后才能冻结制品。历史来源为 `docs/question-keywords-groups-deployment-20260831.md`，历史值不能替代现场核验。
+这次镜像切换保持 Push 总开关关闭（现有 Compose 无启用变量）。不添加发送凭据、通知绑定、业务数据或发布期配置；正式发送开通以及指定账号真机写入是 `recorded` 后的独立步骤。
 
-## 兼容与休眠
+## 兼容与顺序
 
-| 组合                       | 行为                                                                        |
-| -------------------------- | --------------------------------------------------------------------------- |
-| 旧玩家端＋新后端，无配置   | 默认名称和原有答题行为不变                                                  |
-| 旧玩家端＋新后端，有配置   | name 可显示专属名称；忽略 extra，被动文案可能不显示；不改变经验、权限或奖励 |
-| 新玩家端＋旧后端           | 可选扩展缺失时安全回退                                                      |
-| 旧管理端＋新后端           | 独立配置集合不被旧接口覆盖                                                  |
-| 新管理端＋旧后端           | 根据 capabilities 禁用不支持的入口                                          |
-| 新管理端＋新后端＋旧玩家端 | 本次保持三个新表为空；新配置待用户完成前端发布后另行激活                    |
+| 组合 | 行为 |
+| --- | --- |
+| 旧管理端＋新后端 | 保留原路由，Push 保持关闭，不阻碍现有业务写入 |
+| 新管理端＋旧后端 | 新入口 API 不存在时明确提示，原有业务仍可访问；安排后端先发布 |
+| 旧玩家端＋新后端 | 原登录、答题、场次和来信接口保持；无设备绑定不会收到系统通知 |
+| 支持 Push 的邀请包＋新后端 | 关闭期间不登记；后续只在服务端正式模式、白名单和用户授权均就绪后接收新增事件 |
+| 旧或支持 Push 的玩家端＋新管理端 | 保存范围只影响 Push；旧能力及应用内来信不依赖它，不补发历史事件 |
 
-发布阶段暂停管理端配置写入，直到 finalize 完成。停服窗口从 backup 开始，到 switch 验证健康结束；期间答题 API 暂不可用。每步先核对上一阶段结果，程序不会自动跨阶段。
+后端进入 `recorded` 前不写新配置。后续发布运营端、配置生产密钥及正式模式，然后先只使用专用游戏玩家白名单和小范围邀请包；不在此发布自动开放或发送真实通知。
 
-## 精确允许差异
+## 迁移允许差异
 
-只追加迁移 `1788825600_player_titles_extra.js`，只创建三个空私有集合及表：
+只新增 `1794988800_harmony_push.js`、`1794988860_push_audience.js`。它们创建空且私有的 `game_push_bindings`、`game_push_deliveries`、`game_push_settings` 及同批 `allowed-delta.json` 列明的索引。现有表、字段、索引、集合定义及历史账本不得改变，不回填旧场次/来信或设备。只使用现有 `additive-empty-collections-v1`，三个新表在迁移、切换和最终记录时均应为空。停止服务期间，未许可的既有数据差异均闭锁；健康恢复后允许真实业务继续写入既有业务表。
 
-- `game_player_level_titles`：`idx_game_player_level_titles_owner`、`sqlite_autoindex_game_player_level_titles_1`。
-- `game_extra_definitions`：`idx_game_extra_definitions_key`、`sqlite_autoindex_game_extra_definitions_1`。
-- `game_extra_configs`：`idx_game_extra_configs_binding`、`idx_game_extra_configs_lookup`、`idx_game_extra_configs_request`、`sqlite_autoindex_game_extra_configs_1`。
+## 发布与验收
 
-上述集合在迁移、切换和 finalize 时均须为 0 行且所有直接访问规则保持私有。原有表、字段、索引、集合定义及历史迁移账本不可改写；不回填现有用户、题目、场次、等级、经验或奖励。精确物理允许清单见同批 `allowed-delta.json`，采用现有 `additive-empty-collections-v1` verifier。
+1. 本地检查已审 Linux AMD64 镜像，使用运行时固定 SHA256、内嵌代码核验和隔离测试。通过用户建立的 ControlMaster，用 Git HEAD 内未修改的 runner 执行 `inventory`，核对全部 source 事实，再冻结制品。若映像含未提交工作区源码，以制品和源文件逐一摘要为准，不声称 HEAD 能独立复现。
+2. 用 `package-1panel.mjs --upgrade` 和同批 plan／allowed delta 生成 ready 计划。核对外层和包内 SHA256。执行只读 preflight 后，由操作者在交互 TTY 输入实际 `STAGE` 短语，上传、加载并隔离验证候选镜像；生产继续运行旧服务。
+3. 确认维护窗口和本阶段短语；第一次 `deploy` 停止唯一目标容器，备份完整数据和根版本材料，核对恢复文件及 SQLite，在恢复副本迁移并两次启动。完成后生产保持停写。
+4. 复核状态和备份，独立批准第二次 `deploy`，只对正式库运行一次迁移。再次检查后独立批准第三次，仅切换 Compose 镜像，同一容器至少三次不同的真实健康探测，重启计数为零。
+5. 独立批准第四次 `deploy`，核对三个空表、账本和健康边界，记入根版本材料。另行按已冻结制品运行 `status`，确认 `recorded`、无未决标记。
+6. 本阶段只读验收：HTTPS health 为 200，未登录的管理身份、玩家场次、Push 设置接口均为 401。此处不验真实通知。不由该 runner 配置 Push 环境或挂载密钥；真实启动另核对受控配置及回退，再按 [Push 接入说明](../../../docs/harmony-push.md) 验收专用玩家和设备。
 
-`sqlite_stat1` 仅允许现有 verifier 认可的、绑定真实索引的新增统计；不得删除或修改旧统计，不允许未知索引、重复键和新增表级统计。
+停止服务的窗口从完整备份开始，到新容器恢复健康。各个阶段的 TTY 人工确认单独进行，不使用脚本跨闸门。
 
-## 制品与执行
+## 故障与回退
 
-1. 使用用户建立的 ControlMaster，只复用 socket，执行仓库 HEAD 未修改 runner 的 `inventory`。基线不符时停止。
-2. Docker AMD64 构建并核对镜像内代码；此次源码可能未提交，冻结包保存完整源文件摘要与不可变归档，不宣称 HEAD 独立复现。
-3. 用 `package-1panel.mjs --upgrade` 从匹配 plan、allowed-delta、操作单生成 ready 计划和完整 sidecar。执行两层 SHA256 校验。
-4. 对冻结包执行 `preflight`；按当场显示的准确短语确认 `stage`，上传、校验、加载并隔离运行候选镜像，生产仍运行旧服务。
-5. 第一次 `deploy`：停服，证明没有其他进程打开 SQLite，备份完整 pb_data 和版本材料；独立恢复、校验文件与 SQLite，在副本迁移并两次重启。通过后生产仍保持停止。
-6. 核验状态后第二次 `deploy`：重验备份、source 与允许差异，仅对正式库执行一次已审迁移。
-7. 核验状态后第三次 `deploy`：仅更换 Compose 镜像；先创建停止态容器并核对，再启动，要求同一容器、零重启和三条不同的连续成功健康探测。
-8. 核验状态后第四次 `deploy`：再次验证未激活空表、结构及迁移账本，记录并核验根发布材料。恢复流量后的正常既有业务行变化不误判为回退依据。
-
-所有执行使用 `release-pocketbase.mjs` 与同批冻结 runner；每次 deploy 只推进一个阶段。只读验收包含 HTTPS health 200、管理身份和玩家任务未认证 401；不等同业务写入验收。
-
-## 中断与回退
-
-非零结果、断线或未知状态先运行 status，不重试 stage/migrate，不运行临时命令绕过 blocked。保留状态、备份和证据，不删除半成品表或迁移账本。迁移成功而应用失败时优先前向修复或经批准只回退应用镜像，保留加性结构。
-
-只在证明正式库、Compose 和迁移账本完全未变并作出明确恢复决定后，才能恢复原服务。发生新答题、经验、奖品或配置写入后，禁止旧数据库快照覆盖当前库；本次不执行 down 或自动恢复旧快照。
-
-完成后更新当前生产状态和新增日期发布记录，分别记录数据库、后端、两个前端及功能激活状态，关闭专用维护连接。保留备份和旧镜像，不顺手清理其他服务。
-
-## 执行结果
-
-2026-09-08 15:29 +08:00 已完成，phase=recorded、revision 15，服务 healthy、重启 0，三个新表为空。完整记录见 `docs/extra-config-player-titles-deployment-20260908.md`。本工作区操作单改为完成版，服务器冻结制品中的原始 pending 副本不修改。
+遇到断线、未知结果、备份失效、迁移差异或未决标记，先只读 `status`；不得重跑该阶段、临时命令绕过、执行 down 或清除账本。保留可核实备份和证据。迁移成功但应用故障时，优先前向修复或另行授权只回退镜像，保留加性结构。服务恢复后发生的新业务写入不得被旧数据库快照覆盖。退出时记录真实镜像、账本、健康、备份、各端发布和功能激活，关闭专用连接。

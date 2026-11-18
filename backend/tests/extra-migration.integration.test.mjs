@@ -39,9 +39,10 @@ test(
   "Docker PocketBase: additive migration on an offline restored old database",
   { timeout: 180000 },
   async (t) => {
-    const migrationNames = (
+    const targetMigrationNames = (
       await readdir(new URL("../pb_migrations", import.meta.url))
-    ).filter((name) => name !== migration);
+    ).filter((name) => /^\d+_.*\.js$/.test(name) && name <= migration);
+    const migrationNames = targetMigrationNames.filter((name) => name !== migration);
     const server = await createTestServer({ migrationNames });
     t.after(() => server.stop());
     const root = "/api/questions/v1";
@@ -64,7 +65,7 @@ test(
     };
     const previousCollections = await collectionState();
     const oldDir = server.dataDirectory();
-    await server.upgradeMigrations({ restoreCopy: true });
+    await server.upgradeMigrations({ restoreCopy: true, targetMigrationNames });
     assert.notEqual(server.dataDirectory(), oldDir);
     const after = snapshot(server.dataDirectory());
     for (const [table, data] of Object.entries(before))

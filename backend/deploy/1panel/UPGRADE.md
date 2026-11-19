@@ -1,11 +1,11 @@
 # 定向旅途消息后端升级操作单
 
-<!-- release-status: pending -->
+<!-- release-status: completed -->
 <!-- release-id: push-personal-journey-20261119 -->
 <!-- source-image: questions-pocketbase:0.40.1-push-account-subscription-20261119-amd64 -->
 <!-- target-image: questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64 -->
 
-待执行；本单仅适用于本次冻结制品。用户已授权验证后上线后端及运营台。本次不会调整华为分类权益、接收名单、订阅范围或凭据；沿用现有发送开启、正式模式、订阅权益未启用的运行状态。历史发布归档及独立 Push 激活记录保持不变。
+已完成：2026-11-19 16:40:05 +08:00，`recorded`、revision 15，无未决操作。此仓库操作单不得再次执行；r2 冻结包中的 pending 原文保持不变，供逐字审计。本单仅适用于本次冻结制品。用户已授权验证后上线后端及运营台。本次不会调整华为分类权益、接收名单、订阅范围或凭据；沿用现有发送开启、正式模式、订阅权益未启用的运行状态。历史发布归档及独立 Push 激活记录保持不变。
 
 ## 唯一目标与基线
 

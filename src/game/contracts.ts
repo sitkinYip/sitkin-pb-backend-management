@@ -188,7 +188,9 @@ export interface GamePushSubscriptionList {
   items: (GamePushSubscription & { title: string })[];
   subscriptionApproved: boolean;
 }
-/** One explicit account subscription, only for assignments and their story updates. */
+/** One explicit account subscription for personally assigned adventures, story letters and level updates.
+ * Includes directed journey letters without a session; excludes generic important, security and promotional notices.
+ */
 export interface GamePushJourneySubscription {
   scope: "personal_journey_v1";
   subscribed: boolean;
@@ -203,7 +205,7 @@ export interface GamePushJourneySubscriptionInput {
   pushEnabled: boolean;
   expectedRevision: number;
 }
-export type AdminNotificationMessagePurpose = "journey" | "announcement";
+export type AdminNotificationMessagePurpose = "journey" | "personal_journey" | "announcement";
 export interface GamePenalty {
   type: "lock" | "cooldown";
   seconds?: number;

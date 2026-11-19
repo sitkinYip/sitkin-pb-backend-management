@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "verifier": "personal-journey-context-v1",
+  "newMigrationFiles": [
+    "1795075320_push_personal_journey_notices.js"
+  ],
+  "newCollections": [],
+  "newSchemaObjects": [],
+  "emptyTables": [],
+  "contextEvolution": {
+    "collection": "game_push_notice_contexts",
+    "sessionRequired": false,
+    "kindValues": [
+      "session",
+      "account"
+    ],
+    "legacyKind": "session"
+  }
+}

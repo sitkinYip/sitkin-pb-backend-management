@@ -5,6 +5,12 @@ export const RELEASE_PLAN_SCHEMA_VERSION = 1;
 export const DEPLOYMENT_PLAN_SCHEMA_VERSION = 2;
 export const ALLOWED_DELTA_SCHEMA_VERSION = 1;
 export const RELEASE_VERIFIER = "additive-empty-collections-v1";
+export const CONTEXT_VERIFIER = "personal-journey-context-v1";
+export const CONTEXT_MIGRATION = "1795075320_push_personal_journey_notices.js";
+export const CONTEXT_EVOLUTION = Object.freeze({
+  collection: "game_push_notice_contexts", sessionRequired: false,
+  kindValues: ["session", "account"], legacyKind: "session",
+});
 export const MIN_HEALTH_TIMEOUT_SECONDS = 90;
 
 const RELEASE_PLAN_KEYS = [
@@ -207,9 +213,21 @@ function validateProduction(value, server) {
       "containerPort",
       "rootReleasePath",
       "rootChecksumsPath",
+      ...(value.pushRuntime === undefined ? [] : ["pushRuntime"]),
     ],
     "plan.production",
   );
+  if (value.pushRuntime !== undefined) {
+    const push = value.pushRuntime;
+    exactKeys(push, ["profile", "projectId", "secretHostPath", "secretContainerPath", "recordedComposeSha256"], "plan.production.pushRuntime");
+    if (push.profile !== "harmony-push-production-v1") fail("plan.production.pushRuntime.profile", "unsupported profile");
+    string(push.projectId, "plan.production.pushRuntime.projectId", /^[0-9]{10,32}$/);
+    if (value.projectDirectory !== "/opt/1panel/apps/questions-game-v1" ||
+        push.secretHostPath !== "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json" ||
+        push.secretContainerPath !== "/run/secrets/starward-harmony-push.json")
+      fail("plan.production.pushRuntime", "only the existing dedicated read-only Push secret is supported");
+    sha256(push.recordedComposeSha256, "plan.production.pushRuntime.recordedComposeSha256");
+  }
   safeAbsolutePath(value.projectDirectory, "plan.production.projectDirectory");
   safeAbsolutePath(value.composePath, "plan.production.composePath");
   safeAbsolutePath(value.dataHostPath, "plan.production.dataHostPath");
@@ -333,8 +351,11 @@ function validateMigration(value, source) {
   if (!["required", "none"].includes(value.mode))
     fail("plan.migration.mode", "must be required or none");
   migrationFiles(value.newFiles, "plan.migration.newFiles");
-  if (value.verifier !== RELEASE_VERIFIER)
-    fail("plan.migration.verifier", `must be ${RELEASE_VERIFIER}`);
+  if (![RELEASE_VERIFIER, CONTEXT_VERIFIER].includes(value.verifier))
+    fail("plan.migration.verifier", "unsupported verifier");
+  if (value.verifier === CONTEXT_VERIFIER &&
+      (value.mode !== "required" || JSON.stringify(value.newFiles) !== JSON.stringify([CONTEXT_MIGRATION])))
+    fail("plan.migration", "context evolution supports only the reviewed single migration");
   if (value.mode === "required" && !value.newFiles.length)
     fail("plan.migration.newFiles", "a required migration needs at least one new file");
   if (value.mode === "none" && value.newFiles.length)
@@ -428,11 +449,18 @@ export function validateReleasePlan(value, options = {}) {
 }
 
 export function validateAllowedDelta(value, plan) {
-  exactKeys(value, ALLOWED_DELTA_KEYS, "allowedDelta");
+  exactKeys(value, [...ALLOWED_DELTA_KEYS, ...(value.verifier === CONTEXT_VERIFIER ? ["contextEvolution"] : [])], "allowedDelta");
   if (value.schemaVersion !== ALLOWED_DELTA_SCHEMA_VERSION)
     fail("allowedDelta.schemaVersion", `must be ${ALLOWED_DELTA_SCHEMA_VERSION}`);
-  if (value.verifier !== RELEASE_VERIFIER)
-    fail("allowedDelta.verifier", `must be ${RELEASE_VERIFIER}`);
+  if (![RELEASE_VERIFIER, CONTEXT_VERIFIER].includes(value.verifier))
+    fail("allowedDelta.verifier", "unsupported verifier");
+  if (value.verifier === CONTEXT_VERIFIER) {
+    exactKeys(value.contextEvolution, Object.keys(CONTEXT_EVOLUTION), "allowedDelta.contextEvolution");
+    if (canonicalJson(value.contextEvolution) !== canonicalJson(CONTEXT_EVOLUTION) ||
+        JSON.stringify(value.newMigrationFiles) !== JSON.stringify([CONTEXT_MIGRATION]) ||
+        [value.newCollections, value.newSchemaObjects, value.emptyTables].some((items) => !Array.isArray(items) || items.length))
+      fail("allowedDelta", "context evolution cannot permit any other schema, collection or migration change");
+  }
   const newMigrationFiles = migrationFiles(
     value.newMigrationFiles,
     "allowedDelta.newMigrationFiles",
@@ -530,7 +558,7 @@ export function validateAllowedDelta(value, plan) {
         value.emptyTables.length)
     )
       fail("allowedDelta", "must be empty when migration mode is none");
-    if (plan.migration.mode === "required" && !value.newCollections.length)
+    if (plan.migration.mode === "required" && value.verifier === RELEASE_VERIFIER && !value.newCollections.length)
       fail(
         "allowedDelta.newCollections",
         "the additive-empty-collections verifier requires a new collection",

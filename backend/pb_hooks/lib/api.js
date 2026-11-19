@@ -103,10 +103,12 @@ function notifications(e) {
 function sendNotification(e, body) {
   return db.command(e, "send-notification", body, true, (app, actor) => {
     const purpose = body.messagePurpose === undefined ? "announcement" : body.messagePurpose;
-    if (!["journey", "announcement"].includes(purpose))
+    if (!["journey", "personal_journey", "announcement"].includes(purpose))
       r.fail("INVALID_INPUT", "请选择正确的通知用途");
     if (purpose === "journey" && body.target !== "session")
       r.fail("INVALID_INPUT", "剧情来信和关卡消息必须关联具体场次");
+    if (purpose === "personal_journey" && body.target !== "selected")
+      r.fail("INVALID_INPUT", "定向旅途消息必须选择具体玩家");
     let players;
     let assignments = [];
     if (body.target === "all")
@@ -122,6 +124,8 @@ function sendNotification(e, body) {
       const ids = [...new Set(assignments.map((a) => a.getString("player")))];
       players = ids.map((id) => db.get(app, "game_players", id));
     } else r.fail("INVALID_INPUT", "请选择通知接收范围");
+    if (purpose === "personal_journey" && !players.some((player) => player.getString("status") === "active"))
+      r.fail("INVALID_INPUT", "请选择至少一位有效玩家");
     const note = db.create(app, "game_notifications", {
       title: r.text(body.title, "通知标题", 200),
       content: r.text(body.content, "通知正文", 16000),
@@ -135,7 +139,8 @@ function sendNotification(e, body) {
     const recipients = players.filter(
       (p) => p.getString("status") === "active",
     );
-    if (purpose === "journey") subscriptions.notice(app, note, body.sessionId);
+    if (purpose !== "announcement") subscriptions.notice(app, note,
+      purpose === "journey" ? "session" : "account", purpose === "journey" ? body.sessionId : "");
     for (const player of recipients) {
       const assignment = purpose === "journey" && assignments.find((a) => a.getString("player") === player.id);
       const receipt = db.create(app, "game_notification_receipts", {

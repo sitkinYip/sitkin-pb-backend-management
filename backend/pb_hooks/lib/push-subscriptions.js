@@ -15,10 +15,23 @@ function noticeContext(app, notificationId) {
   return db.maybe(app, contexts, "notification={:id}", { id: notificationId });
 }
 function noticePurpose(app, notificationId) {
-  return noticeContext(app, notificationId) ? "journey" : "announcement";
+  const context = noticeContext(app, notificationId);
+  if (!context) return "announcement";
+  const kind = validKind(context);
+  if (kind === "session") return "journey";
+  if (kind === "account") return "personal_journey";
+  return "unknown";
 }
-function notice(app, notification, sessionId) {
-  db.create(app, contexts, { notification: notification.id, session: sessionId });
+function validKind(context) {
+  const kind = context.getString("kind"), session = context.getString("session");
+  if (kind === "session" && session) return kind;
+  if (kind === "account" && !session) return kind;
+  return "";
+}
+function notice(app, notification, kind, sessionId = "") {
+  if (!((kind === "session" && sessionId) || (kind === "account" && !sessionId)))
+    r.fail("INVALID_INPUT", "旅途消息上下文不正确");
+  db.create(app, contexts, { notification: notification.id, kind, session: sessionId });
 }
 function available(app, assignment, time) {
   const session = db.get(app, "game_sessions", assignment.getString("session"));
@@ -26,8 +39,12 @@ function available(app, assignment, time) {
     (!assignment.getString("endsAt") || Date.parse(assignment.getString("endsAt")) > time);
 }
 function eligibility(app, playerId, receipt, time) {
+  if (receipt.getString("player") !== playerId) return null;
   const context = noticeContext(app, receipt.getString("notification"));
-  if (!context) return { category: "MARKETING" };
+  if (!context) return receipt.getString("assignment") ? null : { category: "MARKETING" };
+  const kind = validKind(context);
+  if (!kind) return null;
+  if (kind === "account") return receipt.getString("assignment") ? null : journey.eligibility(app, playerId);
   const assignment = db.maybe(app, "game_assignments", "id={:a} && player={:p} && session={:s}",
     { a: receipt.getString("assignment"), p: playerId, s: context.getString("session") });
   return assignment && available(app, assignment, time) ? journey.eligibility(app, playerId) : null;
@@ -36,7 +53,13 @@ function delivery(app, row, playerId, time) {
   const receipt = db.maybe(app, "game_notification_receipts", "id={:id} && player={:p}",
     { id: row.getString("targetId"), p: playerId });
   if (!receipt) return null;
-  if (!noticeContext(app, receipt.getString("notification"))) return { category: "MARKETING" };
+  if (!noticeContext(app, receipt.getString("notification"))) {
+    // Missing private metadata must not reclassify an already subscribed event as marketing.
+    if (receipt.getString("assignment") ||
+        db.maybe(app, "game_push_journey_deliveries", "delivery={:id}", { id: row.id }) ||
+        db.maybe(app, "game_push_notice_deliveries", "delivery={:id}", { id: row.id })) return null;
+    return { category: "MARKETING" };
+  }
   if (!eligibility(app, playerId, receipt, time)) return null;
   return journey.delivery(app, row, playerId);
 }

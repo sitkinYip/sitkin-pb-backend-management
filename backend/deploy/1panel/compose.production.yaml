@@ -9,10 +9,22 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8090:8090"
+    environment:
+      STARWARD_PUSH_ENABLED: "1"
+      STARWARD_PUSH_TEST_MODE: "0"
+      STARWARD_PUSH_PROJECT_ID: "101653523865742064"
+      STARWARD_PUSH_SERVICE_ACCOUNT_FILE: "/run/secrets/starward-harmony-push.json"
+      STARWARD_PUSH_SUBSCRIPTION_APPROVED: "0"
     volumes:
       - type: bind
         source: /opt/1panel/apps/questions-game-v1/pb_data
         target: /pb/pb_data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /opt/1panel/secrets/questions-game-v1/starward-harmony-push.json
+        target: /run/secrets/starward-harmony-push.json
+        read_only: true
         bind:
           create_host_path: false
     stop_grace_period: 30s

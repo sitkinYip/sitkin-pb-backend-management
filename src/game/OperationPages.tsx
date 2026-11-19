@@ -943,10 +943,15 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
         <Field name="messagePurpose" label="通知用途" rules={fieldRule}>
           <Select
             onChange={(purpose) => {
-              if (purpose === "journey") form.setFieldValue("target", "session");
+              if (purpose === "journey") {
+                form.setFieldsValue({ target: "session", playerIds: undefined });
+              } else if (purpose === "personal_journey") {
+                form.setFieldsValue({ target: "selected", sessionId: undefined });
+              }
             }}
             options={[
               { value: "journey", label: "场次动态 · 剧情来信／关卡消息" },
+              { value: "personal_journey", label: "定向旅途消息（无需关联场次）" },
               { value: "announcement", label: "平台公告／运营推广" },
             ]}
           />
@@ -955,15 +960,24 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
           type="info"
           showIcon
           style={{ marginBottom: 20 }}
-          message={messagePurpose === "journey" ? "关联具体场次的动态" : "平台公告与运营推广"}
+          message={messagePurpose === "journey" ? "关联具体场次的动态"
+            : messagePurpose === "personal_journey" ? "发给指定玩家的旅途消息" : "平台公告与运营推广"}
           description={messagePurpose === "journey"
             ? "应用内发给该场次的参与者；系统推送只发给主动订阅且允许通知的玩家。获批后使用订阅分类，取消订阅不影响应用内收信。"
-            : "使用 MARKETING 分类，受华为营销通知额度限制。请勿把推广内容作为场次动态发送。"}
+            : messagePurpose === "personal_journey"
+              ? "无需关联场次，仅用于玩家已订阅的个人剧情来信与旅途动态。系统推送需玩家订阅并确认接收通知，且订阅分类已启用。请核对接收人和内容，勿用于公告或推广。"
+              : "使用 MARKETING 分类，受华为每日推送条数限制（非付费额度）。请勿把推广内容作为旅途消息发送。"}
         />
         <Field name="target" label="接收范围" rules={fieldRule}>
           <Select
+            onChange={(nextTarget) => {
+              if (nextTarget !== "selected") form.setFieldValue("playerIds", undefined);
+              if (nextTarget !== "session") form.setFieldValue("sessionId", undefined);
+            }}
             options={messagePurpose === "journey" ? [
               { value: "session", label: "某场次的参与者" },
+            ] : messagePurpose === "personal_journey" ? [
+              { value: "selected", label: "指定用户" },
             ] : [
               { value: "selected", label: "指定用户" },
               { value: "all", label: "当前所有有效用户" },

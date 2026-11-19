@@ -49,7 +49,15 @@
 
 预检不是只看一个 `minimumFreeBytes` 数字。runner 会按 filesystem device 合并上传包、展开目录、Docker layer/snapshot 导入、完整备份、独立恢复和迁移工作区的最坏写入量，再叠加计划中的保留空间；正式停服并取得精确文件清单后还会复算一次。共享同一磁盘的多个路径只保留一份 reserve，但所有预计写入会累加，空间不足直接闭锁。
 
-当前 verifier `additive-empty-collections-v1` 只支持两类升级：没有新迁移，或只新增发布时为空且规则保持私有的新集合及其 schema object。修改既有字段/索引/规则、回填或删除数据、重命名、破坏性迁移都必须先实现并审查新的 verifier 或使用新的专属人工操作单；不能放宽 JSON 来绕过闭锁。
+verifier `additive-empty-collections-v1` 仍只支持没有新迁移，或只新增发布时为空且规则保持私有的新集合及其 schema object。
+
+2026-11-19 增加专属 verifier `personal-journey-context-v1`，仅接受 `1795075320_push_personal_journey_notices.js`。它只允许 `game_push_notice_contexts.session.required` 从 true 改 false、末尾新增指定的 required 单选 `kind`（值及顺序为 `session`、`account`），并把全部历史行的 `kind` 回填为 `session`；集合生成的 `updated` 时间允许正常前进，其余字段、规则、索引及集合元数据不变。SQLite CREATE TABLE 必须是原语句精确追加该列；原三列的类型、顺序和所有行的全字段投影摘要必须不变。其他业务表、系统表、schema object、集合及历史迁移账本仍沿用严格不变校验，不是通用字段更新或数据回填豁免。对应 `allowed-delta.personal-journey.json` 的三个新增对象数组为空，`contextEvolution` 必须等于固定常量。恢复演练与正式迁移仍分别验证；switch 后新建的 account 来信属于正常业务行变化，不再用停服行摘要锁住在线库。
+
+已启用正式 Push 的本次源环境可显式填写 `production.pushRuntime`，其 `profile` 只能为 `harmony-push-production-v1`，另含既有 `projectId`、固定 `secretHostPath`/`secretContainerPath` 和 `recordedComposeSha256`。它只支持本项目现有专用密钥从 `/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json` 只读挂到 `/run/secrets/starward-harmony-push.json`，同时严格保留 ENABLED=1、TEST_MODE=0、SUBSCRIPTION_APPROVED=0 及既有项目/文件路径五项环境变量。数据挂载仍可写；不允许第三个挂载、自动创建宿主路径、别的密钥路径、可写密钥或新增 Push 环境变量。密钥只核文件类型、所有者、权限、路径及单硬链接，不读取内容，也不进入发布包或备份。未声明该 profile 的历史计划仍只允许原数据挂载和无 Push 环境。
+
+`source.composeSha256` 始终锚定盘点时的真实 Compose。若独立配置启用后旧根校验清单仍记录启用前 Compose，`recordedComposeSha256` 只精确锚定这一个历史清单值；实际源 Compose 仍必须逐字匹配 `source.composeSha256`，根清单其余成员照常逐字校验。正常 finalize 写新根记录前保留旧根材料，其历史归档不修改。恢复副本、迁移及隔离 serve 容器均只有自己的数据挂载、`network=none`，不会挂正式密钥或传入 Push 环境；镜像自身也禁止烘焙任何 `STARWARD_PUSH_*` 环境变量。保留已有生产配置不等于本轮激活订阅分类，`executorMayActivate` 仍为 false。
+
+其他修改既有字段/索引/规则、回填或删除数据、重命名、破坏性迁移仍须先实现并审查新的 verifier 或使用新的专属人工操作单；不能放宽 JSON 来绕过闭锁。
 
 ## 1. 只读盘点
 
@@ -116,7 +124,7 @@ prepared
 
 - 第一次 `deploy` 执行完整停服备份和恢复副本演练。目标服务从这里开始保持停止，直到后续 switch 成功；不要把各次人工确认之间的时间遗漏在维护窗口估算里。后续 migrate/no-migration、switch 和 finalize 都会重新计算备份归档、文件清单及 sidecar 的摘要；备份被删、被替换或损坏会直接闭锁。
 - 第二次执行正式 `migrate`，或明确确认 `no_migration`。
-- 第三次只切换 Compose 镜像并验证运行服务。程序先用 `compose up --no-start --pull never` 创建停止态容器，确认实际 image ID、运行参数、唯一挂载、回环端口和安全策略，再启动服务；同一 container ID、零重启且 Docker `Health.Log` 中至少三条不同的连续成功探测记录出现后，才算稳定健康。服务健康后可能立即恢复真实流量，因此验证锁定 schema、迁移账本文件及每条历史账本记录、集合定义和未激活空表；既有业务表的行摘要允许随真实请求变化，不能因此误判发布失败。
+- 第三次只切换 Compose 镜像并验证运行服务。程序先用 `compose up --no-start --pull never` 创建停止态容器，确认实际 image ID、运行参数、计划中精确的数据／专用只读密钥挂载、回环端口和安全策略，再启动服务；同一 container ID、零重启且 Docker `Health.Log` 中至少三条不同的连续成功探测记录出现后，才算稳定健康。服务健康后可能立即恢复真实流量，因此验证锁定 schema、迁移账本文件及每条历史账本记录、集合定义和未激活空表；既有业务表的行摘要允许随真实请求变化，不能因此误判发布失败。
 - 第四次写入最终报告并同步根 `release.json`、根 `SHA256SUMS`，不做业务功能激活。根目录两份材料无法在普通文件系统中一次替换时，会先写不可变 finalize intent，替换并复核两份目标后再写 commit 证据；中途断电不会被误报完成，而是由持久 active marker 保持闭锁。
 
 每次都会显示本阶段动作并要求不同的完整确认短语。程序没有 `--yes`、`--force`、一次跑完或自动跨闸门模式。

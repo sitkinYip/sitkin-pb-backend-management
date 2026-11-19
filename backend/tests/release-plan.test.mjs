@@ -310,3 +310,37 @@ test("operation sheet markers and Compose image-only candidate are deterministic
     '{"a":[2,{"x":null,"y":true}],"z":1}',
   );
 });
+
+const pushRuntime = {
+  profile: "harmony-push-production-v1", projectId: "101000000000000001",
+  secretHostPath: "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json",
+  secretContainerPath: "/run/secrets/starward-harmony-push.json", recordedComposeSha256: digest("f"),
+};
+const contextDelta = {
+  schemaVersion: 1, verifier: "personal-journey-context-v1",
+  newMigrationFiles: ["1795075320_push_personal_journey_notices.js"],
+  newCollections: [], newSchemaObjects: [], emptyTables: [],
+  contextEvolution: { collection: "game_push_notice_contexts", sessionRequired: false,
+    kindValues: ["session", "account"], legacyKind: "session" },
+};
+test("context release accepts only the frozen single migration and the existing dedicated Push profile", () => {
+  const plan = planFixture();
+  plan.production.pushRuntime = structuredClone(pushRuntime);
+  plan.migration = { mode: "required", newFiles: contextDelta.newMigrationFiles, verifier: contextDelta.verifier };
+  assert.deepEqual(validateReleasePlan(plan), plan);
+  assert.deepEqual(validateAllowedDelta(contextDelta, plan), contextDelta);
+  for (const mutate of [
+    (p) => p.production.pushRuntime.secretHostPath += ".other",
+    (p) => p.production.pushRuntime.secretContainerPath = "/pb/pb_data/key.json",
+    (p) => p.production.pushRuntime.enabled = true,
+    (p) => p.migration.newFiles.push("1795075380_other.js"),
+    (p) => p.migration.mode = "none",
+  ]) { const invalid = structuredClone(plan); mutate(invalid); assert.throws(() => validateReleasePlan(invalid)); }
+  for (const mutate of [
+    (d) => d.contextEvolution.kindValues.reverse(),
+    (d) => d.contextEvolution.sessionRequired = 0,
+    (d) => d.contextEvolution.other = true,
+    (d) => d.newCollections.push({ name: "unreviewed", requirePrivate: true }),
+    (d) => d.emptyTables.push("game_players"),
+  ]) { const invalid = structuredClone(contextDelta); mutate(invalid); assert.throws(() => validateAllowedDelta(invalid, plan)); }
+});

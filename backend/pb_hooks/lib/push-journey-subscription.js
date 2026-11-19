@@ -17,6 +17,8 @@ function dto(row) {
 function read(e) { return dto(record(e.app, db.actor(e.app, e).id)); }
 function isJourney(app, job) {
   if (job.getString("kind") === "assignment") return true;
+  if (db.maybe(app, deliveryTable, "delivery={:id}", { id: job.id }) ||
+      db.maybe(app, "game_push_notice_deliveries", "delivery={:id}", { id: job.id })) return true;
   const receipt = db.maybe(app, "game_notification_receipts", "id={:id}", { id: job.getString("targetId") });
   return Boolean(receipt && db.maybe(app, "game_push_notice_contexts", "notification={:n}",
     { n: receipt.getString("notification") }));

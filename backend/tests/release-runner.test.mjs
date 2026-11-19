@@ -609,6 +609,7 @@ ${loadRunner}
 
 plan = {
     "migration": {
+        "verifier": "additive-empty-collections-v1",
         "mode": "required",
         "newFiles": ["1789000000_game_new.js"],
     },
@@ -1029,5 +1030,75 @@ with tempfile.TemporaryDirectory(prefix="questions-backup-live-gate-") as backup
         assert error.code in ("hash_mismatch", "backup_mismatch")
     else:
         raise AssertionError("a changed backup archive was accepted")
+`);
+});
+
+test("Push runtime preserves only the exact production env and RO secret, while isolated jobs cannot inherit it", () => {
+  runPython(String.raw`
+import copy, inspect
+${loadRunner}
+push = {"profile": "harmony-push-production-v1", "projectId": "101000000000000001",
+ "secretHostPath": runner.PUSH_SECRET_HOST, "secretContainerPath": runner.PUSH_SECRET_CONTAINER,
+ "recordedComposeSha256": "a" * 64}
+production = {"composeService": "pocketbase", "dataHostPath": "/opt/1panel/apps/questions-game-v1/pb_data", "dataContainerPath": "/pb/pb_data", "pushRuntime": push}
+plan = {"production": production, "source": {"composeSha256": "b" * 64}}
+env = runner._push_runtime_environment(push)
+volumes = [{"type":"bind", "source":production["dataHostPath"],"target":"/pb/pb_data","bind":{"create_host_path":False}},
+ {"type":"bind","source":runner.PUSH_SECRET_HOST,"target":runner.PUSH_SECRET_CONTAINER,"read_only":True,"bind":{"create_host_path":False}}]
+config = {"services":{"pocketbase":{"environment":env,"volumes":volumes}}}
+runner._verify_compose_push_contract(plan, config)
+assert runner._recorded_source_compose_sha(plan) == "a" * 64
+mounts = [{"Type":"bind","Source":x["source"],"Destination":x["target"],"RW":not x.get("read_only",False)} for x in volumes]
+runner._container_mount_matches({"Mounts":mounts}, production["dataHostPath"], "/pb/pb_data", push)
+for change in ["write-secret","other-source","third-mount","auto-create","enable-approval","unknown-env"]:
+    value=copy.deepcopy(config)
+    service=value["services"]["pocketbase"]
+    if change=="write-secret": service["volumes"][1]["read_only"]=False
+    elif change=="other-source": service["volumes"][1]["source"]+=".other"
+    elif change=="third-mount": service["volumes"].append(copy.deepcopy(volumes[0]))
+    elif change=="auto-create": service["volumes"][1]["bind"]["create_host_path"]=True
+    elif change=="enable-approval": service["environment"]["STARWARD_PUSH_SUBSCRIPTION_APPROVED"]="1"
+    else: service["environment"]["STARWARD_PUSH_OTHER"]="1"
+    try: runner._verify_compose_push_contract(plan,value)
+    except runner.ReleaseError as error: assert error.code=="invalid_compose"
+    else: raise AssertionError(change+" accepted")
+for change in ["write-secret","other-source","third-mount"]:
+    value=copy.deepcopy(mounts)
+    if change=="write-secret": value[1]["RW"]=True
+    elif change=="other-source": value[1]["Source"]+=".other"
+    else: value.append(copy.deepcopy(mounts[0]))
+    try: runner._container_mount_matches({"Mounts":value},production["dataHostPath"],"/pb/pb_data",push)
+    except runner.ReleaseError as error: assert error.code=="mount_mismatch"
+    else: raise AssertionError(change+" accepted")
+commands=[]
+runner._container_exists=lambda name:False
+runner.os.path.isdir=lambda name:True
+runner.os.path.islink=lambda name:False
+runner._run=lambda args,**kw:commands.append(args)
+runner._docker_inspect_container=lambda name:{"Image":"sha256:"+"c"*64,"State":{"Running":False}}
+plan["artifact"]={"targetImageConfigDigest":"sha256:"+"c"*64}
+runner._create_data_job(plan,"isolated","/isolated/pb_data",["migrate","up"])
+command=commands[0]
+assert command[command.index("--network")+1]=="none"
+assert command.count("--mount")==1 and "type=bind,source=/isolated/pb_data,target=/pb/pb_data" in command
+assert not any("STARWARD_PUSH" in x or "secret" in x for x in command)
+assert "STARWARD_PUSH_" in inspect.getsource(runner._require_image_runtime_config)
+# Real image config validation rejects baked-in activation before executing any job.
+image={"Entrypoint":["/pb/pocketbase"],"Cmd":["serve","--http=0.0.0.0:8090","--dir=/pb/pb_data","--hooksDir=/pb/pb_hooks","--migrationsDir=/pb/pb_migrations","--automigrate=false"],"WorkingDir":"/pb","ExposedPorts":{"8090/tcp":{}},"Env":["PATH=/usr/bin"]}
+runner._require_image_runtime_config(image)
+container={"Config":copy.deepcopy(image),"HostConfig":{"Privileged":False,"CapDrop":["ALL"],"SecurityOpt":["no-new-privileges:true"],"RestartPolicy":{"Name":"unless-stopped"},"LogConfig":{"Type":"json-file","Config":{"max-file":"3","max-size":"10m"}}},"NetworkSettings":{"Networks":{"isolated":{}}}}
+container["Config"]["Env"]=[key+"="+value for key,value in env.items()]
+container["Config"]["Labels"]={"com.docker.compose.service":"pocketbase","com.docker.compose.oneoff":"False"}
+container["Config"]["Healthcheck"]={"Test":["CMD","wget","-q","-O","/dev/null","http://127.0.0.1:8090/api/health"],"Interval":15000000000,"Timeout":5000000000,"StartPeriod":15000000000,"Retries":3}
+runner._verify_container_runtime_contract(plan,container)
+for altered in [[],container["Config"]["Env"]+["STARWARD_PUSH_ENABLED=1"],[entry.replace("SUBSCRIPTION_APPROVED=0","SUBSCRIPTION_APPROVED=1") for entry in container["Config"]["Env"]]]:
+    wrong=copy.deepcopy(container);wrong["Config"]["Env"]=altered
+    try:runner._verify_container_runtime_contract(plan,wrong)
+    except runner.ReleaseError as error:assert error.code=="container_mismatch"
+    else:raise AssertionError("drifted production Push env accepted")
+image["Env"].append("STARWARD_PUSH_ENABLED=1")
+try: runner._require_image_runtime_config(image)
+except runner.ReleaseError as error: assert error.code=="image_mismatch"
+else: raise AssertionError("Push activation baked into the image accepted")
 `);
 });

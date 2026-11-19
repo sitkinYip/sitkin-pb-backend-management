@@ -299,6 +299,7 @@ const expectedRuntimeCommand = [
 ];
 const validateRuntimeConfig = (config, label) => {
   if (
+    (config?.Env || []).some((item) => item.startsWith("STARWARD_PUSH_")) ||
     JSON.stringify(config?.Entrypoint) !== JSON.stringify(["/pb/pocketbase"]) ||
     JSON.stringify(config?.Cmd) !== JSON.stringify(expectedRuntimeCommand) ||
     config?.WorkingDir !== "/pb" ||

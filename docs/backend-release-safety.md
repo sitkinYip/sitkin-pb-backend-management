@@ -115,6 +115,10 @@ prepared
 
 ## 9. 切换、验收与回退
 
+2026-11-19 的 `personal-journey-context-v1` 是固定迁移专例：仅新增 context.kind、修改 session.required 并回填历史 kind=session；逐行比较旧三列的类型化摘要，集合只允许指定字段变化及生成的 updated 时间，其他 schema、规则、集合、业务行和历史账本必须不变。不得把这次例外扩为任意 existing-table 迁移。实际 Docker 恢复迁移测试须覆盖有历史行、11 类 SQLite 副本漂移拒绝，以及服务恢复后新 account context 可增长；独立 runner 副本去掉旧行保护的 mutation 必须被负例捕获。
+
+已存在的正式 Push 专用只读挂载只通过固定 `harmony-push-production-v1` profile 保留，不接受任意 additional mounts。固定五项 Push 环境（含 APPROVED=0）、root 私有单硬链接密钥、源 Compose SHA 和旧根清单 Compose SHA 分别锚定；不读取或打包密钥。隔离演练仅挂自己的数据且 network=none，镜像禁止内嵌 Push 环境变量；不能把正式容器配置复制到恢复副本。旧根审计保留历史事实，独立配置变化必须明确登记而非改写旧材料。
+
 切换只修改已确认目标服务的镜像，保持挂载、回环端口、网络、安全选项、健康检查和重启策略。先验证解析后的 Compose 差异，再重建目标服务；不停止 OpenResty、AList 或其他应用，不把 8090 暴露公网。
 
 只读验收至少检查实际 image ID、版本、健康、重启计数、端口、挂载、内嵌代码、迁移账本、schema、允许差异和关键脱敏摘要。健康稳定性必须来自同一容器、零重启以及 Docker health log 中不同的连续成功记录，不能用快速重复读取同一个 `healthy` 值代替。HTTPS 200 与未登录 401 只证明当前公网入口的健康和认证边界；响应未携带冻结 release identity 时，它也不是目标镜像身份或真实业务写入已经验收的证据。

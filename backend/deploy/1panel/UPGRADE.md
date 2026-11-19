@@ -1,67 +1,46 @@
-# 一次账号级旅途订阅后端升级操作单
+# 定向旅途消息后端升级操作单
 
 <!-- release-status: pending -->
-<!-- release-id: push-account-subscription-20261119 -->
-<!-- source-image: questions-pocketbase:0.40.1-push-subscriptions-20261119-amd64 -->
-<!-- target-image: questions-pocketbase:0.40.1-push-account-subscription-20261119-amd64 -->
+<!-- release-id: push-personal-journey-20261119 -->
+<!-- source-image: questions-pocketbase:0.40.1-push-account-subscription-20261119-amd64 -->
+<!-- target-image: questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64 -->
 
-**待执行。** 本单只适用于本次冻结制品。上一轮逐场订阅操作单保留在 `push-subscriptions-20261119` 不可变发布包中，其生产 recorded 事实不改写。本次不升级 PocketBase、不替换或读取正式 Push 密钥、不启用发送或分类权益、不改运营名单，不发布前端或客户端。
+待执行；本单仅适用于本次冻结制品。用户已授权验证后上线后端及运营台。本次不会调整华为分类权益、接收名单、订阅范围或凭据；沿用现有发送开启、正式模式、订阅权益未启用的运行状态。历史发布归档及独立 Push 激活记录保持不变。
 
-## 目标和已核对基线
+## 唯一目标与基线
 
-唯一生产目标是 `questions-game-v1`，目录 `/opt/1panel/apps/questions-game-v1`。沿用 PocketBase 0.40.1、Linux AMD64、`--automigrate=false`、原 `pb_data` 和回环 `127.0.0.1:8090`。2026-11-19 本次专用 SSH ControlMaster 只读 inventory 已核对：
+- 主机 sitkinYip；唯一容器 questions-game-v1，项目 /opt/1panel/apps/questions-game-v1。
+- PocketBase 0.40.1、Linux AMD64、--automigrate=false；既有 pb_data 和 127.0.0.1:8090 保持。
+- source 实际 image/config ID：sha256:2304010161587e4409b4073befce684cfb6b48e52c6ac711107aead2c043a43a。
+- source Compose SHA256：3ef3d9ca68ded2b6356d8b96273686f3c377fbfd44255fdd812defde45dd8341。
+- 根 release.json SHA256：7fdf89a2c37db7171acb7bf9e279171d9f5cbdea70bec54ef60c999a9b300fa2。
+- 迁移账本 SHA256：292925750bca0895480457ab13947dddc9889b5a817e5d7f82ed17fd3392490c，最后业务迁移为1795075260。
+- 只读盘点时 healthy、零重启；context 表零行。停服前重新盘点，不能把当前零行假定为迁移时仍为空。
+- 保留数据 rw 挂载和既有 /opt/1panel/secrets/questions-game-v1/starward-harmony-push.json 到 /run/secrets/starward-harmony-push.json 的只读挂载；不读取密钥内容。
+- 保留现有五项 Push 环境配置：ENABLED=1、TEST_MODE=0、PROJECT_ID、SERVICE_ACCOUNT_FILE 和 SUBSCRIPTION_APPROVED=0。值必须由专用运行契约校验，禁止借切换镜像调整功能开关。
 
-- source 镜像 `questions-pocketbase:0.40.1-push-subscriptions-20261119-amd64`，实际 image/config ID `sha256:3cd3693dc9045afbb7293a9fd66bb9538ef8349ba34dd3bb4b4a868daa2736f1`。
-- Compose SHA256 `564f5c9234a94f4a8eb162b1a8543ca4c694b9270630066fe0e584d60590e3ec`。
-- 根 `release.json` SHA256 `9005ab1c43d459eb81ad8b7118a940535577528cf0edf41a44686fcedb02fdce`。
-- 迁移账本 SHA256 `fc529327b8f0b7ce5969f0e285b66c0f58cd7b2ff17d7a5e33b4f0eb74b10266`，包括八个既有业务 JS 迁移，最后为 `1795075200_push_subscriptions.js`。
-- 容器正在运行且 healthy；本轮未变更生产。inventory 不是锁，后续各阶段仍须重新核对相同基线。
+## 兼容性和发布顺序
 
-同批 pending 计划记录实际服务器身份、路径和 source 摘要。镜像来自已审但尚未提交的工作区，复现依据为包内不可变源码清单、镜像及逐文件 SHA256；不能声称当前 Git HEAD 单独包含本次实现。
+旧玩家端和旧运营台在新后端继续使用原接口、原通知字段。新运营台的 personal_journey 不兼容旧后端，因此先完成后端迁移、镜像切换和只读验收，再推送 main 发布运营台。客户端已有 personal_journey_v1 一次订阅语义，本功能不需要新客户端包。
 
-## 功能边界和休眠状态
-
-新增账号级固定范围 `personal_journey_v1`：「分配给我的新场次、剧情来信与关卡动态」。无记录时默认未订阅和未接收通知；订阅后须另行确认通知。旧逐场同意不转换为更大范围，新 API 才是当前授权来源。取消同一事务淘汰待发旅途任务，重新订阅不恢复旧任务。
-
-**本次保持正式发送关闭。** 生产只读运行核查必须证明容器无 `STARWARD_PUSH_*` 环境变量、仅有原数据挂载，且新增账号级集合尚不存在。若出现凭据挂载、Compose override、环境注入或其它漂移，先停止并补充可审查流程；不得忽略配置或放宽 runner 的唯一挂载约束。此单及执行器不读取密钥、不增加环境变量或密钥挂载。
-
-`STARWARD_PUSH_SUBSCRIPTION_APPROVED` 默认关闭。只有原应用实际获华为新范围权益后，才能另行启用该开关。获批前，个人旅途消息不入队、不降级为 MARKETING；公告/推广保留 MARKETING，但仍服从总开关。订阅记录可保存，不能因此承诺实际送达或每日额度。此次迁移及切换不执行生产业务订阅写入，不使新表提前激活。
-
-## 兼容和顺序
-
-| 组合 | 行为与发布要求 |
-| --- | --- |
-| 旧玩家端＋新后端 | 登录、场次、答题、来信、绑定保留。旧逐场订阅读写返回明确 409 要求升级；保留旧行审计但不继续扩权或发送。不是静默兼容旧订阅功能。 |
-| 新玩家端＋旧后端 | 新账号 API 不存在，设置必须反馈读取失败，不能伪造关闭或已订阅。先完成后端 recorded，再验证并分发 0.1.3 邀请候选。 |
-| 旧管理端＋新后端 | 原管理 API 和默认公告语义不变；通知用途仍由真实场次关联决定。无新管理员权限或名单扩大。 |
-| 新管理端＋旧后端 | 新文案无法改变旧发送政策；本轮保持 sender off，后台文本更新在新后端 recorded 后单独部署。 |
-| 新管理端＋新后端＋新玩家端 | 一次账号订阅、独立通知确认、版本与 requestId 去重；权益未启用则业务提醒停发。 |
-
-代码与隔离证据：17 个已审路径逐字节吻合测试摘要；原生 257 项、后端 Docker 134 项和后续定向 5 项通过，运营台 48 项及构建通过；直板机 9 组隔离真实 HTTPS 检查通过。provider 为合成实现，不是华为实际投递。后台、玩家包、生产订阅写入和正式 Push 激活各自记录，不由镜像健康替代。
+新用途只允许指定玩家，且只能发送现有旅途订阅同意范围内的个人剧情来信和旅途动态；不作为任意重要通知绕过华为分类的入口。公告和推广继续 MARKETING；旅途分类未获批或开关关闭时停发，不降级营销。
 
 ## 唯一允许迁移差异
 
-只新增 `1795075260_push_journey_subscription.js`，使用已审 `additive-empty-collections-v1`。同批 `allowed-delta.json` 来源为 `allowed-delta.push-journey-subscription.json`：
+新增1795075320_push_personal_journey_notices.js，使用本轮受审的 personal-journey-context-v1 验证器。只允许 game_push_notice_contexts 的 session 从必填改为可选、新增必填 kind（session/account）；所有既有上下文补 kind=session，原始 id/notification/session 和其他字段保持。所有其他集合定义、schema、逐表数据摘要和历史迁移账本记录必须保持；不新增业务表，不修改玩家、场次、通知、订阅或设备数据。异常、缺失或未知 kind 不允许降级发送。
 
-- 两个规则均私有的空集合：`game_push_journey_subscriptions`、`game_push_journey_deliveries`。
-- 两张表、两个主键自动索引，以及三个明确命名的索引：`idx_game_push_journey_subscriptions_player_scope`、`idx_game_push_journey_deliveries_delivery`、`idx_game_push_journey_deliveries_subscription`。
-- 两个新表在迁移、切换和最终 recorded 时必须为空。旧逐场同意、通知、投递和业务数据不得回填、改写或删除。
+## 冻结与执行
 
-全部历史迁移文件和每条账本记录保持不变。停服期间未许可的旧 schema、集合定义、表及数据摘要变化均闭锁；恢复健康后的真实业务写入不能用旧备份覆盖，新表仍须保持休眠为空。
+1. 固定源码清单与官方 AMD64 runtime 摘要，核对镜像内 hooks/migrations、候选 Compose、两层 SHA256SUMS 和新 allowed-delta；来源、目标与本单一致。
+2. 只读 preflight 通过后，独立现场 TTY 批准 STAGE；导入并运行隔离验证，不停服。
+3. BACKUP 阶段停止唯一服务，完整备份 pb_data、实际 Compose、根版本材料；在独立恢复副本验证文件保真、SQLite 完整性、新迁移允许差异、两次启动和迁移不重复。生产此时保持停止。
+4. 核对 status 无未决后独立批准 MIGRATE，只执行一次；再次只读核验后独立批准 SWITCH。切换只替换镜像，全部运行契约、环境及两挂载不变。确认同一容器、零重启和三条不同的连续健康记录后恢复服务。
+5. 独立批准 FINALIZE，写新发布记录和根版本材料。status 必须 recorded，无未决 marker。现场 TTY 闸门来自 docs/pocketbase-release-program.md 第3–4节；本次依据用户“改动验证没啥问题就上线”的明确委托，由代理在逐阶段复核后执行当场短语，不修改控制器、不跳步或自动跨阶段。
+6. 验 HTTPS health 200、既有四项未认证接口401和目标镜像/代码身份。健康及认证探针不等于生产业务写入或华为真实投递通过。
+7. 后端完成后再发布运营台，核对线上 JS/CSS 字节与已验产物。当前分类权益未启用，不能宣称定向旅途 Push 已实际送达。
 
-## 冻结、上传和逐阶段批准
+## 故障与收尾
 
-1. 在本机生成 Linux AMD64 目标镜像，核对固定官方 runtime 摘要、镜像内 hooks/migrations、不可变 manifest 与 archive config digest。用本次 source inventory、pending 计划、本单和允许差异执行 `package-1panel.mjs --upgrade`，生成冻结 ready 计划、归档和全部 sidecar；核对两层 SHA256。
-2. 只读 preflight 必须通过。随后独立 `stage` 在现场 TTY 核对并输入完整 `STAGE` 短语，上传、导入并运行隔离候选验证；不停止或修改生产。
-3. 确认维护窗口后独立 `deploy`，现场批准 `BACKUP`。从这里起停止唯一生产服务，完整备份并验证文件、SQLite、恢复副本迁移和连续两次启动；生产保持停止直至后续 switch 成功，维护时间包括各次人工闸门间隔。
-4. 只读 status 证明前一阶段成功且无未决标记后，独立现场批准 `MIGRATE`，只迁移一次。复核结果后再独立现场批准 `SWITCH`，只改 Compose 镜像，先查停止态容器运行契约，再启动；同一容器、零重启、至少三条独立连续成功健康探针后才算恢复。
-5. 独立现场批准 `FINALIZE`，核对新表为空、旧账本/结构不变和新迁移恰好一次，再写根版本材料。只读 status 必须为 recorded，无 inFlight 或未决 marker。
-6. HTTPS 健康探针预期 200；未登录 `/admin/me`、`/assignments`、`/admin/push-settings`、`/me/push/journey-subscription` 均预期 401（统一前缀 `/api/questions/v1`）。这些只证明入口及认证边界，不能记为真实订阅写入或华为送达。
+任何差异或结果未知先只读 status，保持闭锁；不盲重试迁移、不删表/账本、不运行 down、不更改旧发布证据。服务恢复真实流量后禁止旧快照覆盖当前库，优先前向修复；回退旧代码亦需先审兼容性。
 
-上述各阶段人工 TTY 要求来自 `docs/pocketbase-release-program.md` 第 3、4 节；执行器无 --yes/--force，不代输、不跳步、不自动跨闸门。此待执行单及本地出包不构成 stage、停服、迁移或激活已完成。
-
-## 失败和收尾
-
-断线、未知结果、备份摘要变化或任何差异先只读 status，不盲目重跑、不改 runner 闸门、不 migration down、不删表/账本/marker。保存当前状态和经验证备份，优先前向修复。新账号订阅产生后回退旧代码会改变授权语义，必须独立审查；有新业务流量后禁止用旧快照覆盖当前库。
-
-recorded 后分别更新当前生产指针及日期记录，再进行后台静态发布、邀请包分发、专用玩家生产写入验收；正式凭据、sender、名单和权益激活不在本次机械发布中。保持旧发布归档和备份，不清理无关镜像或服务。结束后由负责人关闭专用连接。
+完成后写本轮日期 deployment、更新 current-production、README 和生产模板；保留本单冻结副本、旧备份、原镜像及独立激活审计，不清理无关服务。生产 Push 分类获批后的启用需另行核验和记录。

@@ -31,7 +31,8 @@ function fixture(server) {
 }
 
 test("real PocketBase: additive subscription migration preserves existing business and starts empty", { timeout: 120000 }, async (t) => {
-  const names = readdirSync(new URL("../pb_migrations", import.meta.url)).filter((name) => name.endsWith(".js"));
+  // Exercise this historical migration independently of later context-schema evolution.
+  const names = readdirSync(new URL("../pb_migrations", import.meta.url)).filter((name) => name.endsWith(".js") && name <= "1795075260_push_journey_subscription.js");
   const server = await createTestServer({ migrationNames: names.filter((name) => name !== migration) });
   t.after(() => server.stop());
   const f = fixture(server), p = await f.player("subscription_migration");

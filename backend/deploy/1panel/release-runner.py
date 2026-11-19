@@ -51,6 +51,13 @@ INPUT_PLAN_SCHEMA = 1
 FROZEN_PLAN_SCHEMA = 2
 DELTA_SCHEMA = 1
 DELTA_VERIFIER = "additive-empty-collections-v1"
+CONTEXT_VERIFIER = "personal-journey-context-v1"
+CONTEXT_MIGRATION = "1795075320_push_personal_journey_notices.js"
+CONTEXT_TABLE = "game_push_notice_contexts"
+CONTEXT_EVOLUTION = {"collection": CONTEXT_TABLE, "sessionRequired": False,
+                     "kindValues": ["session", "account"], "legacyKind": "session"}
+PUSH_SECRET_HOST = "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json"
+PUSH_SECRET_CONTAINER = "/run/secrets/starward-harmony-push.json"
 SOURCE_MANIFEST_ALGORITHM = "sha256"
 RELEASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{7,63}$")
 SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -369,9 +376,18 @@ def _validate_input_plan(plan, expected_status="pending"):
             "containerPort",
             "rootReleasePath",
             "rootChecksumsPath",
-        ),
+        ) + (("pushRuntime",) if "pushRuntime" in production else ()),
         "plan.production",
     )
+    if "pushRuntime" in production:
+        push = production["pushRuntime"]
+        _require_exact_keys(push, ("profile", "projectId", "secretHostPath", "secretContainerPath", "recordedComposeSha256"), "plan.production.pushRuntime")
+        _require(push["profile"] == "harmony-push-production-v1", "invalid_schema", "Unsupported existing Push runtime profile.")
+        _require(isinstance(push["projectId"], str) and bool(re.match(r"^[0-9]{10,32}$", push["projectId"])), "invalid_schema", "Push project ID is invalid.")
+        _require(production["projectDirectory"] == "/opt/1panel/apps/questions-game-v1"
+                 and push["secretHostPath"] == PUSH_SECRET_HOST and push["secretContainerPath"] == PUSH_SECRET_CONTAINER,
+                 "invalid_schema", "Only the existing dedicated Push secret mount is supported.")
+        _require_sha(push["recordedComposeSha256"], "plan.production.pushRuntime.recordedComposeSha256")
     for key in (
         "projectDirectory",
         "composePath",
@@ -480,7 +496,9 @@ def _validate_input_plan(plan, expected_status="pending"):
     _require_exact_keys(migration, ("mode", "newFiles", "verifier"), "plan.migration")
     _require(migration["mode"] in ("required", "none"), "invalid_schema", "Migration mode is invalid.")
     new_files = _require_string_list(migration["newFiles"], "plan.migration.newFiles", _migration_name)
-    _require(migration["verifier"] == DELTA_VERIFIER, "invalid_schema", "Migration verifier is unsupported.")
+    _require(migration["verifier"] in (DELTA_VERIFIER, CONTEXT_VERIFIER), "invalid_schema", "Migration verifier is unsupported.")
+    if migration["verifier"] == CONTEXT_VERIFIER:
+        _require(migration["mode"] == "required" and new_files == [CONTEXT_MIGRATION], "invalid_schema", "Context evolution supports only its reviewed migration.")
     if migration["mode"] == "required":
         _require(bool(new_files), "invalid_schema", "Required migration mode needs newFiles.")
     else:
@@ -651,11 +669,16 @@ def _validate_delta(delta, plan):
             "newCollections",
             "newSchemaObjects",
             "emptyTables",
-        ),
+        ) + (("contextEvolution",) if delta.get("verifier") == CONTEXT_VERIFIER else ()),
         "allowed-delta",
     )
     _require(delta["schemaVersion"] == DELTA_SCHEMA, "invalid_schema", "Allowed delta schemaVersion must be 1.")
-    _require(delta["verifier"] == DELTA_VERIFIER, "invalid_schema", "Allowed delta verifier is unsupported.")
+    _require(delta["verifier"] in (DELTA_VERIFIER, CONTEXT_VERIFIER) and delta["verifier"] == plan["migration"]["verifier"], "invalid_schema", "Allowed delta verifier is unsupported or mismatched.")
+    if delta["verifier"] == CONTEXT_VERIFIER:
+        _require(_canonical_bytes(delta["contextEvolution"]) == _canonical_bytes(CONTEXT_EVOLUTION)
+                 and delta["newMigrationFiles"] == [CONTEXT_MIGRATION]
+                 and delta["newCollections"] == [] and delta["newSchemaObjects"] == [] and delta["emptyTables"] == [],
+                 "invalid_schema", "Context evolution cannot permit any additional schema or migration change.")
     new_files = _require_string_list(delta["newMigrationFiles"], "allowed-delta.newMigrationFiles", _migration_name)
     _require(new_files == plan["migration"]["newFiles"], "invalid_schema", "Allowed delta migrations do not match the plan.")
     _require(isinstance(delta["newCollections"], list), "invalid_schema", "allowed-delta.newCollections must be an array.")
@@ -715,7 +738,7 @@ def _validate_delta(delta, plan):
             "invalid_schema",
             "No-migration releases require an empty allowed delta.",
         )
-    else:
+    elif delta["verifier"] == DELTA_VERIFIER:
         _require(bool(collection_names), "invalid_schema", "A required additive migration must declare a new private collection.")
     return copy.deepcopy(delta)
 
@@ -912,6 +935,10 @@ def _require_trusted_production_paths(plan):
             "unsafe_path",
             "Production metadata must be a root-owned regular file that is not group- or world-writable.",
         )
+    if production.get("pushRuntime"):
+        secret_stat = _require_private_root_file(PUSH_SECRET_HOST, "Existing Push secret")
+        _require(stat.S_IMODE(secret_stat.st_mode) == 0o600 and secret_stat.st_nlink == 1,
+                 "unsafe_path", "Existing Push secret must remain a single-link root-only file.")
     database_path = os.path.join(
         production["dataHostPath"],
         production["databaseRelativePath"],
@@ -1109,7 +1136,9 @@ def _compose_config(plan, compose_path):
         timeout=60,
     )
     try:
-        return _json_loads_strict(stdout.decode("utf-8"))
+        config = _json_loads_strict(stdout.decode("utf-8"))
+        _verify_compose_push_contract(plan, config)
+        return config
     except (UnicodeDecodeError, ValueError):
         raise ReleaseError("invalid_compose", "Docker Compose returned invalid configuration JSON.")
 
@@ -1313,9 +1342,9 @@ def _quote_identifier(value):
     return '"' + value.replace('"', '""') + '"'
 
 
-def _table_digest(connection, table):
+def _table_digest(connection, table, excluded_columns=()):
     info = list(connection.execute("PRAGMA table_info(%s)" % _quote_identifier(table)))
-    columns = [row[1] for row in info]
+    columns = [row[1] for row in info if row[1] not in excluded_columns]
     _require(bool(columns), "sqlite_schema_error", "A SQLite table has no columns.")
     order_columns = [row[1] for row in sorted(info, key=lambda item: item[5]) if row[5]]
     if not order_columns:
@@ -1419,6 +1448,47 @@ def _sqlite_stat1_summaries(connection, table_names):
     return result
 
 
+def _context_evolution_summary(connection, table_names):
+    """Hash only the reviewed projection; never expose notification/session rows."""
+    if CONTEXT_TABLE not in table_names:
+        return None
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute("SELECT * FROM _collections WHERE name=?", (CONTEXT_TABLE,)).fetchone()
+        _require(row is not None, "sqlite_schema_error", "Context collection metadata is missing.")
+        collection = dict(row)
+        fields = _json_loads_strict(collection["fields"])
+        sessions = [field for field in fields if field.get("name") == "session"]
+        kinds = [field for field in fields if field.get("name") == "kind"]
+        _require(len(sessions) == 1 and len(kinds) <= 1, "sqlite_schema_error", "Context field identity is ambiguous.")
+        session = sessions[0]
+        kind = kinds[0] if kinds else None
+        if kind is not None:
+            expected_kind = {"help": "", "hidden": False, "id": "select1002749145", "maxSelect": 1,
+                             "name": "kind", "presentable": False, "required": True, "system": False,
+                             "type": "select", "values": ["session", "account"]}
+            valid_fields = kind == expected_kind and fields[-1] == kind and session.get("required") is False
+        else:
+            valid_fields = session.get("required") is True
+        normalized_fields = [copy.deepcopy(field) for field in fields if field.get("name") != "kind"]
+        for field in normalized_fields:
+            if field.get("name") == "session":
+                field["required"] = True
+        collection["fields"] = normalized_fields
+        updated = collection.pop("updated")
+        sql = connection.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (CONTEXT_TABLE,)).fetchone()[0]
+        columns = [list(item) for item in connection.execute("PRAGMA table_info(%s)" % _quote_identifier(CONTEXT_TABLE))]
+        missing_session = connection.execute("SELECT COUNT(*) FROM game_push_notice_contexts WHERE session='' OR session IS NULL").fetchone()[0]
+        invalid_kind = connection.execute("SELECT COUNT(*) FROM game_push_notice_contexts WHERE kind IS NULL OR kind!='session'").fetchone()[0] if kind else 0
+        return {"hasKind": kind is not None, "validFields": valid_fields,
+                "normalizedCollectionSha256": _sha256_json(collection), "updated": updated,
+                "columnInfo": columns, "legacyRows": _table_digest(connection, CONTEXT_TABLE, ("kind",)),
+                "missingSessionCount": missing_session, "nonSessionKindCount": invalid_kind,
+                "expectedAddedKindSqlSha256": _sha256_bytes((sql[:-1] + ', "kind" TEXT DEFAULT \'\' NOT NULL)').encode("utf-8")) if kind is None and sql.endswith(")") else None}
+    finally:
+        connection.row_factory = None
+
+
 def _sqlite_summary(database_path):
     _require(os.path.isfile(database_path) and not os.path.islink(database_path), "database_missing", "The PocketBase database file is missing or unsafe.")
     uri = "file:%s?mode=ro" % urllib.parse.quote(os.path.abspath(database_path), safe="/")
@@ -1466,6 +1536,7 @@ def _sqlite_summary(database_path):
             "migrationRows": migration_rows,
             "collections": _collection_summaries(connection),
             "sqliteStat1": _sqlite_stat1_summaries(connection, table_names),
+            "contextEvolution": _context_evolution_summary(connection, table_names),
         }
         result["summarySha256"] = _sha256_json(result)
         return result
@@ -1620,6 +1691,8 @@ def _docker_inspect_image(tag):
 
 
 def _require_image_runtime_config(config):
+    _require(isinstance(config, dict) and not [item for item in config.get("Env", []) if item.startswith("STARWARD_PUSH_")],
+             "image_mismatch", "Runtime image must not bake in Push environment; production configuration is explicitly preserved only by Compose.")
     expected_command = [
         "serve",
         "--http=0.0.0.0:8090",
@@ -1690,14 +1763,54 @@ def _container_exists(name):
     return isinstance(value, list) and bool(value)
 
 
-def _container_mount_matches(container, source, destination):
+def _push_runtime_environment(push):
+    if not push:
+        return {}
+    return {"STARWARD_PUSH_ENABLED": "1", "STARWARD_PUSH_TEST_MODE": "0",
+            "STARWARD_PUSH_SUBSCRIPTION_APPROVED": "0", "STARWARD_PUSH_PROJECT_ID": push["projectId"],
+            "STARWARD_PUSH_SERVICE_ACCOUNT_FILE": PUSH_SECRET_CONTAINER}
+
+
+def _verify_compose_push_contract(plan, config):
+    push = plan["production"].get("pushRuntime")
+    if not push:
+        return
+    production = plan["production"]
+    service = (config.get("services") or {}).get(production["composeService"]) or {}
+    environment = service.get("environment") or {}
+    _require(isinstance(environment, dict)
+             and {key: value for key, value in environment.items() if key.startswith("STARWARD_PUSH_")} == _push_runtime_environment(push),
+             "invalid_compose", "Compose Push environment differs from the existing frozen profile.")
+    volumes = service.get("volumes") or []
+    expected = [(production["dataHostPath"], production["dataContainerPath"], False),
+                (PUSH_SECRET_HOST, PUSH_SECRET_CONTAINER, True)]
+    _require(len(volumes) == 2, "invalid_compose", "Compose must retain exactly data and the dedicated read-only Push secret.")
+    for source, target, read_only in expected:
+        matches = [item for item in volumes if isinstance(item, dict) and item.get("target") == target]
+        _require(len(matches) == 1 and matches[0].get("type") == "bind" and matches[0].get("source") == source
+                 and matches[0].get("read_only", False) is read_only
+                 and (matches[0].get("bind") or {}).get("create_host_path") is False,
+                 "invalid_compose", "Compose bind source/target/mode/create-host-path differs from its frozen contract.")
+
+
+def _recorded_source_compose_sha(plan):
+    push = plan["production"].get("pushRuntime")
+    return push["recordedComposeSha256"] if push else plan["source"]["composeSha256"]
+
+
+def _container_mount_matches(container, source, destination, push_runtime=None):
     expected_source = os.path.realpath(source)
     all_mounts = container.get("Mounts") or []
     _require(
-        len(all_mounts) == 1,
+        len(all_mounts) == (2 if push_runtime else 1),
         "mount_mismatch",
         "Target container has an unexpected extra mount.",
     )
+    if push_runtime:
+        secret = [item for item in all_mounts if item.get("Destination") == PUSH_SECRET_CONTAINER]
+        _require(len(secret) == 1 and secret[0].get("Type") == "bind"
+                 and secret[0].get("Source") == PUSH_SECRET_HOST and secret[0].get("RW") is False,
+                 "mount_mismatch", "The dedicated Push secret mount must retain its exact source, target and read-only mode.")
     matches = []
     for mount in all_mounts:
         if mount.get("Destination") == destination:
@@ -1706,12 +1819,19 @@ def _container_mount_matches(container, source, destination):
     mount = matches[0]
     _require(mount.get("Type") == "bind", "mount_mismatch", "Target data mount is not a bind mount.")
     _require(os.path.realpath(mount.get("Source", "")) == expected_source, "mount_mismatch", "Target data mount source differs from the plan.")
+    _require((mount.get("RW") is True if push_runtime else mount.get("RW") is not False), "mount_mismatch", "Target data mount must remain writable.")
 
 
 def _verify_container_runtime_contract(plan, container):
     """Verify the project-specific runtime and Docker hardening contract."""
     config = container.get("Config") or {}
     host = container.get("HostConfig") or {}
+    push = plan["production"].get("pushRuntime")
+    environment = config.get("Env") or []
+    push_env = [item for item in environment if item.startswith("STARWARD_PUSH_")]
+    expected_push = _push_runtime_environment(push)
+    _require(len(push_env) == len(expected_push) and sorted(push_env) == sorted(key + "=" + value for key, value in expected_push.items()),
+             "container_mismatch", "Push environment differs from the reviewed runtime profile.")
     expected_command = [
         "serve",
         "--http=0.0.0.0:8090",
@@ -1938,7 +2058,7 @@ def _current_facts(plan, require_running=True, full_database=True, enforce_sourc
         exact=False,
     )
     _require(
-        root_checksums[os.path.basename(production["composePath"])] == source["composeSha256"],
+        root_checksums[os.path.basename(production["composePath"])] == _recorded_source_compose_sha(plan),
         "source_drift",
         "Production root checksum manifest does not anchor Compose.",
     )
@@ -1951,7 +2071,8 @@ def _current_facts(plan, require_running=True, full_database=True, enforce_sourc
     for name, digest in root_checksums.items():
         member = os.path.join(checksum_root, name)
         _require(os.path.isfile(member) and not os.path.islink(member), "source_drift", "A production root checksum member is missing or unsafe.", {"member": name})
-        _require(_sha256_file(member) == digest, "source_drift", "A production root checksum member failed verification.", {"member": name})
+        expected_digest = source["composeSha256"] if member == production["composePath"] else digest
+        _require(_sha256_file(member) == expected_digest, "source_drift", "A production root checksum member failed verification.", {"member": name})
     container = _docker_inspect_container(production["containerName"])
     state = container.get("State") or {}
     running = bool(state.get("Running"))
@@ -1960,7 +2081,7 @@ def _current_facts(plan, require_running=True, full_database=True, enforce_sourc
     config = container.get("Config") or {}
     _require(config.get("Image") == source["imageTag"], "source_drift", "Production container image tag differs from the plan.")
     _require(container.get("Image") == source["imageId"], "source_drift", "Production container image ID differs from the plan.")
-    _container_mount_matches(container, production["dataHostPath"], production["dataContainerPath"])
+    _container_mount_matches(container, production["dataHostPath"], production["dataContainerPath"], production.get("pushRuntime"))
     _container_port_matches(
         container,
         production["hostIp"],
@@ -2191,7 +2312,7 @@ def _preflight_target_phase(plan, paths, state, recorded=False):
         _require(_sha256_file(production["rootReleasePath"]) == plan["source"]["releaseJsonSha256"], "source_drift", "Root release metadata changed before finalize.")
         _raw, lines = _read_root_checksum_lines(production["rootChecksumsPath"])
         mapping = {name: digest for digest, name in lines}
-        _require(mapping.get(os.path.basename(production["composePath"])) == plan["source"]["composeSha256"], "source_drift", "Root checksum manifest no longer retains the source Compose anchor before finalize.")
+        _require(mapping.get(os.path.basename(production["composePath"])) == _recorded_source_compose_sha(plan), "source_drift", "Root checksum manifest no longer retains the source Compose anchor before finalize.")
         _require(mapping.get(os.path.basename(production["rootReleasePath"])) == plan["source"]["releaseJsonSha256"], "source_drift", "Root checksum manifest release anchor changed before finalize.")
         checksum_root = os.path.dirname(production["rootChecksumsPath"])
         compose_name = os.path.basename(production["composePath"])
@@ -3726,6 +3847,49 @@ def _validate_additive_delta(before, after, delta, planned_new_files):
     }
 
 
+def _validate_migration_delta(before, after, delta, planned_new_files):
+    if delta["verifier"] == DELTA_VERIFIER:
+        return _validate_additive_delta(before, after, delta, planned_new_files)
+    _require(delta["verifier"] == CONTEXT_VERIFIER and _canonical_bytes(delta.get("contextEvolution")) == _canonical_bytes(CONTEXT_EVOLUTION)
+             and planned_new_files == [CONTEXT_MIGRATION] and delta["newMigrationFiles"] == planned_new_files
+             and delta["newCollections"] == [] and delta["newSchemaObjects"] == [] and delta["emptyTables"] == [],
+             "delta_mismatch", "Context evolution declaration differs from its fixed reviewed contract.")
+    old = before.get("contextEvolution")
+    new = after.get("contextEvolution")
+    _require(isinstance(old, dict) and isinstance(new, dict)
+             and old["hasKind"] is False and new["hasKind"] is True
+             and old["validFields"] is True and new["validFields"] is True,
+             "delta_mismatch", "Context session/kind field definitions differ from the reviewed transition.")
+    _require(old["normalizedCollectionSha256"] == new["normalizedCollectionSha256"]
+             and before["collections"][CONTEXT_TABLE]["private"] is True
+             and after["collections"][CONTEXT_TABLE]["private"] is True,
+             "delta_mismatch", "Context collection changed outside session.required, the exact kind field and updated timestamp.")
+    timestamp = r"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$"
+    _require(isinstance(old["updated"], str) and isinstance(new["updated"], str)
+             and bool(re.match(timestamp, old["updated"])) and bool(re.match(timestamp, new["updated"]))
+             and new["updated"] >= old["updated"], "delta_mismatch", "Context collection updated timestamp regressed or is invalid.")
+    _require([item[1] for item in old["columnInfo"]] == ["id", "notification", "session"]
+             and new["columnInfo"] == old["columnInfo"] + [[3, "kind", "TEXT", 1, "''", 0]],
+             "delta_mismatch", "Context SQL columns differ outside the exact appended kind column.")
+    _require(old["missingSessionCount"] == 0 and new["missingSessionCount"] == 0
+             and new["nonSessionKindCount"] == 0 and new["legacyRows"] == old["legacyRows"]
+             and old["legacyRows"] == before["tables"][CONTEXT_TABLE],
+             "delta_mismatch", "Context migration changed old rows or did not backfill every kind to session.")
+    normalized = copy.deepcopy(after)
+    old_object = [item for item in before["schemaObjects"] if item["type"] == "table" and item["name"] == CONTEXT_TABLE]
+    new_object = [item for item in normalized["schemaObjects"] if item["type"] == "table" and item["name"] == CONTEXT_TABLE]
+    _require(len(old_object) == len(new_object) == 1
+             and new_object[0]["sqlSha256"] == old["expectedAddedKindSqlSha256"],
+             "delta_mismatch", "Context CREATE TABLE SQL differs from the exact reviewed append.")
+    new_object[0]["sqlSha256"] = old_object[0]["sqlSha256"]
+    normalized["tables"][CONTEXT_TABLE] = copy.deepcopy(before["tables"][CONTEXT_TABLE])
+    normalized["collections"][CONTEXT_TABLE] = copy.deepcopy(before["collections"][CONTEXT_TABLE])
+    result = _validate_additive_delta(before, normalized, delta, planned_new_files)
+    result.update({"afterSummarySha256": after["summarySha256"], "contextEvolution": CONTEXT_EVOLUTION,
+                   "preservedContextRowCount": old["legacyRows"]["rowCount"]})
+    return result
+
+
 def _equivalent_rehearsed_outcome(rehearsed, production, delta):
     _require(rehearsed["schemaObjects"] == production["schemaObjects"], "migration_outcome_mismatch", "Production schema differs from the rehearsed migration outcome.")
     _require(rehearsed["migrationFiles"] == production["migrationFiles"], "migration_outcome_mismatch", "Production migration ledger filenames differ from rehearsal.")
@@ -3756,6 +3920,11 @@ def _equivalent_rehearsed_outcome(rehearsed, production, delta):
         if name in new_names:
             for key in ("type", "private"):
                 _require(rehearsed["collections"][name][key] == production["collections"][name][key], "migration_outcome_mismatch", "A new production collection property differs from rehearsal.", {"collection": name, "property": key})
+        elif delta.get("verifier") == CONTEXT_VERIFIER and name == CONTEXT_TABLE:
+            left, right = rehearsed["contextEvolution"], production["contextEvolution"]
+            _require(left["validFields"] and right["validFields"] and left["hasKind"] and right["hasKind"]
+                     and left["normalizedCollectionSha256"] == right["normalizedCollectionSha256"],
+                     "migration_outcome_mismatch", "Context collection differs from the rehearsed outcome outside its generated updated timestamp.")
         else:
             _require(rehearsed["collections"][name] == production["collections"][name], "migration_outcome_mismatch", "An existing collection differs from rehearsal.", {"collection": name})
 
@@ -4055,7 +4224,7 @@ def _operation_backup(plan, paths, operation_id):
     restored_after_migration = _sqlite_summary(os.path.join(restored_data, production["databaseRelativePath"]))
     delta, _delta_raw = _read_json_file(paths["delta"])
     delta = _validate_delta(delta, plan)
-    delta_evidence = _validate_additive_delta(before, restored_after_migration, delta, plan["migration"]["newFiles"])
+    delta_evidence = _validate_migration_delta(before, restored_after_migration, delta, plan["migration"]["newFiles"])
 
     serve_cycles = []
     stable_summaries = []
@@ -4141,7 +4310,7 @@ def _operation_migrate(plan, paths, state, operation_id):
         max(plan["verification"]["healthTimeoutSeconds"], 120),
     )
     after = _sqlite_summary(os.path.join(production["dataHostPath"], production["databaseRelativePath"]))
-    delta_evidence = _validate_additive_delta(current["database"], after, delta, plan["migration"]["newFiles"])
+    delta_evidence = _validate_migration_delta(current["database"], after, delta, plan["migration"]["newFiles"])
     _equivalent_rehearsed_outcome(backup["restoredAfterMigration"], after, delta)
     evidence = {
         "schemaVersion": 1,
@@ -4301,7 +4470,7 @@ def _verify_target_container_definition(plan, container):
     expected_image_id = plan["artifact"]["targetImageConfigDigest"]
     _require((container.get("Config") or {}).get("Image") == target["imageTag"], "switch_failed", "Target production container tag differs from the frozen plan.")
     _require(container.get("Image") == expected_image_id, "switch_failed", "Target production container image ID differs from the frozen config digest.")
-    _container_mount_matches(container, production["dataHostPath"], production["dataContainerPath"])
+    _container_mount_matches(container, production["dataHostPath"], production["dataContainerPath"], production.get("pushRuntime"))
     _container_port_matches(container, production["hostIp"], production["hostPort"], production["containerPort"])
     _verify_container_runtime_contract(plan, container)
 
@@ -4634,7 +4803,7 @@ def _update_root_release_metadata(
     _require(compose_name != release_name, "invalid_checksums", "Compose and root release metadata filenames collide.")
     mapping = {name: digest for digest, name in lines}
     _require(compose_name in mapping and release_name in mapping, "invalid_checksums", "Root checksum manifest must contain Compose and release.json exactly once.")
-    _require(mapping[compose_name] == plan["source"]["composeSha256"], "source_drift", "Root checksum manifest source Compose digest differs from the frozen plan.")
+    _require(mapping[compose_name] == _recorded_source_compose_sha(plan), "source_drift", "Root checksum manifest source Compose digest differs from the frozen plan.")
     _require(mapping[release_name] == plan["source"]["releaseJsonSha256"], "source_drift", "Root checksum manifest source release.json digest differs from the frozen plan.")
     checksum_root = os.path.dirname(production["rootChecksumsPath"])
     for digest, name in lines:

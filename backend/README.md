@@ -1,6 +1,6 @@
 # Questions 游戏后端
 
-2026-11-19 16:40:05 +08:00，定向旅途消息后端已完成生产发布，`recorded` revision 15。当前镜像为 `questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64`；迁移 `1795075320_push_personal_journey_notices.js` 恰好入账一次，仅为原 context 增加 kind、将 session 改为可选并保留旧义。新 `personal_journey` 用途仅限指定玩家、现有旅途同意范围，允许不关联场次。保留已启用的正式发送和只读凭据配置；订阅分类权益仍为 0，个人旅途未批准时停发、不回退 MARKETING。管理端本轮用途待静态发布。详见 [本次发布记录](../docs/harmony-push-personal-journey-deployment-20261119.md) 与 [当前生产状态](../docs/current-production.md)。
+2026-11-19 16:40:05 +08:00，定向旅途消息后端已完成生产发布，`recorded` revision 15。当前镜像为 `questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64`；迁移 `1795075320_push_personal_journey_notices.js` 恰好入账一次，仅为原 context 增加 kind、将 session 改为可选并保留旧义。新 `personal_journey` 用途仅限指定玩家、现有旅途同意范围，允许不关联场次。保留已启用的正式发送和只读凭据配置；订阅分类权益仍为 0，个人旅途未批准时停发、不回退 MARKETING。管理端本轮用途已随 `7184170e97babe0e2074e08305b3b41261408695` 静态发布，双 CI 及线上 JS/CSS 字节核验通过。详见 [本次发布记录](../docs/harmony-push-personal-journey-deployment-20261119.md) 与 [当前生产状态](../docs/current-production.md)。
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。当前定向旅途消息发布于 2026-11-19 16:40:05 +08:00 进入 `recorded`（revision 15）：18 条迁移、41 个集合、46 张表，context 私有且验收时为空；健康、零重启、三次不同健康检查、HTTPS 200 与四个未认证接口 401 已通过。正式 Push 总开关保持开启、正式模式与既有专用只读密钥保留；SUBSCRIPTION 权益未启用，未进行该分类的生产投递验收。本轮管理端新增用途尚待 push main 发布；实际基线与此前 13 点发布及 15 点激活历史见 [当前生产状态](../docs/current-production.md)。
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。当前定向旅途消息发布于 2026-11-19 16:40:05 +08:00 进入 `recorded`（revision 15）：18 条迁移、41 个集合、46 张表，context 私有且验收时为空；健康、零重启、三次不同健康检查、HTTPS 200 与四个未认证接口 401 已通过。正式 Push 总开关保持开启、正式模式与既有专用只读密钥保留；SUBSCRIPTION 权益未启用，未进行该分类的生产投递验收。本轮管理端新增用途已静态发布并核对线上产物；实际基线与此前 13 点发布及 15 点激活历史见 [当前生产状态](../docs/current-production.md)。
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 

@@ -1,6 +1,6 @@
 # 当前生产状态
 
-最后同步：2026-11-19 16:40:32 +08:00 发布后只读快照。定向旅途消息后端已进入 `recorded`（16:40:05、revision 15），服务已恢复；无 `inFlight`、active marker、阻塞或后续发布操作。此次只更换镜像并执行指定 context 迁移，保留 15 点已启用的正式发送配置、名单和专用只读凭据挂载。管理端新增用途尚待本轮 main 静态发布。详细证据见 [定向旅途消息发布记录](harmony-push-personal-journey-deployment-20261119.md)。
+最后同步：2026-11-19。后端保留 16:40:32 +08:00 发布后只读快照，运营台部署 CI 于 16:48:08 完成并已核对线上产物。定向旅途消息后端已进入 `recorded`（16:40:05、revision 15），服务已恢复；无 `inFlight`、active marker、阻塞或后续发布操作。此次只更换镜像并执行指定 context 迁移，保留 15 点已启用的正式发送配置、名单和专用只读凭据挂载。管理端新增用途已随 `7184170e97babe0e2074e08305b3b41261408695` 静态发布，线上 JS/CSS 与最终本地构建字节一致。详细证据见 [定向旅途消息发布记录](harmony-push-personal-journey-deployment-20261119.md)。
 
 | 组件或闸门 | 当前状态 | 已知边界 |
 | --- | --- | --- |
@@ -9,7 +9,7 @@
 | 运行健康与认证边界 | healthy、零重启、三条不同连续健康成功；HTTPS 200、四个未认证接口均 401 | 证明发布和认证边界，不等于生产业务写入或 SUBSCRIPTION 投递验收 |
 | Push 运行配置 | 保持 `ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=0`；数据可写与专用密钥只读两挂载 | 保留既有接收范围及账号级订阅；未读回、复制或轮换密钥，未在本轮修改开关或名单 |
 | SUBSCRIPTION 权益 | 仍未启用 | 新场次、剧情来信、关卡动态（含本轮不关联场次的定向来信）在未批准时停发，不降级 MARKETING；此前公告收到的证据不代替订阅分类送达 |
-| 管理端“定向旅途消息（无需关联场次）” | 本地已验，静态发布待 push main | 必须先有本轮后端；随后独立核对 CI 和线上 JS/CSS，当前不能标为线上已展示 |
+| 管理端“定向旅途消息（无需关联场次）” | 已静态发布并核对线上产物 | [Deploy 44490560634](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44490560634) 与 [backend CI 44490560636](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44490560636) 成功；JS/CSS 完整 SHA256 匹配最终 production 构建，此项不是生产表单交互或分类投递验收 |
 
 当前生产实际 image/config ID 为 `sha256:f3e1bc2ff3295772a50a497585bfcf51f4da1134ecdff3f9ec0ae06ac565e96a`；Compose SHA256 为 `7a78755f21f53f0cae98319c6d175fc052eebc5bf920af17bb02841a1de276c6`，仓库生产模板已同步且仅替换镜像行。根 `release.json` SHA256 为 `a6ee07602a7fd8a6fd22147b23a2b2e805c2100864d3974768dafe18d160b24b`，根清单 SHA256 为 `82a5889ff26979b8c64c27d16998de46199cf2a5fe266768fe49b2c4860d77ec`。原独立激活记录及历次冻结归档不改写。
 

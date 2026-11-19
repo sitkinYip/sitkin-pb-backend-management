@@ -6,7 +6,7 @@
 
 本次新增通知用途 `personal_journey`：仅向指定的有效玩家发送现有 `personal_journey_v1` 同意范围内的个人剧情来信和旅途动态，无需关联场次。它不代表任意“重要消息”、账号安全提醒或推广，也没有扩大既有订阅同意。原 `journey` 仍必须关联场次；默认公告兼容旧客户端并保持 MARKETING。未读、有效期、当前订阅 revision 和取消后的队列作废仍由后端复核；异常、未知或缺失 context 不降级为营销发送。
 
-旧玩家端和旧运营台继续使用原接口与原通知字段。新运营台用途依赖本次后端，因此先完成后端，再通过 main 的正常静态部署流程发布管理端。本记录完成时，管理端新增入口尚待 push 和线上产物核验；本次不要求新原生包。
+旧玩家端和旧运营台继续使用原接口与原通知字段。新运营台用途依赖本次后端，因此先完成后端，再通过 main 的正常静态部署流程发布管理端。管理端随后随 `7184170e97babe0e2074e08305b3b41261408695` 完成静态发布并核对线上产物；本次不要求新原生包。
 
 保留已有正式 Push 配置：`ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=0`、既有项目与凭据路径、接收范围和账号级订阅。数据可写、专用凭据只读两挂载保持不变，没有读取或复制密钥、扩大名单、改开关或改同意。SUBSCRIPTION 权益仍未启用，个人旅途未批准时停发、不回退 MARKETING，不能据本次上线宣称该分类送达。15 点 MARKETING 公告的实际收发只属于 [独立配置及公告记录](harmony-push-production-activation-20261119.md)。
 
@@ -71,4 +71,15 @@
 
 仓库 Compose 只更新镜像指针，字节匹配已部署 Compose。仓库 UPGRADE 标为 completed、防止再次执行；r2 冻结包的 pending 原文及其 SHA 保留不变。13 点发布及 15 点独立配置的历史归档不改写。生产已经恢复流量，旧快照不能覆盖当前库；后续问题按安全规范前向处理。
 
-管理端静态发布、线上产物核验和 SUBSCRIPTION 权益后续启用分别记录；本文当前仅确认后端上线，不声称管理端已部署或定向旅途消息已实际送达。
+## 管理端静态发布与线上产物
+
+管理端源提交 `7184170e97babe0e2074e08305b3b41261408695` 的 [Deploy to Server](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44490560634) 于 2026-11-19 16:48:08 +08:00 完成、结论 success；对应 job `135444794345` 的全部步骤成功，包括 48 项管理端测试、admin-only 契约检查、只读兼容探针、构建与 SCP 上传。[PocketBase backend CI](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44490560636) 于 16:48:05 完成、结论 success。此静态流水线没有再次迁移数据库或启用分类。
+
+通过真实 HTTPS 读取正式首页引用的资源，与最终 production 本地 dist 完整字节匹配：
+
+| 线上资源 | SHA256 |
+| --- | --- |
+| `/assets/index-DE1zhclC.js` | `e8d3b9ec240b9c0f75b65e6e86ce3918be0d091cc5bf333d88c98a6b3492f26a` |
+| `/assets/index-Dlvq61_l.css` | `a1d09fcaacc157a47e2ac324acd3630b63f83152d723f438f5fed3aa2ea214a9` |
+
+这是 CI 和公开线上静态产物核验，不冒充生产浏览器表单交互；本轮未为验证发送生产剧情来信。后端和运营台均已发布，SUBSCRIPTION 权益仍为 0，定向旅途消息的华为实际投递仍未验收。

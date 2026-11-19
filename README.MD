@@ -54,7 +54,7 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，普通增量升级优先使用 [PocketBase 人工闸门发布程序](docs/pocketbase-release-program.md)，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
 
-2026-11-19 16:40:05 +08:00，定向旅途消息后端已完成生产发布，`recorded` revision 15。`personal_journey` 只允许指定玩家，覆盖现有旅途订阅同意范围内、不关联场次的剧情来信和旅途动态；不是任意重要通知入口。本次仅迁移 context 并替换镜像，保留正式发送、原名单及只读凭据，订阅分类权益仍未启用，未批准的个人旅途停发、不降级 MARKETING。本轮运营台新增用途待 push main 静态发布；此前 13 点订阅和 15 点公告送达分别保留历史证据。进度见 [当前生产状态](docs/current-production.md) 和 [本次发布记录](docs/harmony-push-personal-journey-deployment-20261119.md)。
+2026-11-19 16:40:05 +08:00，定向旅途消息后端已完成生产发布，`recorded` revision 15。`personal_journey` 只允许指定玩家，覆盖现有旅途订阅同意范围内、不关联场次的剧情来信和旅途动态；不是任意重要通知入口。本次仅迁移 context 并替换镜像，保留正式发送、原名单及只读凭据，订阅分类权益仍未启用，未批准的个人旅途停发、不降级 MARKETING。本轮运营台新增用途已随 `7184170e97babe0e2074e08305b3b41261408695` 静态发布，双 CI 成功，线上 JS/CSS 与最终本地构建一致；此前 13 点订阅和 15 点公告送达分别保留历史证据。进度见 [当前生产状态](docs/current-production.md) 和 [本次发布记录](docs/harmony-push-personal-journey-deployment-20261119.md)。
 
 ## 后端源码与可选验收
 

@@ -49,3 +49,9 @@ HTTPS `/api/health` 返回 200；未认证 `/api/questions/v1/admin/me`、`/api/
 匹配的运营后台说明在本记录同步时尚待提交和静态部署；原生邀请包、首次正式分发隐私、系统通知授权、生产凭据及真实分类投递分别验收。本地 134/134 后端测试与 48/48 管理端测试不能替代上述生产事实，不承诺每天至少 20 次实际到达。
 
 生产恢复流量后优先前向修复，保留加性结构和业务数据；不得执行 migration down、删除账本或重新执行本次冻结操作单。若需回退运行代码，另行审查新旧订阅 API 与队列的兼容边界，不能恢复过期快照或自动激活发送。
+
+## 配套管理端后续发布核验
+
+13:30，账号级说明随 `8902dfe8e973659b38a559b45d6ae71674106756` 经 [Deploy to Server #73](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44465491873) 发布成功；48/48 管理端测试、契约检查、只读后端兼容探针、构建和上传通过。同期 [PocketBase backend CI #20](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44465491909) 通过集成测试及镜像恢复演练（134 项，133 通过、1 个需显式启用的可选 OpenSSL 用例在 CI 跳过；本地该用例已实跑通过）。
+
+13:30:33 的线上公开产物核对确认 `index-BjXlDNvB.js` SHA256 为 `c93872a55a19fcf397002bbe6fde7b7923b831813c3ab85046318f119849a6f1`，JS 与 CSS 均与已验本地构建字节一致，新的账号级及未批停发说明已在构建中。13:31:06 再查后端仍 recorded revision 15、healthy、零重启，两个新私有表为空，sender、approval、凭据配置仍关闭。未提交生产表单、读取凭据或发送通知；线上产物核对不冒充 Chrome UI 验收或实际华为送达。

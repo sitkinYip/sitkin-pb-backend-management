@@ -29,3 +29,6 @@ _.njsproj
 _.sln
 \*.sw?
 server.command
+
+# Local validation logs, runtime evidence, and private release material.
+/artifacts/

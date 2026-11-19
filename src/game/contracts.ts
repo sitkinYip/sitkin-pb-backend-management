@@ -171,6 +171,24 @@ export interface GameNotification {
   readAt: string;
   assignmentId: string;
 }
+/** Per-assignment subscription; notification permission alone is not consent. */
+export interface GamePushSubscription {
+  assignmentId: string;
+  subscribed: boolean;
+  pushEnabled: boolean;
+  revision: number;
+}
+export interface GamePushSubscriptionInput {
+  requestId: string;
+  subscribed: boolean;
+  pushEnabled: boolean;
+  expectedRevision: number;
+}
+export interface GamePushSubscriptionList {
+  items: (GamePushSubscription & { title: string })[];
+  subscriptionApproved: boolean;
+}
+export type AdminNotificationMessagePurpose = "journey" | "announcement";
 export interface GamePenalty {
   type: "lock" | "cooldown";
   seconds?: number;

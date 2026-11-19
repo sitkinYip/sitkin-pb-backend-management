@@ -301,7 +301,7 @@ test("production Push settings require admin, default closed, and discard exclud
   const bob = await f.player("audience_bob");
   const a = newInstall(), b = newInstall();
   const defaultSettings = {
-    audience: "allowlist", playerIds: [], revision: 0, serverEnabled: true, testMode: false,
+    audience: "allowlist", playerIds: [], revision: 0, serverEnabled: true, testMode: false, subscriptionApproved: false,
   };
   assert.equal((await f.read(alice.token)).status, 401);
   assert.equal((await server.request(settingsRoute)).status, 401);
@@ -412,7 +412,7 @@ test("audience migration on an existing database is empty, and existing denied b
   }));
   await server.upgradeMigrations({ restoreCopy: true, targetMigrationNames: migrationNames });
   assert.deepEqual(success(await f.read()), {
-    audience: "allowlist", playerIds: [], revision: 0, serverEnabled: true, testMode: false,
+    audience: "allowlist", playerIds: [], revision: 0, serverEnabled: true, testMode: false, subscriptionApproved: false,
   });
   assert.deepEqual(await f.records("game_push_settings"), []);
   assert.equal((await f.records("game_push_bindings")).length, 1);
@@ -429,7 +429,7 @@ test("server master defaults off independently of a saved audience", { timeout: 
   const player = await f.player("audience_server_off");
   const saved = success(await f.write(f.configure(0, "all", [])));
   assert.deepEqual(saved, {
-    audience: "all", playerIds: [], revision: 1, serverEnabled: false, testMode: false,
+    audience: "all", playerIds: [], revision: 1, serverEnabled: false, testMode: false, subscriptionApproved: false,
   });
   assert.deepEqual(success(await f.register(player.token, newInstall())), { registered: false });
   success(await f.publishNote([player.id]));

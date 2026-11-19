@@ -29,13 +29,13 @@
 
 扩大范围后，尚未绑定或绑定已失效的玩家需要再次打开应用并允许系统通知，客户端才会重新登记设备。已有有效绑定的玩家不用重新授权；新登记也不会触发补发。
 
-仅启用的 `game_admins` 可通过 `GET /api/questions/v1/admin/push-settings` 读取，或 `PATCH` 保存。请求体为 `{requestId, audience, playerIds, expectedRevision, reason}`；`audience` 取 `allowlist` 或 `all`，`playerIds` 是已存在的 PocketBase 玩家 ID，最多 1000 个，`reason` 去除首尾空格后须为 1–200 字符。成功返回 `{audience, playerIds, revision, serverEnabled, testMode}`；版本变化时返回 `409 PUSH_SETTINGS_CONFLICT`，重新读取后再编辑。空配置默认版本为 0。配置持久保存在私有集合 `game_push_settings`，操作原因进入审计，配置差异只记录模式、人数和版本，不记名单 ID、设备 Token 或服务凭据。
+仅启用的 `game_admins` 可通过 `GET /api/questions/v1/admin/push-settings` 读取，或 `PATCH` 保存。请求体为 `{requestId, audience, playerIds, expectedRevision, reason}`；`audience` 取 `allowlist` 或 `all`，`playerIds` 是已存在的 PocketBase 玩家 ID，最多 1000 个，`reason` 去除首尾空格后须为 1–200 字符。成功返回 `{audience, playerIds, revision, serverEnabled, testMode, subscriptionApproved}`；最后一项是只读的订阅分类权益配置状态，不接受客户端写入。版本变化时返回 `409 PUSH_SETTINGS_CONFLICT`，重新读取后再编辑。空配置默认版本为 0。配置持久保存在私有集合 `game_push_settings`，操作原因进入审计，配置差异只记录模式、人数和版本，不记名单 ID、设备 Token 或服务凭据。
 
 ## 隔离启用与发布
 
 1. 同步核对实际 1Panel 生产基线，为 `1794988800_harmony_push.js` 和 `1794988860_push_audience.js` 新建专用发布计划，核对 [Push 允许差异](../backend/deploy/1panel/allowed-delta.harmony-push.json)，按 [PocketBase 发布流程](pocketbase-release-program.md) 在备份副本先演练。新版本的镜像为基线 Alpine 增加 OpenSSL CLI，沿用 PocketBase 0.40.1 及原有数据目录。初次生产部署以 `STARWARD_PUSH_ENABLED=0` 启动，现有场次、来信和登录不会经 Push 发送通知。
 2. 在隔离部署的 PocketBase 容器只读挂载专用 AGC 服务账号 JSON，通过 `STARWARD_PUSH_SERVICE_ACCOUNT_FILE` 指向容器内文件，只允许服务进程读取。另设 `STARWARD_PUSH_PROJECT_ID` 为该账号所属的 Project ID，`STARWARD_PUSH_ENABLED=1`，`STARWARD_PUSH_TEST_MODE=1`，`STARWARD_PUSH_TEST_PLAYER_ID` 为专用验收玩家记录 ID。测试开关默认为开启且必须指定精确玩家，只有该账号可以注册和收发。该模式使用官方 `testMessage:true`。手工验证真实测试时仅使用专用玩家及其安装，服务账号 JSON 和本机签名材料不要进入仓库、日志或发布压缩包。
-3. 隔离环境使用专用玩家验收授权允许、拒绝和关闭，以及前台、后台和冷启点击回源。正式范围可另以隔离库和替身发送器验证：空白名单、新增名单、全部开放、不补发、收窄后跳过未发送的范围外任务，以及总开关关闭时仍可编辑范围。开启真实正式发送前，核对应用隐私说明、平台权益和生产基线，把「仅白名单」保存为首轮专用游戏账号；在授权窗口设置 `STARWARD_PUSH_TEST_MODE=0` 并启用总开关。用邀请渠道安装的发布签名包验证通知送达、点击和退出后停发，然后再决定是否在运营后台选择「全部开放」。当前实现使用无需额外权益的 `MARKETING` 类别，可能静默且有每机日频控。回退时先设 `STARWARD_PUSH_ENABLED=0`，保留新增私有表及既有业务数据。
+3. 隔离环境使用专用玩家验收授权允许、拒绝和关闭，以及前台、后台和冷启点击回源。正式范围可另以隔离库和替身发送器验证：空白名单、新增名单、全部开放、不补发、收窄后跳过未发送的范围外任务，以及总开关关闭时仍可编辑范围。开启真实正式发送前，核对应用隐私说明、平台权益和生产基线，把「仅白名单」保存为首轮专用游戏账号；在授权窗口设置 `STARWARD_PUSH_TEST_MODE=0` 并启用总开关。用邀请渠道安装的发布签名包验证通知送达、点击和退出后停发，然后再决定是否在运营后台选择「全部开放」。新场次下发及公告使用 `MARKETING`，可能静默且有每机日频控。场次剧情来信和关卡消息仅对明确订阅且独立开启通知的玩家投递，权益未批仍为 `MARKETING`；原应用实际获批后另设 `STARWARD_PUSH_SUBSCRIPTION_APPROVED=1` 才发送 `SUBSCRIPTION`，不得用此配置替代权益申请。具体契约、取消语义与逐状态证据见 [2026-11-19 场次订阅](harmony-push-subscriptions-20261119.md)。回退时先设 `STARWARD_PUSH_ENABLED=0`，保留新增私有表及既有业务数据。
 
 现有 1Panel 发布脚本只更新 Compose 镜像，并校验运行时只有数据目录挂载。关闭 Push 的代码和迁移可以按原流程演练；真实发送前须单独验证、审查带只读密钥挂载及环境开关的生产配置和回退流程。运营后台的发送范围设置不能替代这一步，也不应把密钥放进数据库备份目录。
 

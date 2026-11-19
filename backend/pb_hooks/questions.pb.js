@@ -19,7 +19,7 @@ routerAdd(
   $apis.bodyLimit(2048),
 );
 
-for (const method of ["GET", "POST", "PATCH"]) {
+for (const method of ["GET", "POST", "PATCH", "PUT"]) {
   routerAdd(
     method,
     "/api/questions/v1/{path...}",

@@ -121,6 +121,7 @@ export async function createTestServer({
     STARWARD_PUSH_TEST_PLAYER_ID: "",
     STARWARD_PUSH_PROJECT_ID: "",
     STARWARD_PUSH_SERVICE_ACCOUNT_FILE: "",
+    STARWARD_PUSH_SUBSCRIPTION_APPROVED: "0",
     ...env,
     ...(pushSmokeSecretFile ? {
       STARWARD_PUSH_SERVICE_ACCOUNT_FILE: "/run/secrets/starward-push-service-account.json",

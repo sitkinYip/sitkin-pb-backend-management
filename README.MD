@@ -54,7 +54,7 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，普通增量升级优先使用 [PocketBase 人工闸门发布程序](docs/pocketbase-release-program.md)，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
 
-2026-11-18，鸿蒙 Push 的 PocketBase 路由和两条增量迁移已完成生产发布。三个新增私有集合在验收时均为空，总开关保持关闭。运营后台、正式发送凭据和邀请包收发分别验收，进度见 [当前生产状态](docs/current-production.md) 和 [本次发布记录](docs/harmony-push-deployment-20261118.md)。
+2026-11-19，场次订阅与 Push 分类后端已完成生产发布：新增迁移及三个私有空表已验收，正式 Push 总开关和订阅分类权益开关仍关闭。管理端、邀请包、发送凭据与真实收发分别验收，进度见 [当前生产状态](docs/current-production.md) 和 [本次发布记录](docs/harmony-push-subscriptions-deployment-20261119.md)。
 
 ## 后端源码与可选验收
 

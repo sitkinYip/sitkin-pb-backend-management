@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "verifier": "additive-empty-collections-v1",
+  "newMigrationFiles": [
+    "1795075200_push_subscriptions.js"
+  ],
+  "newCollections": [
+    {
+      "name": "game_push_notice_contexts",
+      "requirePrivate": true
+    },
+    {
+      "name": "game_push_notice_deliveries",
+      "requirePrivate": true
+    },
+    {
+      "name": "game_push_subscriptions",
+      "requirePrivate": true
+    }
+  ],
+  "newSchemaObjects": [
+    {
+      "type": "index",
+      "name": "idx_game_push_notice_contexts_notification",
+      "table": "game_push_notice_contexts"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_push_notice_deliveries_delivery",
+      "table": "game_push_notice_deliveries"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_push_notice_deliveries_subscription",
+      "table": "game_push_notice_deliveries"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_push_subscriptions_assignment",
+      "table": "game_push_subscriptions"
+    },
+    {
+      "type": "index",
+      "name": "idx_game_push_subscriptions_player",
+      "table": "game_push_subscriptions"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_push_notice_contexts_1",
+      "table": "game_push_notice_contexts"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_push_notice_deliveries_1",
+      "table": "game_push_notice_deliveries"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_game_push_subscriptions_1",
+      "table": "game_push_subscriptions"
+    },
+    {
+      "type": "table",
+      "name": "game_push_notice_contexts",
+      "table": "game_push_notice_contexts"
+    },
+    {
+      "type": "table",
+      "name": "game_push_notice_deliveries",
+      "table": "game_push_notice_deliveries"
+    },
+    {
+      "type": "table",
+      "name": "game_push_subscriptions",
+      "table": "game_push_subscriptions"
+    }
+  ],
+  "emptyTables": [
+    "game_push_notice_contexts",
+    "game_push_notice_deliveries",
+    "game_push_subscriptions"
+  ]
+}

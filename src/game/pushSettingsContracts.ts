@@ -6,6 +6,7 @@ export interface AdminPushSettings {
   revision: number;
   serverEnabled: boolean;
   testMode: boolean;
+  subscriptionApproved: boolean;
 }
 
 export interface AdminPushSettingsInput {

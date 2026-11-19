@@ -6,6 +6,7 @@ const extras = require(`${__hooks}/lib/extra-config.js`);
 const titles = require(`${__hooks}/lib/player-titles.js`);
 const push = require(`${__hooks}/lib/push.js`);
 const pushSettings = require(`${__hooks}/lib/push-settings.js`);
+const subscriptions = require(`${__hooks}/lib/push-subscriptions.js`);
 function readBody(e) {
   return JSON.parse(JSON.stringify(e.requestInfo().body || {}));
 }
@@ -100,7 +101,13 @@ function notifications(e) {
 }
 function sendNotification(e, body) {
   return db.command(e, "send-notification", body, true, (app, actor) => {
+    const purpose = body.messagePurpose === undefined ? "announcement" : body.messagePurpose;
+    if (!["journey", "announcement"].includes(purpose))
+      r.fail("INVALID_INPUT", "请选择正确的通知用途");
+    if (purpose === "journey" && body.target !== "session")
+      r.fail("INVALID_INPUT", "剧情来信和关卡消息必须关联具体场次");
     let players;
+    let assignments = [];
     if (body.target === "all")
       players = db.all(app, "game_players", 'status="active"');
     else if (body.target === "selected")
@@ -109,18 +116,9 @@ function sendNotification(e, body) {
       );
     else if (body.target === "session") {
       db.get(app, "game_sessions", body.sessionId);
-      const ids = [
-        ...new Set(
-          db
-            .all(
-              app,
-              "game_assignments",
-              'session={:id} && status!="cancelled"',
-              { id: body.sessionId },
-            )
-            .map((a) => a.getString("player")),
-        ),
-      ];
+      assignments = db.all(app, "game_assignments", 'session={:id} && status!="cancelled"',
+        { id: body.sessionId }, "-created,-id");
+      const ids = [...new Set(assignments.map((a) => a.getString("player")))];
       players = ids.map((id) => db.get(app, "game_players", id));
     } else r.fail("INVALID_INPUT", "请选择通知接收范围");
     const note = db.create(app, "game_notifications", {
@@ -136,10 +134,13 @@ function sendNotification(e, body) {
     const recipients = players.filter(
       (p) => p.getString("status") === "active",
     );
+    if (purpose === "journey") subscriptions.notice(app, note, body.sessionId);
     for (const player of recipients) {
+      const assignment = purpose === "journey" && assignments.find((a) => a.getString("player") === player.id);
       const receipt = db.create(app, "game_notification_receipts", {
         notification: note.id,
         player: player.id,
+        ...(assignment ? { assignment: assignment.id } : {}),
       });
       push.enqueue(app, player, "inbox", receipt, note.getString("expiresAt"));
     }
@@ -279,6 +280,7 @@ function handle(e, explicitPath) {
   if (path === "me/push/unregister" && method === "POST")
     return push.unregister(e, body);
   if (path === "push/revoke" && method === "POST") return push.revoke(e, body);
+  if (path === "me/push/subscriptions" && method === "GET") return subscriptions.list(e);
   if (path === "assignments" && method === "GET") {
     const player = db.actor(e.app, e);
     return {
@@ -294,6 +296,10 @@ function handle(e, explicitPath) {
     };
   }
   if (parts[0] === "assignments" && parts[1]) {
+    if (parts.length === 3 && parts[2] === "push-subscription") {
+      if (method === "GET") return subscriptions.read(e, parts[1]);
+      if (method === "PUT") return subscriptions.save(e, parts[1], body);
+    }
     if (parts.length === 2 && method === "GET")
       return game.detail(
         e.app,
@@ -499,7 +505,8 @@ function handle(e, explicitPath) {
         items: db
           .all(e.app, "game_notifications", "", {}, "-created,-id")
           .map((n) =>
-            db.pick(n, ["title", "content", "status", "sentAt", "expiresAt"]),
+            ({ ...db.pick(n, ["title", "content", "status", "sentAt", "expiresAt"]),
+              messagePurpose: subscriptions.noticePurpose(e.app, n.id) }),
           ),
       };
     if (

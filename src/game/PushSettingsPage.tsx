@@ -197,6 +197,15 @@ export function PushSettingsPage() {
                 description="保存后立即应用新范围，无需重启后端或重新发包。" />
             )}
 
+            <Alert
+              type={saved.subscriptionApproved ? "success" : "info"}
+              showIcon
+              message={saved.subscriptionApproved ? "场次订阅分类已启用" : "场次订阅分类尚未启用"}
+              description={saved.subscriptionApproved
+                ? "已订阅并允许通知的场次动态使用 SUBSCRIPTION。平台公告、运营推广和首次下发场次继续使用 MARKETING。"
+                : "场次订阅和取消可以正常使用。获华为权益并在服务端启用前，通知仍使用 MARKETING，受每日营销额度限制。"}
+            />
+
             {blockingConflict ? (
               <Alert
                 type="warning"

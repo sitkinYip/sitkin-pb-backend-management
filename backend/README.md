@@ -1,6 +1,6 @@
 # Questions 游戏后端
 
-2026-11-18 已完成鸿蒙 Push 的数据库和后端发布。生产镜像为 `questions-pocketbase:0.40.1-harmony-push-20261118-amd64`；两条迁移新增三个空私有集合。推送总开关保持关闭。本次镜像、备份和检查结果见 [发布记录](../docs/harmony-push-deployment-20261118.md)，运营后台、发送凭据与邀请包的进度见 [当前生产状态](../docs/current-production.md)。
+2026-11-19 已完成场次订阅与 Push 分类后端发布。生产镜像为 `questions-pocketbase:0.40.1-push-subscriptions-20261119-amd64`；新增迁移 `1795075200_push_subscriptions.js`，三个新私有集合在验收时均为空。Push 总开关和订阅分类权益开关实际关闭。本次备份、迁移和检查结果见 [发布记录](../docs/harmony-push-subscriptions-deployment-20261119.md)，管理端、正式凭据与邀请包进度见 [当前生产状态](../docs/current-production.md)。
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
@@ -14,7 +14,7 @@
 
 | 目录                       | 用途                                                          |
 | -------------------------- | ------------------------------------------------------------- |
-| `pb_migrations/`           | 版本化业务集合和索引；鸿蒙 Push 的三个私有集合已随迁移部署   |
+| `pb_migrations/`           | 版本化业务集合和索引；基础 Push 与场次订阅的六个私有集合已迁移   |
 | `pb_hooks/lib/api.js`      | `/api/questions/v1` 路由及输入边界                            |
 | `pb_hooks/lib/gameplay.js` | 入场、判题、顺序、经验、奖励、线索                            |
 | `pb_hooks/lib/admin.js`    | 内容版本、下发、现场干预与核销                                |
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。鸿蒙 Push 后端于 2026-11-18 16:52 +08:00 进入 `recorded`：两条新迁移各入账一次，三个新集合仍为空，HTTPS 健康返回 200，三个未认证接口返回 401。没有配置凭据、开启推送或执行生产业务验收写入。实际运行基线与后续验证见 [当前生产状态](../docs/current-production.md)。
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。场次订阅后端于 2026-11-19 11:36:51 +08:00 进入 `recorded`：新增迁移恰好一次，三个新私有表保持为空，同一容器三次不同健康检查成功且零重启，HTTPS 健康 200、三个未认证接口 401。本轮未配置正式发送凭据或开启总开关、订阅分类权益，也未执行生产业务写入验收。实际基线与后续验证见 [当前生产状态](../docs/current-production.md)。
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 

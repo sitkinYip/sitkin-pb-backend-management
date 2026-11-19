@@ -925,6 +925,7 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
   const [form] = Form.useForm(),
     [withdrawForm] = Form.useForm();
   const target = Form.useWatch("target", form);
+  const messagePurpose = Form.useWatch("messagePurpose", form);
   const [withdraw, setWithdraw] = useState("");
   return (
     <PageCard title="通知管理">
@@ -934,14 +935,36 @@ function Notifications({ catalog }: { catalog: AdminCatalog }) {
         name="notification-create"
         form={form}
         layout="vertical"
-        initialValues={{ target: "selected" }}
+        initialValues={{ target: "selected", messagePurpose: "announcement" }}
         onFinish={async (values) => {
           if (await run("/admin/notifications", values)) form.resetFields();
         }}
       >
+        <Field name="messagePurpose" label="通知用途" rules={fieldRule}>
+          <Select
+            onChange={(purpose) => {
+              if (purpose === "journey") form.setFieldValue("target", "session");
+            }}
+            options={[
+              { value: "journey", label: "场次动态 · 剧情来信／关卡消息" },
+              { value: "announcement", label: "平台公告／运营推广" },
+            ]}
+          />
+        </Field>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 20 }}
+          message={messagePurpose === "journey" ? "关联具体场次的动态" : "平台公告与运营推广"}
+          description={messagePurpose === "journey"
+            ? "应用内发给该场次的参与者；系统推送只发给主动订阅且允许通知的玩家。获批后使用订阅分类，取消订阅不影响应用内收信。"
+            : "使用 MARKETING 分类，受华为营销通知额度限制。请勿把推广内容作为场次动态发送。"}
+        />
         <Field name="target" label="接收范围" rules={fieldRule}>
           <Select
-            options={[
+            options={messagePurpose === "journey" ? [
+              { value: "session", label: "某场次的参与者" },
+            ] : [
               { value: "selected", label: "指定用户" },
               { value: "all", label: "当前所有有效用户" },
               { value: "session", label: "某场次的参与者" },

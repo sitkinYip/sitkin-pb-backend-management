@@ -35,7 +35,8 @@ function permitted(app, playerId) {
 }
 
 function withRuntimeState(data) {
-  return { ...data, serverEnabled: enabled(), testMode: testMode() };
+  return { ...data, serverEnabled: enabled(), testMode: testMode(),
+    subscriptionApproved: $os.getenv("STARWARD_PUSH_SUBSCRIPTION_APPROVED") === "1" };
 }
 
 function read(app) {

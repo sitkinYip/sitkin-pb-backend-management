@@ -68,8 +68,8 @@ function message(job, testMessage, time = Date.now()) {
     payload: {
       notification: {
         title: "赴星之约",
-        body: "旅途有新消息，打开应用查看。",
-        category: "MARKETING",
+        body: job.subscribed ? "你订阅的场次有新消息，打开应用查看。" : "旅途有新消息，打开应用查看。",
+        category: job.subscribed && job.category === "SUBSCRIPTION" ? "SUBSCRIPTION" : "MARKETING",
         foregroundShow: true,
         profileId: job.profileId,
         appMessageId: job.id,

@@ -1,6 +1,7 @@
 const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const { enabled, testMode, permitted } = require(`${__hooks}/lib/push-settings.js`);
+const subscriptions = require(`${__hooks}/lib/push-subscriptions.js`);
 
 const bindings = "game_push_bindings";
 const deliveries = "game_push_deliveries";
@@ -120,13 +121,16 @@ function enqueue(app, player, kind, target, businessEndsAt = "") {
   const time = Date.now();
   const deadline = businessEndsAt ? Date.parse(businessEndsAt) : Infinity;
   if (deadline <= time) return;
+  const eligibility = kind === "inbox" ? subscriptions.eligibility(app, player.id, target, time) : { category: "MARKETING" };
+  if (!eligibility) return;
   for (const binding of db.all(app, bindings,
       "player={:p} && expiresAt>{:now} && accountKey={:key}",
       { p: player.id, now: date(time), key: accountKey(player) }, "id")) {
-    db.create(app, deliveries, {
+    const delivery = db.create(app, deliveries, {
       binding: binding.id, kind, targetId: target.id, status: "pending",
       availableAt: date(time), expiresAt: date(Math.min(time + deliveryTTL, deadline)),
     });
+    subscriptions.attach(app, delivery, eligibility);
   }
 }
 
@@ -165,7 +169,9 @@ function claim(app, id) {
     const binding = db.maybe(tx, bindings, "id={:id}", { id: row.getString("binding") });
     const expiresAt = Date.parse(row.getString("expiresAt"));
     const attempt = row.getInt("attempts") + 1;
-    if (expiresAt <= time || attempt > maxAttempts || !stillAuthorized(tx, row, binding, time)) {
+    const classification = row.getString("kind") === "inbox" && binding
+      ? subscriptions.delivery(tx, row, binding.getString("player"), time) : { category: "MARKETING" };
+    if (!classification || expiresAt <= time || attempt > maxAttempts || !stillAuthorized(tx, row, binding, time)) {
       row.set("status", "discarded");
       row.set("lease", "");
       tx.save(row);
@@ -182,6 +188,7 @@ function claim(app, id) {
       profileId: binding.getString("profileId"),
       kind: row.getString("kind"), targetId: row.getString("targetId"),
       expiresAt, attempt,
+      category: classification.category, subscribed: classification.subscribed === true,
     };
   });
   return job;

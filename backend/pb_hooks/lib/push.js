@@ -2,6 +2,7 @@ const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const { enabled, testMode, permitted } = require(`${__hooks}/lib/push-settings.js`);
 const subscriptions = require(`${__hooks}/lib/push-subscriptions.js`);
+const journeySubscription = require(`${__hooks}/lib/push-journey-subscription.js`);
 
 const bindings = "game_push_bindings";
 const deliveries = "game_push_deliveries";
@@ -121,7 +122,8 @@ function enqueue(app, player, kind, target, businessEndsAt = "") {
   const time = Date.now();
   const deadline = businessEndsAt ? Date.parse(businessEndsAt) : Infinity;
   if (deadline <= time) return;
-  const eligibility = kind === "inbox" ? subscriptions.eligibility(app, player.id, target, time) : { category: "MARKETING" };
+  const eligibility = kind === "inbox" ? subscriptions.eligibility(app, player.id, target, time)
+    : journeySubscription.eligibility(app, player.id);
   if (!eligibility) return;
   for (const binding of db.all(app, bindings,
       "player={:p} && expiresAt>{:now} && accountKey={:key}",
@@ -170,7 +172,8 @@ function claim(app, id) {
     const expiresAt = Date.parse(row.getString("expiresAt"));
     const attempt = row.getInt("attempts") + 1;
     const classification = row.getString("kind") === "inbox" && binding
-      ? subscriptions.delivery(tx, row, binding.getString("player"), time) : { category: "MARKETING" };
+      ? subscriptions.delivery(tx, row, binding.getString("player"), time)
+      : binding ? journeySubscription.delivery(tx, row, binding.getString("player")) : null;
     if (!classification || expiresAt <= time || attempt > maxAttempts || !stillAuthorized(tx, row, binding, time)) {
       row.set("status", "discarded");
       row.set("lease", "");

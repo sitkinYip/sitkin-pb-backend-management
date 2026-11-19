@@ -188,6 +188,21 @@ export interface GamePushSubscriptionList {
   items: (GamePushSubscription & { title: string })[];
   subscriptionApproved: boolean;
 }
+/** One explicit account subscription, only for assignments and their story updates. */
+export interface GamePushJourneySubscription {
+  scope: "personal_journey_v1";
+  subscribed: boolean;
+  pushEnabled: boolean;
+  revision: number;
+  subscriptionApproved: boolean;
+}
+export interface GamePushJourneySubscriptionInput {
+  requestId: string;
+  scope: "personal_journey_v1";
+  subscribed: boolean;
+  pushEnabled: boolean;
+  expectedRevision: number;
+}
 export type AdminNotificationMessagePurpose = "journey" | "announcement";
 export interface GamePenalty {
   type: "lock" | "cooldown";

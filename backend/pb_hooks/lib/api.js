@@ -7,6 +7,7 @@ const titles = require(`${__hooks}/lib/player-titles.js`);
 const push = require(`${__hooks}/lib/push.js`);
 const pushSettings = require(`${__hooks}/lib/push-settings.js`);
 const subscriptions = require(`${__hooks}/lib/push-subscriptions.js`);
+const journeySubscription = require(`${__hooks}/lib/push-journey-subscription.js`);
 function readBody(e) {
   return JSON.parse(JSON.stringify(e.requestInfo().body || {}));
 }
@@ -280,6 +281,8 @@ function handle(e, explicitPath) {
   if (path === "me/push/unregister" && method === "POST")
     return push.unregister(e, body);
   if (path === "push/revoke" && method === "POST") return push.revoke(e, body);
+  if (path === "me/push/journey-subscription" && method === "GET") return journeySubscription.read(e);
+  if (path === "me/push/journey-subscription" && method === "PUT") return journeySubscription.save(e, body);
   if (path === "me/push/subscriptions" && method === "GET") return subscriptions.list(e);
   if (path === "assignments" && method === "GET") {
     const player = db.actor(e.app, e);

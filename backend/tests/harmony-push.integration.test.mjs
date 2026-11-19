@@ -89,7 +89,7 @@ function audienceFixture(server) {
 
 test("real PocketBase: push binding, assignment and inbox outbox, retries and revocation", { timeout: 120000 }, async (t) => {
   const server = await createTestServer({
-    env: { STARWARD_PUSH_ENABLED: "1", STARWARD_PUSH_TEST_MODE: "0" },
+    env: { STARWARD_PUSH_ENABLED: "1", STARWARD_PUSH_TEST_MODE: "0", STARWARD_PUSH_SUBSCRIPTION_APPROVED: "1" },
     testHooks,
   });
   t.after(() => server.stop());
@@ -157,6 +157,12 @@ print(json.dumps([dict(row) for row in db.execute(
   assert.deepEqual(ok(await revoke("a".repeat(48))), { registered: false });
   assert.deepEqual(ok(await register(alice)), first);
 
+  // Assignment alerts now require this explicit account-level journey consent.
+  for (const [subscribed, pushEnabled, expectedRevision] of [[true, false, 0], [true, true, 1]])
+    ok(await server.request(root + "/me/push/journey-subscription", {
+      method: "PUT", token: alice,
+      body: { requestId: randomUUID(), scope: "personal_journey_v1", subscribed, pushEnabled, expectedRevision },
+    }));
   const q = ok(await admin("/admin/questions", {
     kind: "text", title: "私密题目", content: [{ text: "私密内容" }], acceptedAnswers: ["北星"],
   }));
@@ -189,7 +195,8 @@ print(json.dumps([dict(row) for row in db.execute(
     notification.clickAction.data.starwardPushKind)), new Set(["assignment", "inbox"]));
   for (const { notification, pushOptions } of messages) {
     assert.equal(notification.title, "赴星之约");
-    assert.equal(notification.body, "旅途有新消息，打开应用查看。");
+    assert.equal(notification.body, notification.clickAction.data.starwardPushKind === "assignment"
+      ? "你订阅的旅途动态有新消息，打开应用查看。" : "旅途有新消息，打开应用查看。");
     assert.equal(notification.profileId, install.profileId);
     assert.equal(notification.foregroundShow, true);
     const data = notification.clickAction.data;

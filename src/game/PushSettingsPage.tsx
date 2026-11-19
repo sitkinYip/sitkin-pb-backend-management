@@ -200,10 +200,10 @@ export function PushSettingsPage() {
             <Alert
               type={saved.subscriptionApproved ? "success" : "info"}
               showIcon
-              message={saved.subscriptionApproved ? "场次订阅分类已启用" : "场次订阅分类尚未启用"}
+              message={saved.subscriptionApproved ? "旅途订阅分类已启用" : "旅途订阅分类尚未启用"}
               description={saved.subscriptionApproved
-                ? "已订阅并允许通知的场次动态使用 SUBSCRIPTION。平台公告、运营推广和首次下发场次继续使用 MARKETING。"
-                : "场次订阅和取消可以正常使用。获华为权益并在服务端启用前，通知仍使用 MARKETING，受每日营销额度限制。"}
+                ? "玩家一次订阅并单独确认通知后，分配给他的新场次、剧情来信与关卡动态使用 SUBSCRIPTION。平台公告和运营推广继续使用 MARKETING。"
+                : "账号级旅途订阅默认关闭。订阅选择可以保存；获华为对应权益并在服务端启用前，不发送新场次和剧情来信提醒，也不降级消耗营销额度。公告和推广仍使用 MARKETING。"}
             />
 
             {blockingConflict ? (
@@ -290,7 +290,7 @@ export function PushSettingsPage() {
               ) : (
                 <Alert className="admin-push-settings-scope-note" type="warning" showIcon
                   message="符合条件的玩家都可以收到推送"
-                  description={`仍需玩家授权并绑定设备，且发生属于该玩家的新场次、来信或公告。白名单保留 ${playerIds.length} 位，切回后可继续使用。`} />
+                  description={`仍需玩家授权并绑定设备。新场次和剧情来信还需一次旅途订阅及独立通知确认；公告使用营销分类。白名单保留 ${playerIds.length} 位，切回后可继续使用。`} />
               )}
               <Field label="变更原因" htmlFor="push-reason" required extra="最多 200 字。原因会记入操作记录，不会展示给玩家。">
                 <Input.TextArea id="push-reason" aria-required="true" rows={2} maxLength={200}

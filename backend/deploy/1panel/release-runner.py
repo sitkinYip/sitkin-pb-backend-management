@@ -1789,7 +1789,12 @@ def _verify_compose_push_contract(plan, config):
         matches = [item for item in volumes if isinstance(item, dict) and item.get("target") == target]
         _require(len(matches) == 1 and matches[0].get("type") == "bind" and matches[0].get("source") == source
                  and matches[0].get("read_only", False) is read_only
-                 and (matches[0].get("bind") or {}).get("create_host_path") is False,
+                 # Compose versions using Go omitempty drop an explicit false.
+                 # Source/candidate raw bytes remain independently SHA-anchored;
+                 # only an absent field in an actual bind object equals false.
+                 and isinstance(matches[0].get("bind"), dict)
+                 and ("create_host_path" not in matches[0]["bind"]
+                      or matches[0]["bind"]["create_host_path"] is False),
                  "invalid_compose", "Compose bind source/target/mode/create-host-path differs from its frozen contract.")
 
 

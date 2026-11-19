@@ -1047,6 +1047,21 @@ volumes = [{"type":"bind", "source":production["dataHostPath"],"target":"/pb/pb_
  {"type":"bind","source":runner.PUSH_SECRET_HOST,"target":runner.PUSH_SECRET_CONTAINER,"read_only":True,"bind":{"create_host_path":False}}]
 config = {"services":{"pocketbase":{"environment":env,"volumes":volumes}}}
 runner._verify_compose_push_contract(plan, config)
+# Server Compose canonical JSON omits explicit false via Go omitempty.
+omitted=copy.deepcopy(config)
+for volume in omitted["services"]["pocketbase"]["volumes"]: del volume["bind"]["create_host_path"]
+runner._verify_compose_push_contract(plan, omitted)
+for unsafe in [True, 0, 1, None, "false"]:
+    invalid=copy.deepcopy(config)
+    invalid["services"]["pocketbase"]["volumes"][1]["bind"]["create_host_path"]=unsafe
+    try:runner._verify_compose_push_contract(plan,invalid)
+    except runner.ReleaseError as error:assert error.code=="invalid_compose"
+    else:raise AssertionError("unsafe create_host_path value accepted: "+repr(unsafe))
+for absent_bind in [None, False, "", 0]:
+    invalid=copy.deepcopy(config);invalid["services"]["pocketbase"]["volumes"][1]["bind"]=absent_bind
+    try:runner._verify_compose_push_contract(plan,invalid)
+    except runner.ReleaseError as error:assert error.code=="invalid_compose"
+    else:raise AssertionError("missing or invalid bind object accepted")
 assert runner._recorded_source_compose_sha(plan) == "a" * 64
 mounts = [{"Type":"bind","Source":x["source"],"Destination":x["target"],"RW":not x.get("read_only",False)} for x in volumes]
 runner._container_mount_matches({"Mounts":mounts}, production["dataHostPath"], "/pb/pb_data", push)

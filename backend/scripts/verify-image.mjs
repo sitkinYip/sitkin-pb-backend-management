@@ -21,7 +21,11 @@ const docker = (args) =>
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
-const mount = ["--mount", `type=bind,source=${directory},target=/test`];
+// Use the caller's identity for every write into the temporary Linux bind mount.
+const mount = [
+  "--user", `${process.getuid()}:${process.getgid()}`,
+  "--mount", `type=bind,source=${directory},target=/test`,
+];
 const flags = (folder) => [
   `--dir=/test/${folder}`,
   "--hooksDir=/pb/pb_hooks",

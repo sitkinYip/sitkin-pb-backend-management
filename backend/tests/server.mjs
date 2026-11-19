@@ -57,6 +57,9 @@ export async function createTestServer({
   );
   const password = `T-${randomUUID()}`;
   const mountArgs = [
+    // Linux bind mounts retain container ownership; keep test files host-removable.
+    "--user",
+    `${process.getuid()}:${process.getgid()}`,
     "--mount",
     `type=bind,source=${directory},target=/test-data`,
     "--mount",

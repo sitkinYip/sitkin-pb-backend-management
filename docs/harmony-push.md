@@ -1,6 +1,6 @@
 # 赴星之约 HarmonyOS Push Kit
 
-2026-11-18，两个 PocketBase 迁移和 Push 路由已 [部署生产](harmony-push-deployment-20261118.md)。在本次发布验收时，三个新集合均为空，总开关关闭。运营后台上线、正式凭据配置以及邀请包实际收发需单独确认，见 [当前生产状态](current-production.md)。
+2026-11-20，原应用 SUBSCRIPTION 分类审核通过，服务端已通过独立配置激活将 `STARWARD_PUSH_SUBSCRIPTION_APPROVED` 置 1；沿用既有镜像、正式发送、只读凭据和账号同意。一条新单人定向旅途消息首次获华为 `80000000`，用户明确确认系统通知收到；没有历史补发，点击回源未验，见 [本次激活](harmony-push-subscription-activation-20261120.md) 与 [当前生产状态](current-production.md)。基础 Push 路由始于 [2026-11-18 部署](harmony-push-deployment-20261118.md)，该日期记录中“总开关关闭”等内容仅描述当时状态。
 
 正式应用是 `com.sitkin.starward`。在现有 AppGallery Connect 项目中启用 Push Kit，核对应用归属、分发签名和 Push 服务，再创建只为推送使用的服务账号密钥。发送 URL 使用该项目的 **Project ID**，不能填写应用的 APP ID。服务端使用 HarmonyOS NEXT V3 REST API 的 PS256 JWT 鉴权。应用只上报 Push Token、随机安装标识和已通过 Push Kit 绑定的随机 profile 标识，无需获取硬件标识。
 
@@ -37,7 +37,7 @@
 2. 在隔离部署的 PocketBase 容器只读挂载专用 AGC 服务账号 JSON，通过 `STARWARD_PUSH_SERVICE_ACCOUNT_FILE` 指向容器内文件，只允许服务进程读取。另设 `STARWARD_PUSH_PROJECT_ID` 为该账号所属的 Project ID，`STARWARD_PUSH_ENABLED=1`，`STARWARD_PUSH_TEST_MODE=1`，`STARWARD_PUSH_TEST_PLAYER_ID` 为专用验收玩家记录 ID。测试开关默认为开启且必须指定精确玩家，只有该账号可以注册和收发。该模式使用官方 `testMessage:true`。手工验证真实测试时仅使用专用玩家及其安装，服务账号 JSON 和本机签名材料不要进入仓库、日志或发布压缩包。
 3. 隔离环境使用专用玩家验收授权允许、拒绝和关闭，以及前台、后台和冷启点击回源。正式范围可另以隔离库和替身发送器验证：空白名单、新增名单、全部开放、不补发、收窄后跳过未发送的范围外任务，以及总开关关闭时仍可编辑范围。开启真实正式发送前，核对应用隐私说明、平台权益和生产基线，把「仅白名单」保存为首轮专用游戏账号；在授权窗口设置 `STARWARD_PUSH_TEST_MODE=0` 并启用总开关。用邀请渠道安装的发布签名包验证通知送达、点击和退出后停发，然后再决定是否在运营后台选择「全部开放」。公告和推广使用 `MARKETING`，可能静默且有每机日频控。分配给本人的新场次、剧情来信与关卡动态要求账号级明确订阅及独立开启通知；原应用实际获批且服务端设置 `STARWARD_PUSH_SUBSCRIPTION_APPROVED=1` 后才发送 `SUBSCRIPTION`。权益未批或服务端尚未启用时，这些业务提醒不入队、不降级为 `MARKETING`，已保存的订阅仍保留。不得用配置代替权益申请或承诺未获批的额度。具体契约、取消语义与逐状态证据见 [2026-11-19 账号级旅途订阅](harmony-push-account-subscription-20261119.md)。回退时先设 `STARWARD_PUSH_ENABLED=0`，保留新增私有表及既有业务数据。
 
-现有 1Panel 发布脚本只更新 Compose 镜像，并校验运行时只有数据目录挂载。关闭 Push 的代码和迁移可以按原流程演练；真实发送前须单独验证、审查带只读密钥挂载及环境开关的生产配置和回退流程。运营后台的发送范围设置不能替代这一步，也不应把密钥放进数据库备份目录。
+现有 1Panel 发布程序可通过已审 `harmony-push-production-v1` profile 保留正式 Push 的五项环境和只读凭据挂载，但该 profile 固定 `APPROVED=0`、禁止执行器激活功能。11 月 20 日已独立切为 `APPROVED=1`，下次后端发布必须先另审支持当前基线；不能为通过旧校验而关闭权益、忽略 SHA 或改写本次记录。隔离恢复演练仍不得挂正式密钥或启用发送，密钥也不得放进数据库备份目录。
 
 本地业务验证在隔离 PocketBase 0.40.1 中使用替身发送器，不调用 Push Cloud。运行 `PB_DOCKER_IMAGE=<PocketBase 验证镜像> node --test backend/tests/harmony-push.integration.test.mjs`。带 OpenSSL 的镜像可加 `PB_PUSH_VALIDATE_OPENSSL=1`，实签合成服务账号 JWT，并独立校验其 PS256 签名。
 

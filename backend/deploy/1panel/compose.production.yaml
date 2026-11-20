@@ -14,7 +14,7 @@ services:
       STARWARD_PUSH_TEST_MODE: "0"
       STARWARD_PUSH_PROJECT_ID: "101653523865742064"
       STARWARD_PUSH_SERVICE_ACCOUNT_FILE: "/run/secrets/starward-harmony-push.json"
-      STARWARD_PUSH_SUBSCRIPTION_APPROVED: "0"
+      STARWARD_PUSH_SUBSCRIPTION_APPROVED: "1"
     volumes:
       - type: bind
         source: /opt/1panel/apps/questions-game-v1/pb_data

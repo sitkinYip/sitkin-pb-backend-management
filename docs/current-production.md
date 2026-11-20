@@ -1,19 +1,19 @@
 # 当前生产状态
 
-最后同步：2026-11-19。后端保留 16:40:32 +08:00 发布后只读快照，运营台部署 CI 于 16:48:08 完成并已核对线上产物。定向旅途消息后端已进入 `recorded`（16:40:05、revision 15），服务已恢复；无 `inFlight`、active marker、阻塞或后续发布操作。此次只更换镜像并执行指定 context 迁移，保留 15 点已启用的正式发送配置、名单和专用只读凭据挂载。管理端新增用途已随 `7184170e97babe0e2074e08305b3b41261408695` 静态发布，线上 JS/CSS 与最终本地构建字节一致。详细证据见 [定向旅途消息发布记录](harmony-push-personal-journey-deployment-20261119.md)。
+最后同步：2026-11-20 16:11:50 +08:00。同一应用的 SUBSCRIPTION 分类已在华为页面核实审核通过，独立配置激活完成 `enabled-verified`：只将 `STARWARD_PUSH_SUBSCRIPTION_APPROVED` 从 0 改为 1，保留镜像、数据库、挂载、正式发送、运营范围及账号同意。新容器同 ID、零重启、三条不同健康成功，HTTPS 200 与四项匿名 401 通过；策略、schema、迁移账本和旧根审计未改。16:10:50 仅向当前授权玩家新发一条无场次定向旅途消息，首次尝试 `accepted / 80000000`、分类 SUBSCRIPTION、正式模式；用户明确确认收到系统通知，点击回源未验。最终同一容器仍 healthy、零重启，无 active marker，维护连接已关闭。详见 [本次独立激活](harmony-push-subscription-activation-20261120.md)。后端代码仍为 11 月 19 日已 `recorded`（revision 15）的定向旅途版本，管理端静态产物也保持原版本，见 [原发布记录](harmony-push-personal-journey-deployment-20261119.md)。
 
 | 组件或闸门 | 当前状态 | 已知边界 |
 | --- | --- | --- |
 | PocketBase hooks / API | `questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64` 已上线 | 新增 `personal_journey`，只向指定玩家发送现有同意范围内的剧情来信和旅途动态，不要求关联场次；不是通用重要、账号安全或推广入口 |
 | context 迁移 | `1795075320_push_personal_journey_notices.js` 恰好入账一次 | `session` 可选、`kind` 必填；旧 context 保持 session 原义。18 条迁移账本、41 集合、46 表；验收时 context 为私有且 0 行 |
 | 运行健康与认证边界 | healthy、零重启、三条不同连续健康成功；HTTPS 200、四个未认证接口均 401 | 证明发布和认证边界，不等于生产业务写入或 SUBSCRIPTION 投递验收 |
-| Push 运行配置 | 保持 `ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=0`；数据可写与专用密钥只读两挂载 | 保留既有接收范围及账号级订阅；未读回、复制或轮换密钥，未在本轮修改开关或名单 |
-| SUBSCRIPTION 权益 | 仍未启用 | 新场次、剧情来信、关卡动态（含本轮不关联场次的定向来信）在未批准时停发，不降级 MARKETING；此前公告收到的证据不代替订阅分类送达 |
+| Push 运行配置 | `ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=1`；数据可写与专用密钥只读两挂载 | 本次仅改分类开关；原接收范围、revision、账号同意及凭据保持，未读取或复制密钥 |
+| SUBSCRIPTION 权益及首条验证 | 同一应用已审核通过、服务端已启用；一条新单人定向消息首次 `accepted / 80000000`，用户确认系统通知收到 | 仍需双阶段同意、有效绑定、未读与时效等门禁；没有历史补发。单条结果不保证每日频次或所有设备，点击回源未验 |
 | 管理端“定向旅途消息（无需关联场次）” | 已静态发布并核对线上产物 | [Deploy 44490560634](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44490560634) 与 [backend CI 44490560636](https://github.com/sitkinYip/sitkin-pb-backend-management/actions/runs/44490560636) 成功；JS/CSS 完整 SHA256 匹配最终 production 构建，此项不是生产表单交互或分类投递验收 |
 
-当前生产实际 image/config ID 为 `sha256:f3e1bc2ff3295772a50a497585bfcf51f4da1134ecdff3f9ec0ae06ac565e96a`；Compose SHA256 为 `7a78755f21f53f0cae98319c6d175fc052eebc5bf920af17bb02841a1de276c6`，仓库生产模板已同步且仅替换镜像行。根 `release.json` SHA256 为 `a6ee07602a7fd8a6fd22147b23a2b2e805c2100864d3974768dafe18d160b24b`，根清单 SHA256 为 `82a5889ff26979b8c64c27d16998de46199cf2a5fe266768fe49b2c4860d77ec`。原独立激活记录及历次冻结归档不改写。
+当前生产实际 image/config ID 仍为 `sha256:f3e1bc2ff3295772a50a497585bfcf51f4da1134ecdff3f9ec0ae06ac565e96a`；Compose SHA256 为 `f26ebeb828ff763341d036a37040e52e493fe269e533f73acf1792496b7a6088`，仓库生产模板仅同步本次 approval 单变量。激活前 Compose 为 `7a78755f21f53f0cae98319c6d175fc052eebc5bf920af17bb02841a1de276c6`。根 `release.json` SHA256 仍为 `a6ee07602a7fd8a6fd22147b23a2b2e805c2100864d3974768dafe18d160b24b`，根清单仍为 `82a5889ff26979b8c64c27d16998de46199cf2a5fe266768fe49b2c4860d77ec`；旧记录描述当时基线，不回写新配置。
 
-本次使用窄范围 `personal-journey-context-v1` verifier，正式容器只保留固定的只读 Push secret 挂载；隔离迁移与恢复容器没有该密钥或发送环境。r1 在 stage 前因服务器 Compose 省略显式 false 而闭锁；r2 增加对应严格兼容测试后重新冻结，随后逐 TTY 完成 STAGE、BACKUP、MIGRATE、SWITCH、FINALIZE，没有跳过闸门或在失败包上重试。首次 index 镜像出包拒绝、r1 预检与 r2 演练的区别详见本次记录。
+11 月 19 日镜像发布使用 `personal-journey-context-v1` verifier，r1/r2 与逐阶段 TTY 的历史详见原发布记录；本次没有重跑迁移或该发布程序。现有 `harmony-push-production-v1` 发布 profile 只允许保留 `APPROVED=0`，`executorMayActivate=false` 的事实不变。下次后端发布必须另审并明确支持当前 `APPROVED=1` 基线，不能复用旧 profile 悄悄关闭分类、忽略 checksum 或改写本次独立审计；恢复副本仍不得挂正式密钥或启用发送。
 
 ## 15 点独立 Push 运行配置历史快照
 

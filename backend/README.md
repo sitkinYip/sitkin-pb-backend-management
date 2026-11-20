@@ -1,6 +1,6 @@
 # Questions 游戏后端
 
-2026-11-20 16:09:24 +08:00，SUBSCRIPTION 分类在同一应用审核通过后，独立运行配置已从 approval 0 切至 1，状态 `enabled-verified`；原镜像、数据库、挂载、策略和账号同意保持。当前镜像仍为 `questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64`，11 月 19 日后端发布仍为 `recorded` revision 15；本次没有迁移或代码部署。`personal_journey` 仅限指定玩家、现有同意范围内的旅途消息，允许不关联场次；本轮新单人事件首次 `accepted / 80000000`，用户确认系统通知收到，点击回源未验。见 [本次独立激活](../docs/harmony-push-subscription-activation-20261120.md)、[原发布记录](../docs/harmony-push-personal-journey-deployment-20261119.md) 与 [当前生产状态](../docs/current-production.md)。
+2026-11-20 16:49:22 +08:00，推送业务标题后端完成 `recorded` revision 14，当前镜像为 `questions-pocketbase:0.40.1-push-titles-20261120-amd64`。系统通知采用现有来信标题，新场次下发采用所属场次标题；正文和接收门禁保持。无迁移，`ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=1`、两挂载、策略和账号同意保持。本人一条定向旅途消息首次 `accepted / 80000000`，用户确认“已收到，标题正确”；场次标题仅隔离验证，点击回源未验。原生、Web和运营台本轮未发布。见 [本次发布记录](../docs/harmony-push-titles-deployment-20261120.md) 与 [当前生产状态](../docs/current-production.md)。
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。当前定向旅途镜像于 2026-11-19 16:40:05 +08:00 进入 `recorded`（revision 15）：18 条迁移、41 个集合、46 张表，context 当时私有且验收时为空。2026-11-20 独立启用 SUBSCRIPTION，保持总开关 1、正式模式 0 与既有只读密钥；同容器 ID、零重启、三次不同健康检查、HTTPS 200 与四个匿名 401 通过。模板已同步本次单变量及完整 Compose SHA，一条正式分类消息已获云端接受和用户收取确认，见 [当前生产状态](../docs/current-production.md)。
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。当前标题镜像于2026-11-20 16:49:22 +08:00 进入 `recorded`（revision 14）：无迁移，18条账本、41集合、46表保持。总开关1、正式模式0、订阅分类批准1与既有只读密钥保留；同一目标容器零重启、三条不同健康检查、HTTPS 200与四个匿名401通过。模板仅更新镜像指针且匹配实际Compose；本人单条标题通知已获云端接受与用户标题确认，见 [当前生产状态](../docs/current-production.md)。
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 
@@ -80,7 +80,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 `scripts/release-pocketbase.mjs` 是本地控制器，`deploy/1panel/release-runner.py` 是冻结进发布包并由服务器执行的失败闭锁 worker。控制器只复用用户已打开的 SSH ControlMaster；它不需要本机 Docker，也不会保存密码或自动跨越人工闸门。`inventory` 使用 pending 计划只读盘点；出包后依次使用 `preflight`、`stage`、多次单阶段 `deploy` 和 `status`。完整参数、CI 出包和中断恢复规则见 [人工闸门发布程序](../docs/pocketbase-release-program.md)。
 
-默认 `additive-empty-collections-v1` verifier 仍只接受无迁移或新增私有空集合；`personal-journey-context-v1` 仅支持固定 context 字段演进和旧义回填，不是通用 existing-table 豁免。现有 `harmony-push-production-v1` profile 仍只支持 `APPROVED=0`，并不能保留今天已启用的 `APPROVED=1`；下次后端发布需另审对应支持，禁止暗中关闭或修改旧审计。隔离演练继续不挂密钥、不启用发送。其他结构／数据修改、破坏性迁移和历史 0.22.12 恢复仍须先增加受审 verifier 或另写专属操作单。
+默认 `additive-empty-collections-v1` verifier 仍只接受无迁移或新增私有空集合；`personal-journey-context-v1` 仅支持固定 context 字段演进和旧义回填，不是通用 existing-table 豁免。历史 `harmony-push-production-v1` profile 固定 `APPROVED=0`；本轮受审 `harmony-push-production-v2` 明确保留现有 `APPROVED=1`，不得借发布修改开关或忽略旧审计。隔离演练继续不挂密钥、不启用发送。下次发布须重新盘点并冻结新计划；其他结构／数据修改、破坏性迁移和历史0.22.12恢复仍须先增加受审 verifier 或另写专属操作单。
 
 ## 独立持久实例与 1Panel 发布
 

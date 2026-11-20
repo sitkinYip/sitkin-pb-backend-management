@@ -2,7 +2,7 @@ name: questions-game-v1
 
 services:
   pocketbase:
-    image: questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64
+    image: questions-pocketbase:0.40.1-push-titles-20261120-amd64
     platform: linux/amd64
     pull_policy: never
     container_name: questions-game-v1

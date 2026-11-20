@@ -54,7 +54,7 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，普通增量升级优先使用 [PocketBase 人工闸门发布程序](docs/pocketbase-release-program.md)，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
 
-2026-11-20 16:09:24 +08:00，同一应用的 SUBSCRIPTION 分类审核通过后，服务端独立激活完成：仅将 `STARWARD_PUSH_SUBSCRIPTION_APPROVED=0` 改为 `1`，保留原镜像、数据、只读凭据、接收范围及账号同意；三次不同健康检查、零重启及 HTTPS 边界通过。随后一条新单人定向旅途消息首次获华为 `80000000`，用户明确确认收到系统通知；未补发历史消息，点击回源未验。`personal_journey` 仍只允许指定玩家，限现有旅途同意范围内、不关联场次的剧情来信和动态。后端仍为 11 月 19 日 `recorded` revision 15 的版本，运营台静态产物也未变。当前状态见 [生产入口](docs/current-production.md) 和 [本次分类激活](docs/harmony-push-subscription-activation-20261120.md)；历史发布与公告送达记录保留原事实。
+2026-11-20 16:49:22 +08:00，推送业务标题后端完成 `recorded` revision 14；当前镜像为 `questions-pocketbase:0.40.1-push-titles-20261120-amd64`。无数据库迁移，保留 `ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=1`、只读凭据、接收范围和账号同意。随后本人一条定向旅途通知首次 `accepted / 80000000`，用户确认“已收到，标题正确”；场次标题仅隔离验证，点击回源未验。本轮不发布运营台、Web或原生新包。详见 [当前生产状态](docs/current-production.md) 与 [标题发布记录](docs/harmony-push-titles-deployment-20261120.md)；此前分类激活及历史发布记录保留原事实。
 
 ## 后端源码与可选验收
 

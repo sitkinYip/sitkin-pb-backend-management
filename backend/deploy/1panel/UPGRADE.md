@@ -1,11 +1,11 @@
 # 推送业务标题后端升级操作单
 
-<!-- release-status: pending -->
+<!-- release-status: completed -->
 <!-- release-id: push-titles-20261120 -->
 <!-- source-image: questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64 -->
 <!-- target-image: questions-pocketbase:0.40.1-push-titles-20261120-amd64 -->
 
-待执行，2026-11-20。用户已授权实现、发布并用自己账号验收推送标题。本单只适用于本批冻结包；不重用历史操作单，不更改历史发布与分类激活记录。后端独立发布，无数据库迁移、运营台发布或客户端新包。
+已完成：2026-11-20 16:49:22 +08:00 进入 recorded revision 14。用户随后明确确认“已收到，标题正确”。本单仅保留本批执行基线和步骤，不可重用；冻结包内 pending 原文与校验值不改。下次发布必须重新盘点、审查并冻结新操作单。详见 [本次发布记录](../../../docs/harmony-push-titles-deployment-20261120.md)。本轮仅后端发布，无数据库迁移、运营台发布或客户端新包；场次标题仅隔离验证，点击回源未验。
 
 ## 唯一目标与基线
 

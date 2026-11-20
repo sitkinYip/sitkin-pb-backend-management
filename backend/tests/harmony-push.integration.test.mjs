@@ -194,7 +194,8 @@ print(json.dumps([dict(row) for row in db.execute(
   assert.deepEqual(new Set(messages.map(({ notification }) =>
     notification.clickAction.data.starwardPushKind)), new Set(["assignment", "inbox"]));
   for (const { notification, pushOptions } of messages) {
-    assert.equal(notification.title, "赴星之约");
+    assert.equal(notification.title, notification.clickAction.data.starwardPushKind === "assignment"
+      ? "私密场次名" : "私密通知标题");
     assert.equal(notification.body, notification.clickAction.data.starwardPushKind === "assignment"
       ? "你订阅的旅途动态有新消息，打开应用查看。" : "旅途有新消息，打开应用查看。");
     assert.equal(notification.profileId, install.profileId);
@@ -205,6 +206,8 @@ print(json.dumps([dict(row) for row in db.execute(
     assert.equal(data.starwardPushProfileId, install.profileId);
     assert.equal(data.starwardPushEventId, notification.appMessageId);
     assert.equal(data.starwardPushTargetId, data.starwardPushKind === "assignment" ? assignment : undefined);
+    assert.ok(!JSON.stringify(notification).includes("私密通知正文") && !JSON.stringify(notification).includes("私密题目"));
+    assert.ok(!JSON.stringify(data).includes("私密") && !JSON.stringify(notification).includes("北星"));
     assert.equal(pushOptions.testMessage, false);
     assert.ok(pushOptions.ttl >= 1 && pushOptions.ttl <= 600);
   }
@@ -226,6 +229,7 @@ print(json.dumps([dict(row) for row in db.execute(
   const again = await dispatch("rejected");
   assert.equal(again.length, 1);
   assert.equal(again[0].notification.appMessageId, timedOut[0].notification.appMessageId);
+  assert.equal(again[0].notification.title, "私密通知标题");
   assert.deepEqual(await dispatch(), []);
 
   ok(await send(a.id));

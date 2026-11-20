@@ -136,29 +136,31 @@ function enqueue(app, player, kind, target, businessEndsAt = "") {
   }
 }
 
-function stillAuthorized(app, row, binding, time) {
-  if (!binding || Date.parse(binding.getString("expiresAt")) <= time) return false;
+function authorizedSource(app, row, binding, time) {
+  if (!binding || Date.parse(binding.getString("expiresAt")) <= time) return null;
   const playerId = binding.getString("player");
-  if (!permitted(app, playerId)) return false;
+  if (!permitted(app, playerId)) return null;
   const player = db.maybe(app, "game_players", "id={:id}", { id: playerId });
   if (!player || player.getString("status") !== "active" ||
       player.getBool("mustChangePassword") ||
-      binding.getString("accountKey") !== accountKey(player)) return false;
+      binding.getString("accountKey") !== accountKey(player)) return null;
   const id = row.getString("targetId");
   if (row.getString("kind") === "assignment") {
     const assignment = db.maybe(app, "game_assignments",
       "id={:id} && player={:p} && status='assigned' && session.status='published'",
       { id, p: playerId });
-    return Boolean(assignment && (!assignment.getString("endsAt") ||
-      Date.parse(assignment.getString("endsAt")) > time));
+    if (!assignment || (assignment.getString("endsAt") &&
+      !(Date.parse(assignment.getString("endsAt")) > time))) return null;
+    return db.maybe(app, "game_sessions", "id={:id} && status='published'",
+      { id: assignment.getString("session") });
   }
   const receipt = db.maybe(app, "game_notification_receipts",
     "id={:id} && player={:p} && readAt='' && notification.status='sent'",
     { id, p: playerId });
   const note = receipt && db.maybe(app, "game_notifications", "id={:id}",
     { id: receipt.getString("notification") });
-  return Boolean(note && (!note.getString("expiresAt") ||
-    Date.parse(note.getString("expiresAt")) > time));
+  return note && (!note.getString("expiresAt") ||
+    Date.parse(note.getString("expiresAt")) > time) ? note : null;
 }
 
 function claim(app, id) {
@@ -174,7 +176,9 @@ function claim(app, id) {
     const classification = row.getString("kind") === "inbox" && binding
       ? subscriptions.delivery(tx, row, binding.getString("player"), time)
       : binding ? journeySubscription.delivery(tx, row, binding.getString("player")) : null;
-    if (!classification || expiresAt <= time || attempt > maxAttempts || !stillAuthorized(tx, row, binding, time)) {
+    const source = classification && expiresAt > time && attempt <= maxAttempts
+      ? authorizedSource(tx, row, binding, time) : null;
+    if (!source) {
       row.set("status", "discarded");
       row.set("lease", "");
       tx.save(row);
@@ -192,6 +196,8 @@ function claim(app, id) {
       kind: row.getString("kind"), targetId: row.getString("targetId"),
       expiresAt, attempt,
       category: classification.category, subscribed: classification.subscribed === true,
+      // The source is rechecked in this claim transaction; no private title snapshot is persisted.
+      title: source.getString("title"),
     };
   });
   return job;

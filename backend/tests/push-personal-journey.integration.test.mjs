@@ -89,6 +89,7 @@ test("real PocketBase: directed journey letters require account consent and sele
   assert.equal(receipts.length, 2); assert.ok(receipts.every((r) => r.assignment === ""));
   const context = await f.context(first.id); assert.equal(context.kind, "account"); assert.equal(context.session, "");
   const messages = await f.dispatch(); assert.equal(messages.length, 1);
+  assert.equal(messages[0].title, "星港为你留了一封信");
   assert.equal(messages[0].category, "SUBSCRIPTION"); assert.match(messages[0].body, /订阅/);
   assert.ok(!messages[0].body.includes("合成") && !messages[0].body.includes("星港为你"));
   assert.equal(messages[0].clickAction.data.starwardPushKind, "inbox");
@@ -101,9 +102,35 @@ test("real PocketBase: directed journey letters require account consent and sele
   assert.equal((await f.call("/admin/notifications", server.adminToken, f.noteBody([a.id], { messagePurpose: "journey" }))).status, 400);
   assert.equal((await f.call("/admin/notifications", a.token, f.noteBody([a.id]))).status, 401);
   await f.note([a.id], { messagePurpose: undefined });
-  assert.equal((await f.dispatch())[0].category, "MARKETING"); // Missing purpose retains the legacy announcement default.
+  const announcement = (await f.dispatch())[0];
+  assert.equal(announcement.category, "MARKETING"); // Missing purpose retains the legacy announcement default.
+  assert.equal(announcement.title, "星港为你留了一封信");
   for (const table of ["game_assignments", "game_answer_submissions", "game_level_progress"])
     assert.deepEqual(await f.records(table), []);
+});
+
+test("real PocketBase: push titles use the current authorized source only and never persist message content", { timeout: 120000 }, async (t) => {
+  const server = await createTestServer({ env: enabled, testHooks: hooks }); t.after(() => server.stop());
+  const f = fixture(server), { a } = await f.setup(); ok(await f.register(a.token)); await f.subscribe(a.token);
+  const note = await f.note([a.id], { title: "排队时的旧标题", content: "不应进入任何Push字段的正文" });
+  ok(await f.raw("game_notifications", { title: "  新信\n\t👩‍🚀\u0007\u202e  " }, note.id, "PATCH"));
+  let messages = await f.dispatch(); assert.equal(messages.length, 1);
+  assert.equal(messages[0].title, "新信 👩‍🚀");
+  assert.equal(messages[0].body, "你订阅的旅途动态有新消息，打开应用查看。");
+  assert.ok(!JSON.stringify(messages).includes("不应进入任何Push字段的正文"));
+  assert.ok(!JSON.stringify(messages[0].clickAction.data).includes("新信"));
+  const longTitle = "星".repeat(59) + "🙂尾";
+  await f.note([a.id], { title: longTitle });
+  messages = await f.dispatch(); assert.equal(messages[0].title, "星".repeat(59) + "🙂");
+  assert.equal([...messages[0].title].length, 60);
+  for (const row of await f.records("game_push_deliveries")) {
+    assert.equal(Object.hasOwn(row, "title"), false);
+    assert.equal(Object.hasOwn(row, "content"), false);
+  }
+  const unavailable = await f.note([a.id], { title: "已撤回来源不能进入Push" });
+  ok(await f.command(`/admin/notifications/${unavailable.id}/withdraw`, { reason: "隔离标题失效验证" }));
+  assert.deepEqual(await f.dispatch(), []);
+  assert.ok((await f.records("game_push_deliveries")).some((row) => row.status === "discarded"));
 });
 
 test("real PocketBase: approval pending suppresses directed journeys without a marketing fallback", { timeout: 120000 }, async (t) => {

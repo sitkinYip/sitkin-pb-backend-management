@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import {
   canonicalJson,
   createComposeCandidate,
@@ -316,6 +318,48 @@ const pushRuntime = {
   secretHostPath: "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json",
   secretContainerPath: "/run/secrets/starward-harmony-push.json", recordedComposeSha256: digest("f"),
 };
+test("both preserved Push profiles require the exact declaration and forbid executor activation in JS and Python", () => {
+  const cases = [];
+  for (const profile of ["harmony-push-production-v1", "harmony-push-production-v2"]) {
+    const plan = planFixture();
+    plan.production.pushRuntime = { ...pushRuntime, profile };
+    assert.deepEqual(validateReleasePlan(plan), plan);
+    cases.push({ plan, valid: true });
+    for (const mutate of [
+      (p) => delete p.production.pushRuntime.profile,
+      ...[null, true, false, 0, 1, [], {}, "harmony-push-production-v3"].map((value) =>
+        (p) => { p.production.pushRuntime.profile = value; }),
+      (p) => p.production.pushRuntime.secretHostPath += ".other",
+      (p) => p.production.pushRuntime.secretContainerPath = "/pb/pb_data/key.json",
+      (p) => p.production.pushRuntime.recordedComposeSha256 = "",
+      (p) => p.production.pushRuntime.projectId = 101000000000000001,
+      (p) => p.production.pushRuntime.approved = true,
+      (p) => p.production.pushRuntime.enabled = true,
+      (p) => p.activation.executorMayActivate = true,
+      (p) => p.activation.executorMayActivate = 0,
+      (p) => delete p.activation.executorMayActivate,
+    ]) {
+      const invalid = structuredClone(plan);
+      mutate(invalid);
+      assert.throws(() => validateReleasePlan(invalid));
+      cases.push({ plan: invalid, valid: false });
+    }
+  }
+  const result = spawnSync("python3", ["-c", String.raw`
+import importlib.util,json,sys
+spec=importlib.util.spec_from_file_location("runner",sys.argv[1])
+runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+for case in json.load(sys.stdin):
+    try: runner._validate_input_plan(case["plan"])
+    except runner.ReleaseError as error:
+        assert not case["valid"] and error.code=="invalid_schema",error.code
+    else: assert case["valid"],"invalid Push plan accepted"
+`, path.resolve(import.meta.dirname, "../deploy/1panel/release-runner.py")], {
+    encoding: "utf8", input: JSON.stringify(cases),
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
 const contextDelta = {
   schemaVersion: 1, verifier: "personal-journey-context-v1",
   newMigrationFiles: ["1795075320_push_personal_journey_notices.js"],

@@ -220,7 +220,8 @@ function validateProduction(value, server) {
   if (value.pushRuntime !== undefined) {
     const push = value.pushRuntime;
     exactKeys(push, ["profile", "projectId", "secretHostPath", "secretContainerPath", "recordedComposeSha256"], "plan.production.pushRuntime");
-    if (push.profile !== "harmony-push-production-v1") fail("plan.production.pushRuntime.profile", "unsupported profile");
+    if (!["harmony-push-production-v1", "harmony-push-production-v2"].includes(push.profile))
+      fail("plan.production.pushRuntime.profile", "unsupported profile");
     string(push.projectId, "plan.production.pushRuntime.projectId", /^[0-9]{10,32}$/);
     if (value.projectDirectory !== "/opt/1panel/apps/questions-game-v1" ||
         push.secretHostPath !== "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json" ||

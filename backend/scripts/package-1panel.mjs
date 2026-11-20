@@ -28,6 +28,7 @@ import {
   validateReleasePlan,
 } from "./lib/release-plan.mjs";
 import { parseStrictJson } from "./lib/strict-json.mjs";
+import { verifyPreservedComposeRuntime } from "./lib/release-compose.mjs";
 
 // Local packaging only: never contacts a production server or includes pb_data.
 const args = process.argv.slice(2);
@@ -200,6 +201,7 @@ let operationSheetBytes;
 let allowedDeltaBytes;
 let runnerBytes;
 let composeCandidate;
+let sourceComposeBytes;
 if (upgrade) {
   const reviewedPlan = await readReviewedFile(planArgument, "Release plan");
   const reviewedDelta = await readReviewedFile(
@@ -245,6 +247,7 @@ if (upgrade) {
       "Production Compose template",
     )
   ).bytes;
+  sourceComposeBytes = composeBytes;
   composeCandidate = createComposeCandidate(composeBytes.toString("utf8"), plan);
   const repositoryMigrations = (
     await readStableDirectoryNames(
@@ -405,15 +408,21 @@ try {
       path.join(staging, "compose.candidate.yaml"),
       composeCandidate.content,
     );
-    docker([
-      "compose",
-      "--env-file",
-      "/dev/null",
-      "-f",
-      path.join(staging, "compose.candidate.yaml"),
-      "config",
-      "--quiet",
-    ]);
+    const sourceComposePath = path.join(staging, "compose.source.verify.yaml");
+    await writeFile(sourceComposePath, sourceComposeBytes);
+    try {
+      const composeConfig = (filename) => parseJson(docker([
+        "compose", "--project-directory", plan.production.projectDirectory,
+        "--env-file", "/dev/null", "-f", filename, "config", "--format", "json",
+      ]), "Frozen Compose configuration");
+      verifyPreservedComposeRuntime({
+        plan, runnerPath: path.join(staging, "release-runner.py"),
+        sourceConfig: composeConfig(sourceComposePath),
+        candidateConfig: composeConfig(path.join(staging, "compose.candidate.yaml")),
+      });
+    } finally {
+      await rm(sourceComposePath, { force: true });
+    }
   }
   const archiveManifest = JSON.parse(
     execFileSync(

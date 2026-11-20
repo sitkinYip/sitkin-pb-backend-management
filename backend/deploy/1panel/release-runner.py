@@ -58,6 +58,9 @@ CONTEXT_EVOLUTION = {"collection": CONTEXT_TABLE, "sessionRequired": False,
                      "kindValues": ["session", "account"], "legacyKind": "session"}
 PUSH_SECRET_HOST = "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json"
 PUSH_SECRET_CONTAINER = "/run/secrets/starward-harmony-push.json"
+# Profiles preserve a previously reviewed runtime; they never activate Push.
+PUSH_RUNTIME_APPROVALS = {"harmony-push-production-v1": "0",
+                          "harmony-push-production-v2": "1"}
 SOURCE_MANIFEST_ALGORITHM = "sha256"
 RELEASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{7,63}$")
 SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -382,7 +385,8 @@ def _validate_input_plan(plan, expected_status="pending"):
     if "pushRuntime" in production:
         push = production["pushRuntime"]
         _require_exact_keys(push, ("profile", "projectId", "secretHostPath", "secretContainerPath", "recordedComposeSha256"), "plan.production.pushRuntime")
-        _require(push["profile"] == "harmony-push-production-v1", "invalid_schema", "Unsupported existing Push runtime profile.")
+        _require(isinstance(push["profile"], str) and push["profile"] in PUSH_RUNTIME_APPROVALS,
+                 "invalid_schema", "Unsupported existing Push runtime profile.")
         _require(isinstance(push["projectId"], str) and bool(re.match(r"^[0-9]{10,32}$", push["projectId"])), "invalid_schema", "Push project ID is invalid.")
         _require(production["projectDirectory"] == "/opt/1panel/apps/questions-game-v1"
                  and push["secretHostPath"] == PUSH_SECRET_HOST and push["secretContainerPath"] == PUSH_SECRET_CONTAINER,
@@ -1766,8 +1770,11 @@ def _container_exists(name):
 def _push_runtime_environment(push):
     if not push:
         return {}
+    profile = push.get("profile")
+    _require(isinstance(profile, str) and profile in PUSH_RUNTIME_APPROVALS,
+             "invalid_schema", "Unsupported existing Push runtime profile.")
     return {"STARWARD_PUSH_ENABLED": "1", "STARWARD_PUSH_TEST_MODE": "0",
-            "STARWARD_PUSH_SUBSCRIPTION_APPROVED": "0", "STARWARD_PUSH_PROJECT_ID": push["projectId"],
+            "STARWARD_PUSH_SUBSCRIPTION_APPROVED": PUSH_RUNTIME_APPROVALS[profile], "STARWARD_PUSH_PROJECT_ID": push["projectId"],
             "STARWARD_PUSH_SERVICE_ACCOUNT_FILE": PUSH_SECRET_CONTAINER}
 
 
@@ -1833,6 +1840,8 @@ def _verify_container_runtime_contract(plan, container):
     host = container.get("HostConfig") or {}
     push = plan["production"].get("pushRuntime")
     environment = config.get("Env") or []
+    _require(isinstance(environment, list) and all(isinstance(item, str) for item in environment),
+             "container_mismatch", "Container environment must be a string array.")
     push_env = [item for item in environment if item.startswith("STARWARD_PUSH_")]
     expected_push = _push_runtime_environment(push)
     _require(len(push_env) == len(expected_push) and sorted(push_env) == sorted(key + "=" + value for key, value in expected_push.items()),

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "verifier": "additive-empty-collections-v1",
+  "newMigrationFiles": [],
+  "newCollections": [],
+  "newSchemaObjects": [],
+  "emptyTables": []
+}

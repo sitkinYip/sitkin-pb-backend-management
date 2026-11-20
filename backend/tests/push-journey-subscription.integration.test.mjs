@@ -130,10 +130,14 @@ test("real PocketBase: one account consent covers future assignments and story n
   await f.assign(future.id, [a.id, b.id]);
   const messages = await f.dispatch(); assert.equal(messages.length, 2);
   assert.deepEqual(new Set(messages.map((m) => m.clickAction.data.starwardPushKind)), new Set(["assignment", "inbox"]));
+  assert.equal(messages.find((m) => m.clickAction.data.starwardPushKind === "inbox").title, "合成剧情来信");
+  assert.equal(messages.find((m) => m.clickAction.data.starwardPushKind === "assignment").title, "订阅后新分配场次");
   assert.ok(messages.every((m) => m.category === "SUBSCRIPTION" && /订阅/.test(m.body)));
   assert.ok(messages.every((m) => !m.body.includes("合成") && !m.body.includes("北星")));
   await f.note(s.id, { messagePurpose: "announcement" });
-  assert.equal((await f.dispatch()).filter((m) => m.category === "MARKETING" && !/订阅/.test(m.body)).length, 2);
+  const announcements = await f.dispatch();
+  assert.equal(announcements.filter((m) => m.category === "MARKETING" && !/订阅/.test(m.body)).length, 2);
+  assert.ok(announcements.every((m) => m.title === "合成剧情来信"));
   // Pending account jobs are retired in the cancellation transaction; re-enable is a new incarnation.
   await f.note(s.id); const another = await f.session("待发送时取消的新场次"); await f.assign(another.id, [a.id]);
   const pending = (await f.records("game_push_deliveries")).filter((j) => j.status === "pending");

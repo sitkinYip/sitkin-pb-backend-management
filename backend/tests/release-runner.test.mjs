@@ -1033,16 +1033,21 @@ with tempfile.TemporaryDirectory(prefix="questions-backup-live-gate-") as backup
 `);
 });
 
-test("Push runtime preserves only the exact production env and RO secret, while isolated jobs cannot inherit it", () => {
+for (const [profile, approved] of [["harmony-push-production-v1", "0"], ["harmony-push-production-v2", "1"]]) {
+test(`Push runtime ${profile} preserves only the exact production env and RO secret, while isolated jobs cannot inherit it`, () => {
   runPython(String.raw`
 import copy, inspect
 ${loadRunner}
-push = {"profile": "harmony-push-production-v1", "projectId": "101000000000000001",
+push = {"profile": ${JSON.stringify(profile)}, "projectId": "101000000000000001",
  "secretHostPath": runner.PUSH_SECRET_HOST, "secretContainerPath": runner.PUSH_SECRET_CONTAINER,
  "recordedComposeSha256": "a" * 64}
 production = {"composeService": "pocketbase", "dataHostPath": "/opt/1panel/apps/questions-game-v1/pb_data", "dataContainerPath": "/pb/pb_data", "pushRuntime": push}
 plan = {"production": production, "source": {"composeSha256": "b" * 64}}
 env = runner._push_runtime_environment(push)
+approved = ${JSON.stringify(approved)}
+assert env == {"STARWARD_PUSH_ENABLED":"1","STARWARD_PUSH_TEST_MODE":"0",
+ "STARWARD_PUSH_SUBSCRIPTION_APPROVED":approved,"STARWARD_PUSH_PROJECT_ID":"101000000000000001",
+ "STARWARD_PUSH_SERVICE_ACCOUNT_FILE":"/run/secrets/starward-harmony-push.json"}
 volumes = [{"type":"bind", "source":production["dataHostPath"],"target":"/pb/pb_data","bind":{"create_host_path":False}},
  {"type":"bind","source":runner.PUSH_SECRET_HOST,"target":runner.PUSH_SECRET_CONTAINER,"read_only":True,"bind":{"create_host_path":False}}]
 config = {"services":{"pocketbase":{"environment":env,"volumes":volumes}}}
@@ -1072,11 +1077,21 @@ for change in ["write-secret","other-source","third-mount","auto-create","enable
     elif change=="other-source": service["volumes"][1]["source"]+=".other"
     elif change=="third-mount": service["volumes"].append(copy.deepcopy(volumes[0]))
     elif change=="auto-create": service["volumes"][1]["bind"]["create_host_path"]=True
-    elif change=="enable-approval": service["environment"]["STARWARD_PUSH_SUBSCRIPTION_APPROVED"]="1"
+    elif change=="enable-approval": service["environment"]["STARWARD_PUSH_SUBSCRIPTION_APPROVED"]="1" if approved=="0" else "0"
     else: service["environment"]["STARWARD_PUSH_OTHER"]="1"
     try: runner._verify_compose_push_contract(plan,value)
     except runner.ReleaseError as error: assert error.code=="invalid_compose"
     else: raise AssertionError(change+" accepted")
+for key in env:
+    invalid=copy.deepcopy(config);del invalid["services"]["pocketbase"]["environment"][key]
+    try:runner._verify_compose_push_contract(plan,invalid)
+    except runner.ReleaseError as error:assert error.code=="invalid_compose"
+    else:raise AssertionError("missing Push variable accepted: "+key)
+for unsafe in [True,False,0,1,None,[],{},"true","false","2",""]:
+    invalid=copy.deepcopy(config);invalid["services"]["pocketbase"]["environment"]["STARWARD_PUSH_SUBSCRIPTION_APPROVED"]=unsafe
+    try:runner._verify_compose_push_contract(plan,invalid)
+    except runner.ReleaseError as error:assert error.code=="invalid_compose"
+    else:raise AssertionError("non-canonical approval accepted: "+repr(unsafe))
 for change in ["write-secret","other-source","third-mount"]:
     value=copy.deepcopy(mounts)
     if change=="write-secret": value[1]["RW"]=True
@@ -1106,7 +1121,8 @@ container["Config"]["Env"]=[key+"="+value for key,value in env.items()]
 container["Config"]["Labels"]={"com.docker.compose.service":"pocketbase","com.docker.compose.oneoff":"False"}
 container["Config"]["Healthcheck"]={"Test":["CMD","wget","-q","-O","/dev/null","http://127.0.0.1:8090/api/health"],"Interval":15000000000,"Timeout":5000000000,"StartPeriod":15000000000,"Retries":3}
 runner._verify_container_runtime_contract(plan,container)
-for altered in [[],container["Config"]["Env"]+["STARWARD_PUSH_ENABLED=1"],[entry.replace("SUBSCRIPTION_APPROVED=0","SUBSCRIPTION_APPROVED=1") for entry in container["Config"]["Env"]]]:
+opposite="1" if approved=="0" else "0"
+for altered in [[],True,[True],[{}],container["Config"]["Env"]+["STARWARD_PUSH_ENABLED=1"],[entry.replace("SUBSCRIPTION_APPROVED="+approved,"SUBSCRIPTION_APPROVED="+opposite) for entry in container["Config"]["Env"]]]:
     wrong=copy.deepcopy(container);wrong["Config"]["Env"]=altered
     try:runner._verify_container_runtime_contract(plan,wrong)
     except runner.ReleaseError as error:assert error.code=="container_mismatch"
@@ -1115,5 +1131,19 @@ image["Env"].append("STARWARD_PUSH_ENABLED=1")
 try: runner._require_image_runtime_config(image)
 except runner.ReleaseError as error: assert error.code=="image_mismatch"
 else: raise AssertionError("Push activation baked into the image accepted")
+`);
+});
+}
+
+test("Push runtime refuses missing, non-string and unknown preservation profiles", () => {
+  runPython(String.raw`
+${loadRunner}
+for value in [None, True, False, 0, 1, [], {}, "harmony-push-production-v3"]:
+    try:runner._push_runtime_environment({"profile":value,"projectId":"101000000000000001"})
+    except runner.ReleaseError as error:assert error.code=="invalid_schema"
+    else:raise AssertionError("unsupported preservation profile accepted: "+repr(value))
+try:runner._push_runtime_environment({"projectId":"101000000000000001"})
+except runner.ReleaseError as error:assert error.code=="invalid_schema"
+else:raise AssertionError("missing preservation profile accepted")
 `);
 });

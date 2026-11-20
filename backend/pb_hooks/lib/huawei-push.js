@@ -56,6 +56,22 @@ function signJWT(config) {
   }
 }
 
+function displayTitle(value) {
+  if (typeof value !== "string") return "赴星之约";
+  // Push text is not markup. Keep emoji joiners, remove nonprinting and directional controls.
+  const text = value.replace(/[\s\u0085]+/g, " ")
+    .replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\u2060-\u206f]/g, "").trim();
+  let title = "", length = 0;
+  for (const character of text) {
+    const code = character.codePointAt(0);
+    if (code >= 0xd800 && code <= 0xdfff) return "赴星之约";
+    if (length === 60) break;
+    title += character;
+    length++;
+  }
+  return title || "赴星之约";
+}
+
 function message(job, testMessage, time = Date.now()) {
   const data = {
     starwardPushVersion: "1",
@@ -67,7 +83,7 @@ function message(job, testMessage, time = Date.now()) {
   return {
     payload: {
       notification: {
-        title: "赴星之约",
+        title: displayTitle(job.title),
         body: job.subscribed ? "你订阅的旅途动态有新消息，打开应用查看。" : "旅途有新消息，打开应用查看。",
         category: job.subscribed && job.category === "SUBSCRIPTION" ? "SUBSCRIPTION" : "MARKETING",
         foregroundShow: true,
@@ -121,4 +137,4 @@ function sender(testMessage) {
   };
 }
 
-module.exports = { message, sender, classify, signJWT };
+module.exports = { message, sender, classify, signJWT, displayTitle };

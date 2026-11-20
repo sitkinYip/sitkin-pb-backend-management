@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pending",
-  "releaseId": "push-personal-journey-20261119",
+  "releaseId": "push-titles-20261120",
   "transport": {
     "sshTarget": "root@47.120.62.73",
     "sshPort": 22
@@ -28,19 +28,19 @@
     "rootReleasePath": "/opt/1panel/apps/questions-game-v1/release.json",
     "rootChecksumsPath": "/opt/1panel/apps/questions-game-v1/SHA256SUMS",
     "pushRuntime": {
-      "profile": "harmony-push-production-v1",
+      "profile": "harmony-push-production-v2",
       "projectId": "101653523865742064",
       "secretHostPath": "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json",
       "secretContainerPath": "/run/secrets/starward-harmony-push.json",
-      "recordedComposeSha256": "20e7a02a749a43af61344ef9f3b64f9e51be3e77daae0fd9f366f33a43f00ff9"
+      "recordedComposeSha256": "7a78755f21f53f0cae98319c6d175fc052eebc5bf920af17bb02841a1de276c6"
     }
   },
   "source": {
-    "imageTag": "questions-pocketbase:0.40.1-push-account-subscription-20261119-amd64",
-    "imageId": "sha256:2304010161587e4409b4073befce684cfb6b48e52c6ac711107aead2c043a43a",
-    "composeSha256": "3ef3d9ca68ded2b6356d8b96273686f3c377fbfd44255fdd812defde45dd8341",
-    "releaseJsonSha256": "7fdf89a2c37db7171acb7bf9e279171d9f5cbdea70bec54ef60c999a9b300fa2",
-    "migrationLedgerSha256": "292925750bca0895480457ab13947dddc9889b5a817e5d7f82ed17fd3392490c",
+    "imageTag": "questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64",
+    "imageId": "sha256:f3e1bc2ff3295772a50a497585bfcf51f4da1134ecdff3f9ec0ae06ac565e96a",
+    "composeSha256": "f26ebeb828ff763341d036a37040e52e493fe269e533f73acf1792496b7a6088",
+    "releaseJsonSha256": "a6ee07602a7fd8a6fd22147b23a2b2e805c2100864d3974768dafe18d160b24b",
+    "migrationLedgerSha256": "ecb46ffcbd8252680e7da2815a2e54a79046a5d749a5c19fe413ce2a4e9ef401",
     "requiredMigrationFiles": [
       "1787788800_game_schema.js",
       "1787911200_expand_audit_diff.js",
@@ -50,20 +50,19 @@
       "1794988800_harmony_push.js",
       "1794988860_push_audience.js",
       "1795075200_push_subscriptions.js",
-      "1795075260_push_journey_subscription.js"
+      "1795075260_push_journey_subscription.js",
+      "1795075320_push_personal_journey_notices.js"
     ]
   },
   "target": {
-    "imageTag": "questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64",
+    "imageTag": "questions-pocketbase:0.40.1-push-titles-20261120-amd64",
     "pocketbaseVersion": "0.40.1",
     "platform": "linux/amd64"
   },
   "migration": {
-    "mode": "required",
-    "newFiles": [
-      "1795075320_push_personal_journey_notices.js"
-    ],
-    "verifier": "personal-journey-context-v1"
+    "mode": "none",
+    "newFiles": [],
+    "verifier": "additive-empty-collections-v1"
   },
   "verification": {
     "healthUrl": "https://api.sitkin.top/api/health",

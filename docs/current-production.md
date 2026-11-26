@@ -1,16 +1,16 @@
 # 当前生产状态
 
-最后同步为 2026-11-26 17:21:52 +08:00。主界面聚合与批量已读发布完成 `recorded` revision 14，后续现场只读复核一致。 [本次发布记录](home-unread-deployment-20261126.md)
+最后同步为 2026-11-26 19:15:38 +08:00。场次进度订阅后端发布完成 `recorded` revision 15，最终只读复核一致。 [本次发布记录](progress-watches-deployment-20261126.md) · [上次主界面聚合与批量已读发布](home-unread-deployment-20261126.md)
 
 | 组件 | 当前状态 |
 | --- | --- |
-| PocketBase | `questions-pocketbase:0.40.1-home-unread-20261126-amd64` 已上线，支持主界面聚合及批量已读 |
-| 数据库 | 本轮无迁移。18 条账本、41 个集合、46 张表通过核验 |
-| 运行健康 | 同一目标容器健康且零重启。HTTPS 健康 200，五条匿名探针 401 |
-| 正式 Push | 沿用 `harmony-push-production-v2`，包含现有审批状态与只读挂载 |
+| PocketBase | `questions-pocketbase:0.40.1-progress-watches-20261126-amd64` 已上线，支持场次进度授权、订阅与详情 |
+| 数据库 | 进度迁移已执行，两张新增私有表为空。19 条账本、43 个集合、48 张表通过核验 |
+| 运行健康 | 同一目标容器健康且零重启。HTTPS 健康 200，七条匿名探针 401 |
+| 正式 Push | 旅途继续沿用 `harmony-push-production-v2`。新的进度 Push 保持关闭 |
 | 客户端和管理端 | 分别使用各自的发布记录。本轮上线范围为后端 |
 
-生产镜像 config digest 为 `sha256:17b6b91bab6070ee59161a112832de3755e1110af31e6b7ecb0883838cfe451c`，Compose SHA256 为 `c9825e9d43e54cd469673f4a18e7d2c290bc3088a55a4253cd4abbbc83a8a800`，根 release.json SHA256 为 `89b2a2e8f89f344e065f7a53a40307aed25af5996a91ac93ed3338eb4691b5da`，根校验清单 SHA256 为 `8324c5390711460515c294cfcd26170b2e57e03cd672dac7ced27a1b361dbf39`。
+生产镜像 config digest 为 `sha256:4dc4f2d99e0bb2f7f695561fc5e11e5b45a2326152d932715a3e0b878af021a4`，Compose SHA256 为 `8b46dcd1b88f150710590889f209485bd2ae02a537dd9fb01538cf49887d4496`，根 release.json SHA256 为 `a150fddf970c7fef553a3360caf66e875474e4434ca920c0869b2e00a10a1c56`，根校验清单 SHA256 为 `5d7d097c9457c1b136d2652f4d73f45af6575ffbf6d1460267826e8cef259983`。
 
 ## 2026-11-20 推送标题发布历史快照
 

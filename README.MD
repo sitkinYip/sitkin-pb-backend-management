@@ -54,7 +54,7 @@ pnpm build                        # 生成 dist/，无需 Docker
 
 完整维护原则见 [项目维护与发布边界](docs/project-maintenance-and-release.md)，当前组件部署与功能激活状态统一从 [当前生产状态](docs/current-production.md) 进入，普通增量升级优先使用 [PocketBase 人工闸门发布程序](docs/pocketbase-release-program.md)，生产迁移与回退遵循 [后端发布安全规范](docs/backend-release-safety.md)。带日期的发布记录只保留当时审计事实；生产操作前仍须重新核对线上状态。
 
-2026-11-26 17:21:52 +08:00，主界面聚合与批量已读后端进入 `recorded` revision 14。生产镜像为 `questions-pocketbase:0.40.1-home-unread-20261126-amd64`。无数据库迁移，生产健康及认证探针通过。 [当前生产状态](docs/current-production.md)
+2026-11-26 19:15:38 +08:00，场次进度订阅后端进入 `recorded` revision 15。两个新增私有表为空，生产健康及认证探针通过。进度 Push 保持关闭。 [当前生产状态](docs/current-production.md)
 
 ## 后端源码与可选验收
 

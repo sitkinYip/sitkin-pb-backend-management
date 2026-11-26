@@ -1,6 +1,6 @@
 # Questions 游戏后端
 
-2026-11-26 17:21:52 +08:00，主界面聚合与批量已读后端进入 `recorded` revision 14。生产镜像为 `questions-pocketbase:0.40.1-home-unread-20261126-amd64`。无数据库迁移，生产健康及认证探针通过。 [当前生产状态](../docs/current-production.md)
+2026-11-26 19:15:38 +08:00，场次进度订阅后端进入 `recorded` revision 15。正式迁移新增两个私有空表，进度 Push 保持关闭。 [当前生产状态](../docs/current-production.md)
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090。2026-11-26 17:21:52 +08:00，主界面聚合与批量已读后端进入 `recorded` revision 14。生产镜像为 `questions-pocketbase:0.40.1-home-unread-20261126-amd64`。无数据库迁移，生产健康及认证探针通过。 [本次发布记录](../docs/home-unread-deployment-20261126.md)
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090，镜像为 `questions-pocketbase:0.40.1-progress-watches-20261126-amd64`。场次进度迁移、运行健康和认证探针均已通过。 [本次发布记录](../docs/progress-watches-deployment-20261126.md)
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 

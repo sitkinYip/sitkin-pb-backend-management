@@ -10,25 +10,28 @@ export function useAdminData<T>(path: string) {
     [error, setError] = useState<Error | null>(null),
     [loading, setLoading] = useState(true);
   const generation = useRef(0);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (onLoaded?: (value: T) => void) => {
     const current = ++generation.current;
     if (!path) {
       setData(null);
+      setError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
+    let value: T;
     try {
-      const value = await gameRequest<T>(path);
-      if (current === generation.current) {
-        setData(value);
-        setError(null);
-      }
+      value = await gameRequest<T>(path);
     } catch (error) {
       if (current === generation.current) setError(error as Error);
+      return;
     } finally {
       if (current === generation.current) setLoading(false);
     }
+    if (current !== generation.current) return;
+    setData(value);
+    setError(null);
+    onLoaded?.(value);
   }, [path]);
   useEffect(() => {
     void refresh();

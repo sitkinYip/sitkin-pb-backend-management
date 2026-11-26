@@ -1,6 +1,7 @@
 const db = require(`${__hooks}/lib/db.js`);
 const r = require(`${__hooks}/lib/rules.js`);
 const pushSettings = require(`${__hooks}/lib/push-settings.js`);
+const { displayTitle } = require(`${__hooks}/lib/huawei-push.js`);
 
 const watches = "game_progress_watches";
 const deliveries = "game_progress_deliveries";
@@ -9,6 +10,7 @@ const approved = () => $os.getenv("STARWARD_PUSH_PROGRESS_APPROVED") === "1";
 const pushAvailable = (app, playerId) => approved() && pushSettings.enabled() && pushSettings.permitted(app, playerId);
 const date = (ms) => new Date(ms).toISOString().replace("T", " ");
 const isActive = (player) => player && player.getString("status") === "active";
+const playerName = (player) => player.getString("displayName") || "玩家";
 
 function fields(body, expected) {
   if (Object.keys(body).length !== expected.length || !expected.every((name) => Object.hasOwn(body, name)))
@@ -38,7 +40,7 @@ function authorized(app, watcherId, id, time = Date.now()) {
 function summary({ watch, assignment, player, session }) {
   return {
     id: watch.id, assignmentId: assignment.id,
-    playerName: player.getString("displayName") || "玩家",
+    playerName: playerName(player),
     title: session.getString("title"), expiresAt: new Date(watch.getString("expiresAt")).toISOString(),
     status: assignment.getString("status"), subscribed: watch.getBool("subscribed"),
     pushEnabled: watch.getBool("pushEnabled"), eventKinds: db.json(watch, "eventKinds", []),
@@ -63,25 +65,49 @@ function requireWatch(app, watcher, id) {
   return context;
 }
 
+function recentAttempts(app, assignmentId, levels) {
+  const levelsById = new Map(levels.map((level) => [level.id, level]));
+  const optionsByLevel = new Map();
+  const rows = app.findRecordsByFilter("game_answer_submissions",
+    "assignment={:id} && (result='correct' || result='incorrect')", "-submittedAt,-id", 20, 0,
+    { id: assignmentId });
+  return rows.map((row) => {
+    const level = levelsById.get(row.getString("sessionLevel"));
+    const attempt = { id: row.id, position: level.getInt("position"), result: row.getString("result"),
+      submittedAt: new Date(row.getString("submittedAt")).toISOString() };
+    if (attempt.result !== "incorrect") return attempt;
+    const answer = row.getString("answer");
+    if (!answer) return attempt;
+    attempt.submittedAnswer = answer;
+    if (!optionsByLevel.has(level.id)) {
+      const question = db.maybe(app, "game_questions", "id={:id} && kind='choice'", { id: level.getString("question") });
+      optionsByLevel.set(level.id, question ? db.json(question, "options", []) : []);
+    }
+    const option = optionsByLevel.get(level.id).find(({ key }) => key === answer);
+    if (option && typeof option.text === "string" && option.text) attempt.submittedOptionLabel = option.text;
+    return attempt;
+  });
+}
+
 function detail(app, context) {
   const { watch, assignment, session } = context;
   const levels = db.all(app, "game_session_levels", "session={:id}", { id: session.id }, "position");
-  const positions = new Map(levels.map((level) => [level.id, level.getInt("position")]));
   const solved = new Set(db.all(app, "game_level_progress", "assignment={:id} && completedAt!=''",
     { id: assignment.id }).map((row) => row.getString("sessionLevel")));
   const current = assignment.getString("status") === "active" ? levels.find((level) => !solved.has(level.id)) : null;
-  const recent = app.findRecordsByFilter("game_answer_submissions",
-    "assignment={:id} && (result='correct' || result='incorrect')", "-submittedAt,-id", 20, 0,
-    { id: assignment.id }).map((row) => ({ id: row.id, position: positions.get(row.getString("sessionLevel")),
-    result: row.getString("result"), submittedAt: new Date(row.getString("submittedAt")).toISOString() }));
   const completedAt = assignment.getString("completedAt");
   return { watch: summary(context), pushAvailable: pushAvailable(app, watch.getString("watcher")),
     solved: solved.size, total: levels.length, currentPosition: current ? current.getInt("position") : 0,
-    completedAt: completedAt ? new Date(completedAt).toISOString() : "", recent };
+    completedAt: completedAt ? new Date(completedAt).toISOString() : "",
+    recent: recentAttempts(app, assignment.id, levels) };
 }
 
 function read(e, id) {
-  return detail(e.app, requireWatch(e.app, db.actor(e.app, e), id));
+  let result;
+  e.app.runInTransaction((app) => {
+    result = detail(app, requireWatch(app, db.actor(app, e), id));
+  });
+  return result;
 }
 
 function discard(app, id) {
@@ -140,9 +166,11 @@ function adminSave(e, body) {
   const reason = r.text(body.reason, "变更原因", 200);
   const expiresAt = r.date(body.expiresAt, "授权截止时间");
   if (typeof body.revoked !== "boolean" || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 ||
-      !expiresAt || (!body.revoked && Date.parse(expiresAt) <= Date.now()))
+      !expiresAt)
     r.fail("INVALID_INPUT", "请选择未来的授权截止时间");
   const result = db.command(e, "save-progress-watch", body, true, (app, actor) => {
+    if (!body.revoked && Date.parse(expiresAt) <= Date.now())
+      r.fail("INVALID_INPUT", "请选择未来的授权截止时间");
     let watch = db.maybe(app, watches, "watcher={:watcher} && assignment={:assignment}",
       { watcher: watcherId, assignment: assignmentId });
     const revision = watch ? watch.getInt("revision") : 0;
@@ -150,14 +178,14 @@ function adminSave(e, body) {
       r.fail("PROGRESS_WATCH_CONFLICT", "授权或订阅已更新，请刷新后重试", 409);
     if (body.revoked) {
       if (!watch) r.fail("NOT_FOUND", "授权不存在", 404);
-      if (watch.getBool("revoked")) return { id: watch.id };
+      if (watch.getBool("revoked")) return adminView(app, watch);
     } else {
       const watcher = db.get(app, "game_players", watcherId);
       const watchedScene = scene(app, assignmentId);
       if (!isActive(watcher) || !watchedScene || watchedScene.player.id === watcherId)
         r.fail("INVALID_INPUT", "请选择有效的提醒账号及另一位玩家的已发布场次");
       if (watch && !watch.getBool("revoked") && Date.parse(watch.getString("expiresAt")) === Date.parse(expiresAt))
-        return { id: watch.id };
+        return adminView(app, watch);
     }
     const next = { expiresAt: body.revoked ? watch.getString("expiresAt") : expiresAt, revoked: body.revoked,
       subscribed: false, pushEnabled: false, eventKinds: [], revision: revision + 1 };
@@ -168,9 +196,10 @@ function adminSave(e, body) {
     } else watch = db.create(app, watches, { watcher: watcherId, assignment: assignmentId, ...next });
     db.audit(app, actor, body.revoked ? "revoke_progress_watch" : "authorize_progress_watch", watch, reason,
       body.requestId, { watcher: watcherId, assignment: assignmentId, expiresAt: next.expiresAt, revision: next.revision });
-    return { id: watch.id };
+    return adminView(app, watch);
   });
-  return adminView(e.app, db.get(e.app, watches, result.id));
+  // Earlier receipts stored just the id, so replay those through the original readback.
+  return result.revision === undefined ? adminView(e.app, db.get(e.app, watches, result.id)) : result;
 }
 
 function recipients(app, assignment, submission, completed, time) {
@@ -204,10 +233,10 @@ function delivery(app, job, playerId, time) {
     { id: answer.getString("sessionLevel"), session: source.session.id });
   if (!level || (outcome === "completed" ? answer.getString("result") !== "correct" ||
     source.assignment.getString("status") !== "completed" : answer.getString("result") !== outcome)) return null;
-  const body = outcome === "completed" ? "场次已通关，打开查看进度。" :
-    `第 ${level.getInt("position")} 关${outcome === "correct" ? "答对" : "答错"}，打开查看进度。`;
-  return { kind: "progress", targetId: source.watch.id, title: `进度订阅 · ${source.session.getString("title")}`,
-    body, category: "SUBSCRIPTION", subscribed: true };
+  const result = outcome === "completed" ? "已通关" :
+    `第 ${level.getInt("position")} 题${outcome === "correct" ? "答对" : "答错"}`;
+  return { kind: "progress", targetId: source.watch.id, title: `进度订阅 · ${playerName(source.player)}`,
+    body: `${displayTitle(source.session.getString("title"))} · ${result}`, category: "SUBSCRIPTION", subscribed: true };
 }
 
 module.exports = { deliveries, approved, list, read, save, adminList, adminSave, recipients, delivery };

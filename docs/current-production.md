@@ -1,5 +1,21 @@
 # 当前生产状态
 
+最后同步为 2026-11-26 17:21:52 +08:00。主界面聚合与批量已读发布完成 `recorded` revision 14，后续现场只读复核一致。 [本次发布记录](home-unread-deployment-20261126.md)
+
+| 组件 | 当前状态 |
+| --- | --- |
+| PocketBase | `questions-pocketbase:0.40.1-home-unread-20261126-amd64` 已上线，支持主界面聚合及批量已读 |
+| 数据库 | 本轮无迁移。18 条账本、41 个集合、46 张表通过核验 |
+| 运行健康 | 同一目标容器健康且零重启。HTTPS 健康 200，五条匿名探针 401 |
+| 正式 Push | 沿用 `harmony-push-production-v2`，包含现有审批状态与只读挂载 |
+| 客户端和管理端 | 分别使用各自的发布记录。本轮上线范围为后端 |
+
+生产镜像 config digest 为 `sha256:17b6b91bab6070ee59161a112832de3755e1110af31e6b7ecb0883838cfe451c`，Compose SHA256 为 `c9825e9d43e54cd469673f4a18e7d2c290bc3088a55a4253cd4abbbc83a8a800`，根 release.json SHA256 为 `89b2a2e8f89f344e065f7a53a40307aed25af5996a91ac93ed3338eb4691b5da`，根校验清单 SHA256 为 `8324c5390711460515c294cfcd26170b2e57e03cd672dac7ced27a1b361dbf39`。
+
+## 2026-11-20 推送标题发布历史快照
+
+这一节记录当时的版本与验收。
+
 最后同步：2026-11-20，标题后端于16:49:22 +08:00 完成 `recorded` revision 14；无未决操作、阻塞或 active marker。随后只向用户本人发送一条定向旅途通知，首次 `accepted / 80000000`，用户明确确认“已收到，标题正确”。本轮仅发布后端，原生、Web和运营台保持原版本。详见 [本次标题发布记录](harmony-push-titles-deployment-20261120.md)。此前16点分类独立激活与11月19日版本发布保留在各自日期记录中，见 [分类激活](harmony-push-subscription-activation-20261120.md) 和 [定向旅途原发布](harmony-push-personal-journey-deployment-20261119.md)。
 
 | 组件或闸门 | 当前状态 | 已知边界 |

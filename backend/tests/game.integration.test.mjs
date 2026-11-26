@@ -495,6 +495,82 @@ test(
       },
     );
     await t.test(
+      "home feed aggregates scoped lists and bulk read acknowledges the requested visible receipts",
+      async () => {
+        assert.equal((await server.request(root + "/home")).status, 401);
+        assert.equal((await call("/home", server.adminToken)).status, 401);
+        assert.equal(
+          (await call("/home", (await player("home_forced", false)).token)).data.error.code,
+          "PASSWORD_CHANGE_REQUIRED",
+        );
+        const send = async (title, playerIds, expiresAt) => ok(await command(
+          "/admin/notifications",
+          { target: "selected", title, content: "测试来信", playerIds, expiresAt },
+        )).id;
+        const common = await send("共同来信", [alice.id, bob.id]);
+        const personal = await send("私人来信", [alice.id]);
+        const foreign = await send("其他玩家来信", [bob.id]);
+        const expired = await send("已过期来信", [alice.id], "2000-01-01T00:00:00Z");
+        const withdrawn = await send("已撤回来信", [alice.id]);
+        for (const actor of [alice, bob]) {
+          const home = ok(await call("/home", actor.token));
+          assert.deepEqual(home, {
+            assignments: ok(await call("/assignments", actor.token)),
+            rewards: ok(await call("/rewards", actor.token)),
+            notifications: ok(await call("/notifications", actor.token)),
+          });
+        }
+        const before = ok(await call("/home", alice.token));
+        assert(before.assignments.items.length > 0);
+        assert(before.rewards.items.length > 0);
+        assert(before.notifications.items.some((item) => item.id === common && !item.readAt));
+        assert(!before.notifications.items.some((item) => [foreign, expired].includes(item.id)));
+        const late = await send("稍后来信", [alice.id]);
+        ok(await command(`/admin/notifications/${withdrawn}/withdraw`, { reason: "测试撤回" }));
+
+        const acknowledge = (body) => call("/notifications/read-all", alice.token, "POST", body);
+        for (const body of [
+          { ids: [] },
+          { ids: "not-a-list" },
+          { ids: [42] },
+          { ids: [common], player: bob.id },
+          { ids: Array(201).fill(common) },
+        ]) {
+          const response = await acknowledge(body);
+          assert.equal(response.status, 400);
+          assert.equal(response.data.error.code, "INVALID_INPUT");
+        }
+        const requested = [personal, common, common, foreign, expired, withdrawn];
+        const ids = requested.concat(
+          Array.from({ length: 200 - requested.length }, (_, index) => `missing${index}`),
+        );
+        const result = ok(await acknowledge({ ids }));
+        assert.deepEqual(result.items.map((item) => item.id), [personal, common]);
+        assert(result.items.every((item) => item.readAt));
+        assert.deepEqual(ok(await acknowledge({ ids })), result);
+
+        const after = ok(await call("/home", alice.token));
+        assert.deepEqual(after.assignments, before.assignments);
+        assert.deepEqual(after.rewards, before.rewards);
+        const updated = new Map(after.notifications.items.map((item) => [item.id, item]));
+        for (const item of result.items) assert.equal(updated.get(item.id).readAt, item.readAt);
+        assert.equal(updated.get(late).readAt, "");
+        assert(!updated.has(withdrawn));
+        const other = new Map(ok(await call("/notifications", bob.token)).items.map((item) => [item.id, item]));
+        assert.equal(other.get(common).readAt, "");
+        assert.equal(other.get(foreign).readAt, "");
+        const filter = encodeURIComponent(
+          `player="${alice.id}" && (notification="${expired}" || notification="${withdrawn}")`,
+        );
+        const hiddenReceipts = ok(await server.request(
+          `/api/collections/game_notification_receipts/records?filter=${filter}`,
+          { token: server.superToken },
+        )).items;
+        assert.equal(hiddenReceipts.length, 2);
+        assert(hiddenReceipts.every((item) => !item.readAt));
+      },
+    );
+    await t.test(
       "multipart profile updates with and without avatars, and owner-only file access",
       async () => {
         const nicknameOnly = new FormData();

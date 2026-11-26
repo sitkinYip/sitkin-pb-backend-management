@@ -1,44 +1,27 @@
-# 推送业务标题后端升级操作单
+# 主界面聚合与批量已读后端升级操作单
 
 <!-- release-status: completed -->
-<!-- release-id: push-titles-20261120 -->
-<!-- source-image: questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64 -->
-<!-- target-image: questions-pocketbase:0.40.1-push-titles-20261120-amd64 -->
+<!-- release-id: home-unread-20261126 -->
+<!-- source-image: questions-pocketbase:0.40.1-push-titles-20261120-amd64 -->
+<!-- target-image: questions-pocketbase:0.40.1-home-unread-20261126-amd64 -->
 
-已完成：2026-11-20 16:49:22 +08:00 进入 recorded revision 14。用户随后明确确认“已收到，标题正确”。本单仅保留本批执行基线和步骤，不可重用；冻结包内 pending 原文与校验值不改。下次发布必须重新盘点、审查并冻结新操作单。详见 [本次发布记录](../../../docs/harmony-push-titles-deployment-20261120.md)。本轮仅后端发布，无数据库迁移、运营台发布或客户端新包；场次标题仅隔离验证，点击回源未验。
+本轮于 2026-11-26 17:21:52 +08:00 进入 `recorded` revision 14。操作单保留本次源、目标与验收范围。待执行原文已随冻结包归档，下一次发布使用独立盘点与新操作单。 [本次发布记录](../../../docs/home-unread-deployment-20261126.md)
 
-## 唯一目标与基线
+## 本轮范围
 
-- 主机 sitkinYip；唯一服务 pocketbase、容器 questions-game-v1，项目 /opt/1panel/apps/questions-game-v1。
-- PocketBase 0.40.1、Linux AMD64、--automigrate=false；既有 pb_data 与 127.0.0.1:8090 保持。
-- source 实际 image/config ID：sha256:f3e1bc2ff3295772a50a497585bfcf51f4da1134ecdff3f9ec0ae06ac565e96a。
-- 实际 Compose SHA256：f26ebeb828ff763341d036a37040e52e493fe269e533f73acf1792496b7a6088。
-- 根 release.json SHA256：a6ee07602a7fd8a6fd22147b23a2b2e805c2100864d3974768dafe18d160b24b。
-- 迁移账本 SHA256：ecb46ffcbd8252680e7da2815a2e54a79046a5d749a5c19fe413ce2a4e9ef401；十个业务迁移，最后为1795075320。正式 inventory 必须再次核对。
-- 只读准备盘点 healthy、零重启，无待发送/发送中任务；停服前重新盘点，不能把零任务当作之后的事实。
-- 原密钥只读挂载保持；不读取、复制或计算密钥内容摘要。
-- 保留五项 Push 环境：ENABLED=1、TEST_MODE=0、SUBSCRIPTION_APPROVED=1、原 PROJECT_ID 和 SERVICE_ACCOUNT_FILE。显式使用 harmony-push-production-v2 固定契约；历史 v1 继续固定 APPROVED=0。
-- 11月20日独立分类激活后的实际 Compose 与旧根发布清单的 Compose 不同；recordedComposeSha256 固定为7a78755f21f53f0cae98319c6d175fc052eebc5bf920af17bb02841a1de276c6。仍核对旧根元数据及其全部成员，不能将此兼容项扩展到其他漂移。
+- `GET /api/questions/v1/home` 使用当前玩家身份读取场次、奖品和来信，三份投影与各自原有列表一致。新客户端在主界面使用聚合读取，旧客户端继续走原有入口。旧后端缺少聚合路由时，新客户端回退到原有列表接口。
+- `POST /api/questions/v1/notifications/read-all` 每批接受最多 200 个来信 ID。只更新该账号当前可见的回执，重复提交返回原已读时间。之后到达、其他账号、撤回和过期来信均不在该批更新范围内。单封回执端点继续供旧客户端及回退使用。
+- 本轮仅发布 PocketBase 后端镜像。PocketBase 0.40.1，Linux AMD64，`--automigrate=false`。既有生产 `harmony-push-production-v2`、只读密钥挂载、接收范围和运行参数随当前源 Compose 核对。客户端和运营台可分别发布。
 
-## 功能与兼容边界
+## 无迁移验证
 
-来信/公告取仍获授权的通知标题；新场次下发取仍有效的场次标题。标题只在发送事务校验来源后加入内存载荷，不新增持久化字段。清理空白、控制与方向字符，按 Unicode 码点截断到60，空或异常标题回退「赴星之约」。正文、分类、点击路由、TTL、同意范围与已读/撤回/过期/失效门控保持。正文不包含来信全文、题目答案或奖励信息。
+`migration.mode=none`，四个允许差异数组均为空。停写备份、恢复演练和 `NO_MIGRATION` 校验以同一份生产基线为准。检查迁移账本、集合、schema 和脱敏表摘要。候选 Compose 由源 Compose 仅替换镜像指针，工作区生产模板在本轮 recorded 后更新。
 
-旧原生包和 Web 仍使用现有接口，不需要升级；客户端点击通知仍回源确认账号和目标。现有接收范围、订阅记录、绑定及凭据保持，不补发历史未发送事件。本次唯一生产业务写入验收为给 Sitkin（sitkinyip）发一条定向旅途通知。
+## 发布和验收
 
-## 唯一允许数据库差异
+1. 按发布程序复用用户已打开的 ControlMaster 执行 `inventory`，核对容器、运行镜像摘要、挂载、源 Compose、根发布材料、迁移账本与空间。以一致的现场基线冻结发布包，核对包与 sidecar 校验和。
+2. 用同批包和 runner 完成只读 `preflight`。获批后依次核验并执行 `STAGE`、`BACKUP`、`NO_MIGRATION`、`SWITCH` 和 `FINALIZE`。从 BACKUP 到 SWITCH 成功期间保持维护状态。逐阶段核对 `status`，确认当前操作结束且无未决标记。
+3. 核对目标镜像摘要、hooks、原 Compose 运行约束与稳定健康。验证 HTTPS health 返回 200，原认证探针与 `GET /api/questions/v1/home` 的匿名请求返回 401。匿名探针只证明认证边界。聚合投影、批量回执、旧接口兼容和账号隔离以隔离 PocketBase 用例核验。
+4. 发布后保存日期记录并更新生产指针与模板。生产来信已读属于账号业务写入，真实账号验收需对应授权。
 
-migration.mode=none，newFiles=[]，allowed-delta.push-titles.json 所有允许清单为空。停服备份至 no-migration 的 schema、集合定义、逐表摘要、迁移账本必须无变化。恢复生产流量后允许既有业务数据正常变化；schema 和完整历史账本仍须保持。禁止自动迁移、补数据或删除账本。
-
-## 冻结与执行
-
-1. 独立审查、完整后端测试和契约检查后提交受审 runner；正式只读 inventory 核对实际基线。冻结源码、固定官方 AMD64 runtime、镜像内容、两层 SHA256SUMS 与本单。
-2. preflight 通过后独立 TTY 批准 STAGE，上传并隔离验证；不停服。
-3. 核验 status 后批准 BACKUP，停止唯一服务，完整备份数据和实际版本材料。独立恢复副本验证文件保真、SQLite、无差异、两次启动及不重复迁移；生产保持停止。
-4. 核验 status 后批准 NO_MIGRATION，确认库和账本未变；再批准 SWITCH。切换仅换镜像，全部运行契约、环境及两挂载不变。核对同一容器、零重启与三条不同且连续成功的 Docker 健康记录后恢复服务。
-5. 核验 status 后批准 FINALIZE，写本轮发布及根元数据；必须 recorded，无未决 marker。现场 TTY 闸门依据 docs/pocketbase-release-program.md 第3–4节，由代理按本次用户授权逐阶段复核后输入当场短语；不修改控制器、不跳步或自动跨阶段。
-6. HTTPS health=200，四条未认证接口=401；确认目标镜像、hooks、APPROVED=1 和接收范围不变。单独验证定向通知的实际标题、服务端 accepted 与真机系统通知，未收到手机反馈前不标记投递通过。
-
-## 故障与收尾
-
-状态未知先只读 status，保持闭锁；不盲重试、不迁移 down、不覆盖生产新数据、不修改旧记录。服务恢复真实流量后优先前向修复。完成后新增日期 deployment，更新 current-production、README 与生产模板；保留旧镜像、备份和审批激活审计，关闭专用 SSH socket。
+中断先查询 `status`。结果未知时按失败闭锁流程处置。真实流量恢复后若需回退，核对当前镜像、运行契约与最新数据，优先回退应用镜像并保留已生效的回执。

@@ -1,6 +1,6 @@
 # Questions 游戏后端
 
-2026-11-20 16:49:22 +08:00，推送业务标题后端完成 `recorded` revision 14，当前镜像为 `questions-pocketbase:0.40.1-push-titles-20261120-amd64`。系统通知采用现有来信标题，新场次下发采用所属场次标题；正文和接收门禁保持。无迁移，`ENABLED=1`、`TEST_MODE=0`、`SUBSCRIPTION_APPROVED=1`、两挂载、策略和账号同意保持。本人一条定向旅途消息首次 `accepted / 80000000`，用户确认“已收到，标题正确”；场次标题仅隔离验证，点击回源未验。原生、Web和运营台本轮未发布。见 [本次发布记录](../docs/harmony-push-titles-deployment-20261120.md) 与 [当前生产状态](../docs/current-production.md)。
+2026-11-26 17:21:52 +08:00，主界面聚合与批量已读后端进入 `recorded` revision 14。生产镜像为 `questions-pocketbase:0.40.1-home-unread-20261126-amd64`。无数据库迁移，生产健康及认证探针通过。 [当前生产状态](../docs/current-production.md)
 
 固定 PocketBase **0.40.1**，原生 JS hooks + SQLite 事务，无额外常驻 Node 服务。Node 24 仅用于开发、测试和部署辅助脚本。api.sitkin.top 代理到 `questions-game-v1` 的 127.0.0.1:8090，生产保持 `--automigrate=false`。下方 v1/v1.1 初始化步骤是历史参考，不得再次初始化现有库或对旧实例执行新迁移。
 
@@ -72,7 +72,7 @@ VITE_POCKET_BASE_HOST=http://127.0.0.1:8090 pnpm exec vite --host 127.0.0.1 --po
 
 ## 正式环境状态
 
-生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090；`compose.yaml` 的 18090 仅用于历史隔离演练。当前标题镜像于2026-11-20 16:49:22 +08:00 进入 `recorded`（revision 14）：无迁移，18条账本、41集合、46表保持。总开关1、正式模式0、订阅分类批准1与既有只读密钥保留；同一目标容器零重启、三条不同健康检查、HTTPS 200与四个匿名401通过。模板仅更新镜像指针且匹配实际Compose；本人单条标题通知已获云端接受与用户标题确认，见 [当前生产状态](../docs/current-production.md)。
+生产使用 `deploy/1panel/compose.production.yaml` 的回环 8090。2026-11-26 17:21:52 +08:00，主界面聚合与批量已读后端进入 `recorded` revision 14。生产镜像为 `questions-pocketbase:0.40.1-home-unread-20261126-amd64`。无数据库迁移，生产健康及认证探针通过。 [本次发布记录](../docs/home-unread-deployment-20261126.md)
 
 以下均为首次替换部署的历史和后续演练参考，不代表当前版本或当前待办，勿再次初始化生产库。
 

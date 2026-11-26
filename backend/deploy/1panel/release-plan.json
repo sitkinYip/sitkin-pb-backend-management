@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "pending",
-  "releaseId": "push-titles-20261120",
+  "releaseId": "home-unread-20261126",
   "transport": {
     "sshTarget": "root@47.120.62.73",
     "sshPort": 22
@@ -32,14 +32,14 @@
       "projectId": "101653523865742064",
       "secretHostPath": "/opt/1panel/secrets/questions-game-v1/starward-harmony-push.json",
       "secretContainerPath": "/run/secrets/starward-harmony-push.json",
-      "recordedComposeSha256": "7a78755f21f53f0cae98319c6d175fc052eebc5bf920af17bb02841a1de276c6"
+      "recordedComposeSha256": "d9a5f824bf7bcad1dbf84c30c19cf63cccfdc37f124b7ee5af99a5607d26734d"
     }
   },
   "source": {
-    "imageTag": "questions-pocketbase:0.40.1-push-personal-journey-20261119-amd64",
-    "imageId": "sha256:f3e1bc2ff3295772a50a497585bfcf51f4da1134ecdff3f9ec0ae06ac565e96a",
-    "composeSha256": "f26ebeb828ff763341d036a37040e52e493fe269e533f73acf1792496b7a6088",
-    "releaseJsonSha256": "a6ee07602a7fd8a6fd22147b23a2b2e805c2100864d3974768dafe18d160b24b",
+    "imageTag": "questions-pocketbase:0.40.1-push-titles-20261120-amd64",
+    "imageId": "sha256:6103a1c579a24642c9c31486a7203e4a15a0829c5613661e790a4dba96114930",
+    "composeSha256": "d9a5f824bf7bcad1dbf84c30c19cf63cccfdc37f124b7ee5af99a5607d26734d",
+    "releaseJsonSha256": "277c34495881756a3b91cfb966b02c590389421d537e0afeab857aadbce4f212",
     "migrationLedgerSha256": "ecb46ffcbd8252680e7da2815a2e54a79046a5d749a5c19fe413ce2a4e9ef401",
     "requiredMigrationFiles": [
       "1787788800_game_schema.js",
@@ -55,7 +55,7 @@
     ]
   },
   "target": {
-    "imageTag": "questions-pocketbase:0.40.1-push-titles-20261120-amd64",
+    "imageTag": "questions-pocketbase:0.40.1-home-unread-20261126-amd64",
     "pocketbaseVersion": "0.40.1",
     "platform": "linux/amd64"
   },
@@ -82,6 +82,10 @@
       },
       {
         "path": "/api/questions/v1/me/push/journey-subscription",
+        "expectedStatus": 401
+      },
+      {
+        "path": "/api/questions/v1/home",
         "expectedStatus": 401
       }
     ]

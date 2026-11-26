@@ -1,27 +1,8 @@
 {
   "schemaVersion": 1,
   "verifier": "additive-empty-collections-v1",
-  "newMigrationFiles": ["1794988800_harmony_push.js", "1794988860_push_audience.js"],
-  "newCollections": [
-    { "name": "game_push_bindings", "requirePrivate": true },
-    { "name": "game_push_deliveries", "requirePrivate": true },
-    { "name": "game_push_settings", "requirePrivate": true }
-  ],
-  "newSchemaObjects": [
-    { "type": "index", "name": "idx_game_push_bindings_expiry", "table": "game_push_bindings" },
-    { "type": "index", "name": "idx_game_push_bindings_installation", "table": "game_push_bindings" },
-    { "type": "index", "name": "idx_game_push_bindings_player", "table": "game_push_bindings" },
-    { "type": "index", "name": "idx_game_push_bindings_profile", "table": "game_push_bindings" },
-    { "type": "index", "name": "idx_game_push_bindings_token", "table": "game_push_bindings" },
-    { "type": "index", "name": "idx_game_push_deliveries_event", "table": "game_push_deliveries" },
-    { "type": "index", "name": "idx_game_push_deliveries_expiry", "table": "game_push_deliveries" },
-    { "type": "index", "name": "idx_game_push_deliveries_ready", "table": "game_push_deliveries" },
-    { "type": "index", "name": "sqlite_autoindex_game_push_bindings_1", "table": "game_push_bindings" },
-    { "type": "index", "name": "sqlite_autoindex_game_push_deliveries_1", "table": "game_push_deliveries" },
-    { "type": "index", "name": "sqlite_autoindex_game_push_settings_1", "table": "game_push_settings" },
-    { "type": "table", "name": "game_push_bindings", "table": "game_push_bindings" },
-    { "type": "table", "name": "game_push_deliveries", "table": "game_push_deliveries" },
-    { "type": "table", "name": "game_push_settings", "table": "game_push_settings" }
-  ],
-  "emptyTables": ["game_push_bindings", "game_push_deliveries", "game_push_settings"]
+  "newMigrationFiles": [],
+  "newCollections": [],
+  "newSchemaObjects": [],
+  "emptyTables": []
 }

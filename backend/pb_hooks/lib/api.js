@@ -62,29 +62,49 @@ function changePassword(e, body) {
   });
   return result;
 }
-function notifications(e) {
-  const player = db.actor(e.app, e);
+function assignments(app, playerId) {
   return {
     items: db
       .all(
-        e.app,
+        app,
+        "game_assignments",
+        "player={:id} && session.status='published'",
+        { id: playerId },
+        "order,-created,-id",
+      )
+      .map((row) => game.summary(app, row)),
+  };
+}
+function rewards(app, playerId) {
+  return {
+    items: db
+      .all(app, "game_player_rewards", "player={:id}", { id: playerId }, "-created,-id")
+      .map((row) => game.grantDto(row)),
+  };
+}
+function notificationVisible(note, now) {
+  if (!note || note.getString("status") !== "sent") return false;
+  const expiresAt = note.getString("expiresAt");
+  return !(expiresAt && Date.parse(expiresAt) <= now);
+}
+function notifications(app, playerId) {
+  const now = Date.now();
+  return {
+    items: db
+      .all(
+        app,
         "game_notification_receipts",
         "player={:id}",
-        { id: player.id },
+        { id: playerId },
         "-created,-id",
       )
       .map((receipt) => {
         const note = db.get(
-          e.app,
+          app,
           "game_notifications",
           receipt.getString("notification"),
         );
-        if (
-          note.getString("status") !== "sent" ||
-          (note.getString("expiresAt") &&
-            Date.parse(note.getString("expiresAt")) <= Date.now())
-        )
-          return null;
+        if (!notificationVisible(note, now)) return null;
         return {
           ...db.pick(note, [
             "title",
@@ -99,6 +119,43 @@ function notifications(e) {
       })
       .filter(Boolean),
   };
+}
+function readAllNotifications(e, body) {
+  r.object(body, "批量已读");
+  if (Object.keys(body).some((key) => key !== "ids"))
+    r.fail("INVALID_INPUT", "批量已读包含不支持的字段");
+  const ids = [...new Set(
+    r.list(body.ids, "通知", 200).map((id) => r.text(id, "通知标识", 100)),
+  )];
+  if (!ids.length) r.fail("INVALID_INPUT", "请至少提供一条通知");
+  const items = [];
+  e.app.runInTransaction((app) => {
+    const player = db.actor(app, e);
+    const params = { player: player.id };
+    const requested = ids.map((id, index) => {
+      const key = `note${index}`;
+      params[key] = id;
+      return `notification={:${key}}`;
+    }).join(" || ");
+    const receipts = new Map(
+      db.all(app, "game_notification_receipts", `player={:player} && (${requested})`, params)
+        .map((receipt) => [receipt.getString("notification"), receipt]),
+    );
+    const readAt = db.now();
+    const now = Date.parse(readAt);
+    for (const id of ids) {
+      const receipt = receipts.get(id);
+      if (!receipt) continue;
+      const note = db.maybe(app, "game_notifications", "id={:id}", { id });
+      if (!notificationVisible(note, now)) continue;
+      if (!receipt.getString("readAt")) {
+        receipt.set("readAt", readAt);
+        app.save(receipt);
+      }
+      items.push({ id, readAt: receipt.getString("readAt") });
+    }
+  });
+  return { items };
 }
 function sendNotification(e, body) {
   return db.command(e, "send-notification", body, true, (app, actor) => {
@@ -289,20 +346,16 @@ function handle(e, explicitPath) {
   if (path === "me/push/journey-subscription" && method === "GET") return journeySubscription.read(e);
   if (path === "me/push/journey-subscription" && method === "PUT") return journeySubscription.save(e, body);
   if (path === "me/push/subscriptions" && method === "GET") return subscriptions.list(e);
-  if (path === "assignments" && method === "GET") {
+  if (path === "home" && method === "GET") {
     const player = db.actor(e.app, e);
     return {
-      items: db
-        .all(
-          e.app,
-          "game_assignments",
-          "player={:id} && session.status='published'",
-          { id: player.id },
-          "order,-created,-id",
-        )
-        .map((row) => game.summary(e.app, row)),
+      assignments: assignments(e.app, player.id),
+      rewards: rewards(e.app, player.id),
+      notifications: notifications(e.app, player.id),
     };
   }
+  if (path === "assignments" && method === "GET")
+    return assignments(e.app, db.actor(e.app, e).id);
   if (parts[0] === "assignments" && parts[1]) {
     if (parts.length === 3 && parts[2] === "push-subscription") {
       if (method === "GET") return subscriptions.read(e, parts[1]);
@@ -335,18 +388,11 @@ function handle(e, explicitPath) {
     }
   }
   if (path === "rewards" && method === "GET")
-    return {
-      items: db
-        .all(
-          e.app,
-          "game_player_rewards",
-          "player={:id}",
-          { id: db.actor(e.app, e).id },
-          "-created,-id",
-        )
-        .map((row) => game.grantDto(row)),
-    };
-  if (path === "notifications" && method === "GET") return notifications(e);
+    return rewards(e.app, db.actor(e.app, e).id);
+  if (path === "notifications" && method === "GET")
+    return notifications(e.app, db.actor(e.app, e).id);
+  if (path === "notifications/read-all" && method === "POST")
+    return readAllNotifications(e, body);
   if (
     parts[0] === "notifications" &&
     parts[2] === "read" &&

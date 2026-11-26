@@ -3,9 +3,11 @@ const r = require(`${__hooks}/lib/rules.js`);
 const { enabled, testMode, permitted } = require(`${__hooks}/lib/push-settings.js`);
 const subscriptions = require(`${__hooks}/lib/push-subscriptions.js`);
 const journeySubscription = require(`${__hooks}/lib/push-journey-subscription.js`);
+const progressWatches = require(`${__hooks}/lib/progress-watches.js`);
 
 const bindings = "game_push_bindings";
 const deliveries = "game_push_deliveries";
+const deliveryTables = [deliveries, progressWatches.deliveries];
 const bindingTTL = 30 * 86400000;
 const deliveryTTL = 10 * 60000;
 const leaseTime = 90 * 1000;
@@ -67,8 +69,8 @@ function register(e, body) {
     if (row) {
       if (row.getString("accountKey") !== key ||
           Date.parse(row.getString("expiresAt")) <= Date.now()) {
-        for (const job of db.all(app, deliveries, "binding={:id}", { id: row.id }))
-          app.delete(job);
+        for (const table of deliveryTables)
+          for (const job of db.all(app, table, "binding={:id}", { id: row.id }, "id")) app.delete(job);
         row.set("accountKey", key);
       }
       row.set("token", token);
@@ -136,7 +138,7 @@ function enqueue(app, player, kind, target, businessEndsAt = "") {
   }
 }
 
-function authorizedSource(app, row, binding, time) {
+function boundPlayer(app, binding, time) {
   if (!binding || Date.parse(binding.getString("expiresAt")) <= time) return null;
   const playerId = binding.getString("player");
   if (!permitted(app, playerId)) return null;
@@ -144,6 +146,25 @@ function authorizedSource(app, row, binding, time) {
   if (!player || player.getString("status") !== "active" ||
       player.getBool("mustChangePassword") ||
       binding.getString("accountKey") !== accountKey(player)) return null;
+  return player;
+}
+
+function enqueueProgress(app, assignment, submission, completed) {
+  if (!enabled() || !progressWatches.approved()) return;
+  const time = Date.now();
+  for (const { watch, watcher, outcome } of progressWatches.recipients(app, assignment, submission, completed, time)) {
+    for (const binding of db.all(app, bindings, "player={:p} && expiresAt>{:now} && accountKey={:key}",
+      { p: watcher.id, now: date(time), key: accountKey(watcher) }, "id")) {
+      db.create(app, progressWatches.deliveries, {
+        binding: binding.id, watch: watch.id, revision: watch.getInt("revision"), submission: submission.id,
+        outcome, status: "pending", availableAt: date(time),
+        expiresAt: date(Math.min(time + deliveryTTL, Date.parse(watch.getString("expiresAt")))),
+      });
+    }
+  }
+}
+
+function authorizedSource(app, row, playerId, time) {
   const id = row.getString("targetId");
   if (row.getString("kind") === "assignment") {
     const assignment = db.maybe(app, "game_assignments",
@@ -163,22 +184,29 @@ function authorizedSource(app, row, binding, time) {
     Date.parse(note.getString("expiresAt")) > time) ? note : null;
 }
 
-function claim(app, id) {
+function notification(app, table, row, playerId, time) {
+  if (table === progressWatches.deliveries) return progressWatches.delivery(app, row, playerId, time);
+  const classification = row.getString("kind") === "inbox" ? subscriptions.delivery(app, row, playerId, time) :
+    journeySubscription.delivery(app, row, playerId);
+  const source = classification && authorizedSource(app, row, playerId, time);
+  if (!source) return null;
+  return { kind: row.getString("kind"), targetId: row.getString("targetId"),
+    category: classification.category, subscribed: classification.subscribed === true, title: source.getString("title") };
+}
+
+function claim(app, table, id) {
   let job;
   app.runInTransaction((tx) => {
-    const row = db.maybe(tx, deliveries, "id={:id}", { id });
+    const row = db.maybe(tx, table, "id={:id}", { id });
     const time = Date.now();
     if (!row || !["pending", "sending"].includes(row.getString("status")) ||
         Date.parse(row.getString("availableAt")) > time) return;
     const binding = db.maybe(tx, bindings, "id={:id}", { id: row.getString("binding") });
     const expiresAt = Date.parse(row.getString("expiresAt"));
     const attempt = row.getInt("attempts") + 1;
-    const classification = row.getString("kind") === "inbox" && binding
-      ? subscriptions.delivery(tx, row, binding.getString("player"), time)
-      : binding ? journeySubscription.delivery(tx, row, binding.getString("player")) : null;
-    const source = classification && expiresAt > time && attempt <= maxAttempts
-      ? authorizedSource(tx, row, binding, time) : null;
-    if (!source) {
+    const player = expiresAt > time && attempt <= maxAttempts ? boundPlayer(tx, binding, time) : null;
+    const content = player ? notification(tx, table, row, player.id, time) : null;
+    if (!content) {
       row.set("status", "discarded");
       row.set("lease", "");
       tx.save(row);
@@ -193,19 +221,15 @@ function claim(app, id) {
     job = {
       id, lease, bindingId: binding.id, token: binding.getString("token"),
       profileId: binding.getString("profileId"),
-      kind: row.getString("kind"), targetId: row.getString("targetId"),
-      expiresAt, attempt,
-      category: classification.category, subscribed: classification.subscribed === true,
-      // The source is rechecked in this claim transaction; no private title snapshot is persisted.
-      title: source.getString("title"),
+      expiresAt, attempt, ...content,
     };
   });
   return job;
 }
 
-function finish(app, job, result) {
+function finish(app, table, job, result) {
   app.runInTransaction((tx) => {
-    const row = db.maybe(tx, deliveries, "id={:id} && lease={:lease}",
+    const row = db.maybe(tx, table, "id={:id} && lease={:lease}",
       { id: job.id, lease: job.lease });
     if (!row) return; // Registration/revocation may have removed the binding.
     if (result.invalidToken) {
@@ -229,16 +253,14 @@ function finish(app, job, result) {
   });
 }
 
-function dispatch(app, send) {
+function dispatch(app, send, table = deliveries, stopAt = Date.now() + 45000) {
   if (!enabled()) return;
-  const jobs = app.findRecordsByFilter(deliveries,
+  const jobs = app.findRecordsByFilter(table,
     "(status='pending' || status='sending') && availableAt<={:now}",
     "availableAt,id", 20, 0, { now: now() });
-  // A minute-level worker and a short provider timeout bound this run.
-  const stopAt = Date.now() + 45000;
   for (const row of jobs) {
     if (Date.now() >= stopAt) break;
-    const job = claim(app, row.id);
+    const job = claim(app, table, row.id);
     if (!job) continue;
     let result;
     try {
@@ -246,27 +268,28 @@ function dispatch(app, send) {
     } catch {
       result = { accepted: false, retry: true, code: "NETWORK" };
     }
-    finish(app, job, result);
+    finish(app, table, job, result);
   }
 }
 
-function hasPending(app) {
-  return Boolean(db.maybe(app, deliveries,
+function hasPending(app, table = deliveries) {
+  return Boolean(db.maybe(app, table,
     "(status='pending' || status='sending') && availableAt<={:now}",
     { now: now() }));
 }
 
 function purge(app) {
-  for (const [table, cutoff] of [[bindings, now()], [deliveries, date(Date.now() - 86400000)]])
+  const cutoff = date(Date.now() - 86400000);
+  for (const [table, expiry] of [[bindings, now()], ...deliveryTables.map((table) => [table, cutoff])])
     for (const row of app.findRecordsByFilter(table, "expiresAt<={:cutoff}",
-      "expiresAt", 100, 0, { cutoff })) {
+      "expiresAt", 100, 0, { cutoff: expiry })) {
       // Re-read after taking a write lock so a fresh registration is never purged.
       app.runInTransaction((tx) => {
         const current = db.maybe(tx, table, "id={:id} && expiresAt<={:cutoff}",
-          { id: row.id, cutoff });
+          { id: row.id, cutoff: expiry });
         if (current) tx.delete(current);
       });
     }
 }
 
-module.exports = { enabled, testMode, register, unregister, revoke, enqueue, hasPending, dispatch, purge };
+module.exports = { enabled, testMode, register, unregister, revoke, enqueue, enqueueProgress, hasPending, dispatch, purge };

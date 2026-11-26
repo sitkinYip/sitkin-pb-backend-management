@@ -50,8 +50,8 @@ function auditView({ audience, playerIds, revision }) {
 function discardExcluded(app, playerIds) {
   // One transaction with the new policy; a later expansion won't revive
   // these jobs. Already handed to the provider cannot be withdrawn here.
-  app.db().newQuery(`
-    UPDATE game_push_deliveries
+  for (const table of ["game_push_deliveries", "game_progress_deliveries"]) app.db().newQuery(`
+    UPDATE ${table}
     SET status = 'discarded', lease = ''
     WHERE status IN ('pending', 'sending')
       AND binding IN (

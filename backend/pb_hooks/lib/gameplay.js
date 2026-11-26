@@ -472,7 +472,7 @@ function complete(app, row, step, p, submission, actor) {
     effects: activatedSessionClues.concat(activatedCommonClues),
   };
 }
-function answer(e, id, body) {
+function answer(e, id, body, onJudged) {
   const answer = r.text(body.answer, "回答", 4000);
   const stepId = r.text(body.sessionLevelId, "关卡", 30);
   const result = db.command(
@@ -544,11 +544,11 @@ function answer(e, id, body) {
             ? ":contains-all-v1"
             : ""),
       });
-      if (isCorrect)
-        return {
-          result: "correct",
-          ...complete(app, row, step, p, submission),
-        };
+      if (isCorrect) {
+        const completion = complete(app, row, step, p, submission);
+        onJudged(app, row, submission, row.getString("status") === "completed");
+        return { result: "correct", ...completion };
+      }
       p.set("lastSubmission", submission.id);
       if (q.getString("kind") === "choice") {
         const count = p.getInt("wrongCount") + 1;
@@ -563,6 +563,7 @@ function answer(e, id, body) {
           );
       }
       app.save(p);
+      onJudged(app, row, submission, false);
       return {
         result: "incorrect",
         xpDelta: 0,

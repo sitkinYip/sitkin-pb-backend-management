@@ -210,6 +210,8 @@ test(
                 "game_push_notice_deliveries",
                 "game_push_journey_subscriptions",
                 "game_push_journey_deliveries",
+                "game_progress_watches",
+                "game_progress_deliveries",
               ].includes(row.name),
           ),
           expected,
@@ -231,6 +233,8 @@ test(
           "game_push_notice_deliveries",
           "game_push_journey_subscriptions",
           "game_push_journey_deliveries",
+          "game_progress_watches",
+          "game_progress_deliveries",
         ]) {
           const collection = afterSchema.find((row) => row.name === name);
           assert(collection);

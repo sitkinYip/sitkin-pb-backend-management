@@ -79,12 +79,12 @@ function message(job, testMessage, time = Date.now()) {
     starwardPushEventId: job.id,
     starwardPushProfileId: job.profileId,
   };
-  if (job.kind === "assignment") data.starwardPushTargetId = job.targetId;
+  if (job.kind === "assignment" || job.kind === "progress") data.starwardPushTargetId = job.targetId;
   return {
     payload: {
       notification: {
         title: displayTitle(job.title),
-        body: job.subscribed ? "你订阅的旅途动态有新消息，打开应用查看。" : "旅途有新消息，打开应用查看。",
+        body: job.body || (job.subscribed ? "你订阅的旅途动态有新消息，打开应用查看。" : "旅途有新消息，打开应用查看。"),
         category: job.subscribed && job.category === "SUBSCRIPTION" ? "SUBSCRIPTION" : "MARKETING",
         foregroundShow: true,
         profileId: job.profileId,

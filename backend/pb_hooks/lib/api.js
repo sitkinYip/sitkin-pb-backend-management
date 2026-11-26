@@ -8,6 +8,7 @@ const push = require(`${__hooks}/lib/push.js`);
 const pushSettings = require(`${__hooks}/lib/push-settings.js`);
 const subscriptions = require(`${__hooks}/lib/push-subscriptions.js`);
 const journeySubscription = require(`${__hooks}/lib/push-journey-subscription.js`);
+const progressWatches = require(`${__hooks}/lib/progress-watches.js`);
 function readBody(e) {
   return JSON.parse(JSON.stringify(e.requestInfo().body || {}));
 }
@@ -346,6 +347,11 @@ function handle(e, explicitPath) {
   if (path === "me/push/journey-subscription" && method === "GET") return journeySubscription.read(e);
   if (path === "me/push/journey-subscription" && method === "PUT") return journeySubscription.save(e, body);
   if (path === "me/push/subscriptions" && method === "GET") return subscriptions.list(e);
+  if (parts[0] === "me" && parts[1] === "progress-watches") {
+    if (parts.length === 2 && method === "GET") return progressWatches.list(e);
+    if (parts.length === 3 && method === "GET") return progressWatches.read(e, parts[2]);
+    if (parts.length === 3 && method === "PUT") return progressWatches.save(e, parts[2], body);
+  }
   if (path === "home" && method === "GET") {
     const player = db.actor(e.app, e);
     return {
@@ -369,7 +375,7 @@ function handle(e, explicitPath) {
     if (parts[2] === "start" && parts.length === 3 && method === "POST")
       return game.start(e, parts[1], body);
     if (parts[2] === "answers" && parts.length === 3 && method === "POST")
-      return game.answer(e, parts[1], body);
+      return game.answer(e, parts[1], body, push.enqueueProgress);
     if (parts[2] === "narratives" && parts.length === 4 && method === "GET") {
       const row = game.assignment(e.app, parts[1], db.actor(e.app, e).id),
         view = game.detail(e.app, row);
@@ -422,6 +428,8 @@ function handle(e, explicitPath) {
     db.actor(e.app, e, true);
     if (path === "admin/push-settings" && method === "GET") return pushSettings.read(e.app);
     if (path === "admin/push-settings" && method === "PATCH") return pushSettings.save(e, body);
+    if (path === "admin/progress-watches" && method === "GET") return progressWatches.adminList(e.app);
+    if (path === "admin/progress-watches" && method === "PUT") return progressWatches.adminSave(e, body);
     if (path === "admin/extra-definitions" && method === "GET")
       return extras.definitions(e.app);
     if (path === "admin/extra-definitions" && method === "POST")

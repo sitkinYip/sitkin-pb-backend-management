@@ -7,6 +7,7 @@ export const adminResources = [
   ["sessions", "场次配置"],
   ["dispatch", "下发场次"],
   ["progress", "用户进度"],
+  ["progress-watches", "进度订阅授权"],
   ["rewards", "奖品定义"],
   ["grants", "奖品核销"],
   ["narratives", "剧情内容"],
